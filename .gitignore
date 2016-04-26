@@ -1,0 +1,18 @@
+.git/
+
+# not necessary
+sample.sql
+structure.txt
+versions.txt
+
+# user avatar folder
+userpic/*
+
+# files pending a rewrite
+lib/firewall.php
+tortesthing.php
+library2.php
+cookieban.php
+
+# other
+lib/firewall_new.php

@@ -1,0 +1,9 @@
+ErrorDocument 403 /board/errors/403.html
+ErrorDocument 404 /board/errors/404.html
+ErrorDocument 500 /board/errors/500.html
+
+RewriteEngine On
+RewriteRule library.php library2.php
+
+Order Allow,Deny
+Allow from all
