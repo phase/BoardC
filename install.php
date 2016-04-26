@@ -399,7 +399,10 @@ ALTER TABLE `user_avatars`
 		
 		if (!$errors){
 			$c = $sql->end();
-			if ($c !== false) die("Operation completed successfully.\nYou can (and <i>should</i>) delete this file and login <a href='login.php' style='background: #fff'>here</a>.");
+			if ($c !== false){
+				if (!file_exists("userpic")) mkdir("userpic");
+				die("Operation completed successfully.\nYou can (and <i>should</i>) delete this file and login <a href='login.php' style='background: #fff'>here</a>.");
+			}
 			else die("An unknown error occurred while closing the transaction.");
 		}
 		else{
