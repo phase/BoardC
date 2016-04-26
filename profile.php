@@ -13,7 +13,7 @@
 	SELECT u.id id, u.name, u.displayname, u.title, u.powerlevel, u.sex, u.namecolor, u.icon, u.lastip, u.ban_expire, u.since,
 			u.head, u.sign, u.lastview, u.bio, u.posts, u.threads, u.homepage, u.homepage_name, u.email, u.twitter, u.facebook, u.youtube,
 			u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme,
-			p.time, t.id tid, t.name tname, t.forum tforum, f.name fname, AVG(r.rating) rating
+			p.time, t.id tid, t.name tname, t.forum tforum, f.name fname
 	FROM users AS u
 	LEFT JOIN posts AS p
 	ON u.id=p.user
@@ -21,8 +21,6 @@
 	ON p.thread=t.id
 	LEFT JOIN forums AS f
 	ON t.forum=f.id
-	LEFT JOIN ratings AS r
-	ON u.id = r.userto
 	LEFT JOIN user_avatars AS a
 	ON u.id = a.user
 	WHERE u.id=$id
@@ -47,6 +45,7 @@
 	//errorpage("Under construction.", false);
 	$isadmin = powlcheck(4);
 	$totaldays = (ctime()-$user['since'])/86400;
+	$user['rating'] = $sql->resultq("SELECT AVG(rating) FROM ratings WHERE userto = $id"); 
 		
 	$fields["General information"] = array(
 		"Also known as" => ($user['displayname'] ? $user['name'] : ""),

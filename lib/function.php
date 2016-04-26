@@ -360,7 +360,7 @@
 	
 	function canviewforum($fid){
 		global $sql;
-		if (!$fid) return false;
+		//if (!$fid) return false;
 		$minpower = $sql->resultq("SELECT powerlevel FROM forums WHERE id = $fid");
 		if ($minpower === false) return false;
 		else return powlcheck($minpower);

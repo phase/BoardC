@@ -33,7 +33,7 @@ class mysql{
 		}
 		catch (PDOException $durr){
 			if ($is_install) return false;
-			else die("Couldn't select the database $durr<br/><br/>".$durr->getMessage());
+			else die("Couldn't select the database $db<br/><br/>".$durr->getMessage());
 		}
 	}
 	
