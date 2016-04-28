@@ -141,7 +141,7 @@
 		set_time_limit(0); //Fatal error:  Maximum execution time of 30 seconds exceeded in C:\xampp\htdocs\boardx\lib\mysql.php on line 128
 		
 query("
-CREATE DATABASE `$sqldb`; DEFAULT CHARACTER SET latin1 COLLATE latin1_swedish_ci;");
+CREATE DATABASE `$sqldb`; DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
 $sql->selectdb($sqldb);
 query("
 CREATE TABLE `categories` (
@@ -214,7 +214,7 @@ CREATE TABLE `hits` (
   `useragent` text NOT NULL,
   `user` int(32) NOT NULL DEFAULT '0',
   `forum` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts` (
   `id` int(32) NOT NULL,
@@ -248,14 +248,14 @@ CREATE TABLE `ratings` (
   `userfrom` int(32) NOT NULL,
   `userto` int(32) NOT NULL,
   `rating` int(4) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `shop_categories` (
   `id` int(11) NOT NULL,
   `name` varchar(64) NOT NULL,
   `title` varchar(128) NOT NULL,
   `ord` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `shop_categories` (`id`, `name`, `title`, `ord`) VALUES
 (1, 'Sample category', 'This is a sample description', 0);");
@@ -278,7 +278,7 @@ CREATE TABLE `shop_items` (
   `gcoins` varchar(32) NOT NULL DEFAULT '0',
   `special` int(32) NOT NULL DEFAULT '0',
   `ord` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `shop_items` (`id`, `name`, `title`, `cat`, `hp`, `mp`, `atk`, `def`, `intl`, `mdf`, `dex`, `lck`, `spd`, `coins`, `gcoins`, `special`, `ord`) VALUES
 (1, 'Test item?', 'It does not actually do anything! (or is it?)', 1, '+1000', '-10', 'x45', '/2', '+2', '+0', '+56', '+9999', '+1', '0', '0', 1, 0);");
@@ -287,7 +287,7 @@ CREATE TABLE `themes` (
   `id` int(11) NOT NULL,
   `name` varchar(64) NOT NULL,
   `file` varchar(64) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `themes` (`id`, `name`, `file`) VALUES
 (0, 'Default', 'default.css'),
@@ -371,7 +371,7 @@ CREATE TABLE `users_rpg` (
   `spd` int(32) NOT NULL DEFAULT '1',
   `mdf` int(32) NOT NULL DEFAULT '1',
   `item1` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO users_rpg (`id`, `hp`, `mp`, `atk`, `def`, `intl`, `dex`, `lck`, `spd`, `mdf`) VALUES
 ('1', '1', '1', '1', '1', '1', '1', '1', '1', '1'),
@@ -382,7 +382,7 @@ CREATE TABLE `user_avatars` (
   `user` int(32) NOT NULL,
   `file` int(16) NOT NULL,
   `title` varchar(32) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ");
 query("
 ALTER TABLE `categories`
