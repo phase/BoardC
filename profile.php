@@ -12,8 +12,9 @@
 	$user = $sql->fetchq("
 	SELECT u.id id, u.name, u.displayname, u.title, u.powerlevel, u.sex, u.namecolor, u.icon, u.lastip, u.ban_expire, u.since,
 			u.head, u.sign, u.lastview, u.bio, u.posts, u.threads, u.homepage, u.homepage_name, u.email, u.twitter, u.facebook, u.youtube,
-			u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme,
-			p.time, t.id tid, t.name tname, t.forum tforum, f.name fname
+			u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins,
+			p.time, t.id tid, t.name tname, t.forum tforum, f.name fname,
+			r.*
 	FROM users AS u
 	LEFT JOIN posts AS p
 	ON u.id=p.user
@@ -23,6 +24,8 @@
 	ON t.forum=f.id
 	LEFT JOIN user_avatars AS a
 	ON u.id = a.user
+	LEFT JOIN users_rpg AS r
+	ON u.id = r.id
 	WHERE u.id=$id
 	ORDER BY p.time DESC");
 	
@@ -90,23 +93,35 @@
 			if ($info) $field_txt .= "<tr><td class='light t' style='width: 150px'><b>$desc</b></td><td class='dim t'>$info</td></tr>";
 		$field_txt .= "</table></br>";
 	}
+
 	
-	$stats_txt = "
-	<table class='main' style='width: 256px;'>
-		<tr><td class='head c'>RPG status</td></tr>
-		<tr><td class='light c' style='height: 212px;'><font color=red>Not implemented</font></td></tr>
-	</table><br/>
+	// As the categories aren't fixed you have to build the table here
+	$item_txt = "";
+
+	$q = getuseritems($user);
+
+	if ($q){
+		$itemdb = $sql->query("
+		SELECT i.name item, c.name cat
+		FROM shop_items i
+		LEFT JOIN shop_categories c
+		ON i.cat = c.id
+		WHERE i.id IN (".implode(", ", $q).")
+		");
 	
-	<table class='main'>
-		<tr><td class='head c' colspan=2>Equipped items</td></tr>
-		<tr><td class='light c'>Sample1</td><td class='dim c'>SampleX1</td></tr>
-		<tr><td class='light c'>Sample2</td><td class='dim c'>SampleX2</td></tr>
-		<tr><td class='light c'>Sample3</td><td class='dim c'>SampleX3</td></tr>
-		<tr><td class='light c'>Sample4</td><td class='dim c'>SampleX4</td></tr>
-		<tr><td class='light c'>Sample5</td><td class='dim c'>SampleX5</td></tr>
-		<tr><td class='light c'>Sample6</td><td class='dim c'>SampleX6</td></tr>
-		<tr><td class='light c'>Sample7</td><td class='dim c'>SampleX7</td></tr>
-	</table>
+		while ($item = $sql->fetch($itemdb))
+			$item_txt .= "<tr class='c'><td class='light fonts'>".$item['cat']."</td><td class='dim fonts'>".$item['item']."</td></tr>";
+	}
+	else $item_txt = "<tr><td class='light fonts c' colspan=2>No items bought</td></tr>";
+		
+	$stats_txt = "<center>
+			".dorpgstatus($user)."
+	<br/>
+	
+	<table class='main w'>
+		<tr><td class='head c fonts' colspan=2>Equipped items</td></tr>
+		$item_txt
+	</table></center>
 	";
 	
 
@@ -150,7 +165,7 @@
 
 	print "
 	Profile for ".makeuserlink(false, $user, true)."
-	<table><tr><td class='w'>$field_txt</td><td>$stats_txt</td></tr></table>
+	<table><tr><td class='w'>$field_txt</td><td valign='top'>$stats_txt</td></tr></table>
 				
 	".threadpost($sample, false, false, true)."
 	<br/>

@@ -88,7 +88,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.16",
+		dialog(	"This will setup BoardC Pre-Release v0.17a",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -206,7 +206,6 @@ CREATE TABLE `misc` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 INSERT INTO `misc` (`disable`, `views`, `theme`, `threads`, `posts`) VALUES ('0', '0', NULL, '0', '0');");
 query("
-DROP TABLE IF EXISTS `hits`;
 CREATE TABLE `hits` (
   `id` int(32) NOT NULL,
   `ip` varchar(32) NOT NULL,
@@ -250,6 +249,39 @@ CREATE TABLE `ratings` (
   `userto` int(32) NOT NULL,
   `rating` int(4) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+query("
+CREATE TABLE `shop_categories` (
+  `id` int(11) NOT NULL,
+  `name` varchar(64) NOT NULL,
+  `title` varchar(128) NOT NULL,
+  `ord` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+query("
+INSERT INTO `shop_categories` (`id`, `name`, `title`, `ord`) VALUES
+(1, 'Sample category', 'This is a sample description', 0);");
+query("
+CREATE TABLE `shop_items` (
+  `id` int(11) NOT NULL,
+  `name` varchar(64) NOT NULL,
+  `title` text NOT NULL,
+  `cat` int(32) NOT NULL,
+  `hp` varchar(32) NOT NULL,
+  `mp` varchar(32) NOT NULL,
+  `atk` varchar(32) NOT NULL,
+  `def` varchar(32) NOT NULL,
+  `intl` varchar(32) NOT NULL,
+  `mdf` varchar(32) NOT NULL,
+  `dex` varchar(32) NOT NULL,
+  `lck` varchar(32) NOT NULL,
+  `spd` varchar(32) NOT NULL,
+  `coins` varchar(32) NOT NULL DEFAULT '0',
+  `gcoins` varchar(32) NOT NULL DEFAULT '0',
+  `special` int(32) NOT NULL DEFAULT '0',
+  `ord` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+query("
+INSERT INTO `shop_items` (`id`, `name`, `title`, `cat`, `hp`, `mp`, `atk`, `def`, `intl`, `mdf`, `dex`, `lck`, `spd`, `coins`, `gcoins`, `special`, `ord`) VALUES
+(1, 'Test item?', 'It does not actually do anything! (or is it?)', 1, '+1000', '-10', 'x45', '/2', '+2', '+0', '+56', '+9999', '+1', '0', '0', 1, 0);");
 query("
 CREATE TABLE `themes` (
   `id` int(11) NOT NULL,
@@ -317,13 +349,33 @@ CREATE TABLE `users` (
   `theme` int(8) NOT NULL DEFAULT '0',
   `showhead` tinyint(1) NOT NULL DEFAULT '1',
   `signsep` int(3) NOT NULL DEFAULT '1',
-  `icon` text
+  `icon` text,
+  `coins` int(32) NOT NULL DEFAULT '0',
+  `gcoins` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `dateformat`, `timeformat`, `since`, `powerlevel`) VALUES
 ('1', '$name','".password_hash($pass1, PASSWORD_DEFAULT)."','".$_SERVER['REMOTE_ADDR']."','".$config['default-date-format']."','".$config['default-time-format']."','".ctime()."', '5'),
 ('".$config['deleted-user-id']."', 'Deleted user', 'rip','".$_SERVER['REMOTE_ADDR']."','".$config['default-date-format']."','".$config['default-time-format']."','".ctime()."', '-2');
 ");
+query("
+CREATE TABLE `users_rpg` (
+  `id` int(11) NOT NULL,
+  `hp` int(32) NOT NULL DEFAULT '1',
+  `mp` int(32) NOT NULL DEFAULT '1',
+  `atk` int(32) NOT NULL DEFAULT '1',
+  `def` int(32) NOT NULL DEFAULT '1',
+  `intl` int(32) NOT NULL DEFAULT '1',
+  `dex` int(32) NOT NULL DEFAULT '1',
+  `lck` int(32) NOT NULL DEFAULT '1',
+  `spd` int(32) NOT NULL DEFAULT '1',
+  `mdf` int(32) NOT NULL DEFAULT '1',
+  `item1` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+query("
+INSERT INTO users_rpg (`id`, `hp`, `mp`, `atk`, `def`, `intl`, `dex`, `lck`, `spd`, `mdf`) VALUES
+('1', '1', '1', '1', '1', '1', '1', '1', '1', '1'),
+('".$config['deleted-user-id']."', '0', '0', '0', '0', '0', '0', '0', '0', '0');");
 query("
 CREATE TABLE `user_avatars` (
   `id` int(32) NOT NULL,
@@ -363,6 +415,12 @@ ALTER TABLE `users`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `user_avatars`
   ADD PRIMARY KEY (`id`);
+ALTER TABLE `shop_categories`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `shop_items`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `users_rpg`
+  ADD PRIMARY KEY (`id`);
 ");
 query("
 ALTER TABLE `categories`
@@ -393,6 +451,12 @@ ALTER TABLE `users`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=".($config['deleted-user-id']+1).";
 ALTER TABLE `user_avatars`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `shop_categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+ALTER TABLE `shop_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+ALTER TABLE `users_rpg`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=".($config['deleted-user-id']+1).";
 ");
 		
 		print "\n\nQueries: ".($ok+$errors)." | Errors: $errors\n";

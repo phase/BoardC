@@ -4,7 +4,7 @@
 	require "lib/function.php";
 	
 	if 		(!isset($_GET['act']))		errorpage("No action specified.");
-	else if ($bot || $proxy || $tor)	errorpage("Fuck off."); // mostly for bots
+	else if ($bot || $proxy || $tor)	errorpage("Fuck off.");
 	else if (!$loguser['id'])			errorpage("You need to be logged in to do that.");
 	else if ($loguser['powerlevel']<0)	errorpage("Banned users aren't allowed to do this.");
 	
@@ -87,7 +87,7 @@
 				$sql->query("UPDATE threads SET replies = ".($thread['replies']+1)." WHERE id = $lookup");
 				$sql->query("UPDATE forums SET posts = (posts+1) WHERE id = ".$thread['forum']);
 				$sql->query("UPDATE misc SET posts = posts+1");
-				$sql->query("UPDATE users SET posts = (posts+1) WHERE id = ".$loguser['id']);
+				$sql->query("UPDATE users SET posts = (posts+1), coins=coins+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
 			}
 			
 			if ($sql->finish($go)) errorpage("Successfully posted the reply.", false);
@@ -114,7 +114,7 @@
 				'udname' => $loguser['displayname'],
 				'ucolor' => $loguser['namecolor'],
 				'usex' => $loguser['sex'],
-				'upowl' => 0,
+				'upowl' => $loguser['powerlevel'],
 				'utitle' => $loguser['title'],
 				
 				'postcur' => $loguser['posts']+1,
@@ -214,7 +214,7 @@
 			$sql->query("UPDATE forums SET threads = (threads+1), posts=(posts+1) WHERE id = ".filter_int($_GET['id']));
 			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
 			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
-			$sql->query("UPDATE users SET posts = (posts+1) WHERE id = ".$loguser['id']);
+			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
 
 			if ($sql->finish($c)) errorpage("The thread has been created.", false);
 			else errorpage("Couldn't create the thread. An error occured.", false);
@@ -242,7 +242,7 @@
 				'udname' => $loguser['displayname'],
 				'ucolor' => $loguser['namecolor'],
 				'usex' => $loguser['sex'],
-				'upowl' => 0,
+				'upowl' => $loguser['powerlevel'],
 				'utitle' => $loguser['title'],
 				
 				'postcur' => $loguser['posts']+1,
@@ -276,11 +276,11 @@
 				$icon_txt .= "<br/>";
 			}
 			$link = trim($link);
-			$icon_txt .= "<nobr><input type='radio' name='icon' value='$link' ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
+			$icon_txt .= "<nobr><input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
 			$i++;
 		}
 		$icon_txt .= "<br/>
-		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value='".filter_string($_POST['icon_c'])."'></nobr>";
+		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value=\"".filter_string($_POST['icon_c'])."\"></nobr>";
 		
 		
 		print "
@@ -307,7 +307,7 @@
 						<b>Name:</b>
 					</td>
 					<td class='dim'>
-						<input style='width: 400px;' type='text' name='name' value='".htmlspecialchars($name)."'>
+						<input style='width: 400px;' type='text' name='name' value=\"".htmlspecialchars($name)."\">
 					</td>
 				</tr>
 				
@@ -316,7 +316,7 @@
 						<b>Title:</b>
 					</td>
 					<td class='dim'>
-						<input style='width: 400px;' type='text' name='title' value='".htmlspecialchars($title)."'>
+						<input style='width: 400px;' type='text' name='title' value=\"".htmlspecialchars($title)."\">
 					</td>
 				</tr>
 				
@@ -400,7 +400,7 @@
 		LEFT JOIN users AS u
 		ON p.user = u.id
 		LEFT JOIN posts_old AS o
-		ON p.id = o.pid
+		ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)
 		WHERE p.id = $pid
 		");
 		

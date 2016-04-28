@@ -11,7 +11,7 @@
 	if ($id){
 		
 		if (!$sql->resultq("SELECT 1 FROM forums WHERE id=$id"))
-			errorpage("Forum ID #$id doesn't exist.", false);
+			errorpage("Forum ID #$id doesn't exist.");
 		
 		if (isset($_GET['del'])){
 			
@@ -21,7 +21,7 @@
 					header("Location: admin-editforums.php?id=$id");
 				else{
 					$sql->query("DELETE FROM forums WHERE id=$id");
-					errorpage("Forum deleted!", false);
+					errorpage("Forum deleted!");
 				}	
 			}
 			
@@ -40,10 +40,10 @@
 			
 			if (isset($_POST['domove'])){
 				if (!$sql->resultq("SELECT 1 FROM forums WHERE id=".filter_int($_POST['forumjump2'])))
-					errorpage("wrong forum", false);
+					errorpage("wrong forum");
 				
 				$sql->query("UPDATE threads SET forum=".filter_int($_POST['forumjump2'])." WHERE forum=$id");
-				errorpage("Threads moved!", false);
+				errorpage("Threads moved!");
 			}
 			$output = "
 			<center><form method='POST' action='admin-editforums.php?id=$id&move'><table class='main c'>
@@ -62,6 +62,9 @@
 			//errorpage("Under construction", false);			
 			
 			$sql->start();
+			
+			if (!filter_string($_POST['newname']))
+				errorpage("The forum name can't be blank.");
 
 			if (filter_int($_POST['newpower'])>4)
 				$_POST['newpower'] = 4;
@@ -129,7 +132,7 @@
 			</tr>
 			<tr>
 				<td class='light c'><b>Description:</b></td>
-				<td class='dim'><input type='text' $style name='newtitle' value='".$forum['title']."'></td>
+				<td class='dim'><input type='text' $style name='newtitle' value=\"".$forum['title']."\"></td>
 			</tr>
 			<tr>
 				<td class='light c'><b>Minimum powerlevel:</b></td>
@@ -160,7 +163,7 @@
 				<td class='dim'>$theme_txt</td>
 			</tr>
 			<tr>
-				<td class='light'><b>Forum settings:</b></td>
+				<td class='light c'><b>Forum settings:</b></td>
 				<td class='dim'><input type='checkbox' name='newhide' value=1 ".($forum['hidden'] ? "checked" : "").">Hidden</td>
 			</tr>
 			<tr>
@@ -180,6 +183,9 @@
 		if (isset($_POST['go'])){
 			
 			$sql->start();
+			
+			if (!filter_string($_POST['name']))
+				errorpage("The forum name can't be blank.");
 
 			if (filter_int($_POST['power'])>4)
 				$_POST['power'] = 4;
@@ -208,7 +214,7 @@
 		$input = "";
 		foreach($themes as $i => $x)
 			$input .= "<option value=".$x['id']." ".filter_string($theme[$x['id']]).">".$x['name']."</option>";
-		$theme_txt = "<select name='theme'><option value=''>None</option>$input</select>";
+		$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</select>";
 
 		$catlist = "";
 		$categories = $sql->query("SELECT id, name FROM categories");
@@ -274,7 +280,7 @@
 	
 	else if ($catid){
 		if (!$sql->resultq("SELECT 1 FROM categories WHERE id=$catid"))
-			errorpage("Category ID #$catid doesn't exist.", false);
+			errorpage("Category ID #$catid doesn't exist.");
 		
 		if (isset($_GET['del'])){
 			
@@ -284,7 +290,7 @@
 					header("Location: admin-editforums.php?catid=$catid");
 				else{
 					$sql->query("DELETE FROM categories WHERE id=$catid");
-					errorpage("Category deleted!", false);
+					errorpage("Category deleted!");
 				}	
 			}
 			
@@ -304,6 +310,9 @@
 			$catname = $sql->resultq("SELECT name FROM categories WHERE id=$catid");
 			
 			$sql->start();
+			
+			if (!filter_string($_POST['newname']))
+				errorpage("The category name can't be blank.");
 
 			if (filter_int($_POST['newpower'])>4)
 				$_POST['newpower'] = 4;
@@ -317,7 +326,7 @@
 
 			$message = ($sql->finish($c)) ? "'$catname' category updated!" : "Couldn't save the settings.";
 			
-			errorpage($message, false);
+			errorpage($message);
 		}
 		
 		else{
@@ -339,7 +348,7 @@
 				
 				<tr>
 					<td class='light c'><b>Name:</b></td>
-					<td class='dim'><input type='text' $style name='newname' value='".$category['name']."'></td>
+					<td class='dim'><input type='text' $style name='newname' value=\"".$category['name']."\"></td>
 				</tr>
 				<tr>
 					<td class='light c'><b>Minimum powerlevel:</b></td>
@@ -371,7 +380,10 @@
 		if (isset($_POST['go'])){
 			
 			$sql->start();
-
+			
+			if (!filter_string($_POST['name']))
+				errorpage("The category name can't be blank.");
+			
 			if (filter_int($_POST['power'])>4)
 				$_POST['power'] = 4;
 
@@ -384,7 +396,7 @@
 
 			$message = ($sql->finish($c)) ? "Created the category!" : "Couldn't create the category.";
 			
-			errorpage($message, false);
+			errorpage($message);
 		}
 		
 		

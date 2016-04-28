@@ -33,9 +33,15 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle.png' title='Board Sea'>",
-		'board-version' =>			"0.16 Development Build",
+		'board-version' =>			"0.17a Development Build",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
+		
+		// RPG Elements
+		
+		'coins-rand-min' =>			150, // $config variables for easy testing and consistency
+		'coins-rand-max' =>			500,
+		'coins-bonus-newthread' =>	100,
 		
 		// File uploads
 		

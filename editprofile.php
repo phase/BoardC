@@ -42,10 +42,26 @@
 			errorpage("A for effort, <s>F for still failing</s> I for IP Ban");
 		}
 		
+		// if an item forces female or catgirl status, prevent a change
+		$q = getuseritems($sql->fetchq("SELECT * FROM users_rpg WHERE id = $id"));
+		
+		if (!empty($q)){
+			$itemdb = $sql->query("
+			SELECT hp, mp, atk, def, intl, mdf, dex, lck, spd, special
+			FROM shop_items
+			WHERE id IN (".implode(", ", $q).")
+			");
+		
+			while ($item = $sql->fetch($itemdb)){
+				if 		($item['special'] == 1) $_POST['sex'] = 1;
+				else if ($item['special'] == 2) $_POST['title'] = "Catgirl"; // ?
+				else if ($item['special'] == 4) $_POST['coins'] = $_POST['gcoins'] = 99999999;
+			}
+		}
+		
 		// build pquery based on checks
 		$query = "UPDATE users SET title=?,head=?,sign=?,sex=?,realname=?,location=?,birthday=?,bio=?,email=?,youtube=?,twitter=?,facebook=?,dateformat=?,timeformat=?,tzoff=?,showhead=?,signsep=?,theme=?";
 		$newdata = array();		
-//		$endmessage = "";
 
 		$newdata = array(
 			input_filters(filter_string($_POST['title'])),
@@ -65,8 +81,7 @@
 			filter_int($_POST['tzoff']),
 			filter_int($_POST['showhead']),
 			filter_int($_POST['signsep']),
-			filter_int($_POST['theme']),
-			
+			filter_int($_POST['theme'])
 		);
 		
 		// Prevent 0 posts per page/thread
@@ -96,7 +111,9 @@
 			if (!filter_string($_POST['name'])) errorpage("You forgot the name, doofus!");
 			$newdata[] = preg_replace('/[^\da-z]/i', '', $_POST['name']);
 			$newdata[] = filter_int($_POST['powerlevel']);
-			$query .= ",name=?,powerlevel=?";
+			$newdata[] = filter_int($_POST['coins']);
+			$newdata[] = filter_int($_POST['gcoins']);
+			$query .= ",name=?,powerlevel=?,coins=?,gcoins=?";
 		}
 		if (powlcheck(1)){
 			$newdata[] = input_filters($_POST['displayname']);
@@ -104,7 +121,7 @@
 			$query .= ",displayname=?,namecolor=?";
 		}
 		
-		if (filter_string($_POST['pass1']) == filter_string($_POST['pass2']) && isset($_POST['pass1'])){
+		if (filter_string($_POST['pass1']) == filter_string($_POST['pass2']) && filter_string($_POST['pass1'])){
 			$newdata[] = password_hash($_POST['pass1'], PASSWORD_DEFAULT);
 			$query .= ",password=?";			
 		}
@@ -174,16 +191,23 @@
 	// powerlevel specific stuff
 	
 	if (powlcheck(1)){
-		$fields["Login information"]["Display name"] = array(0, "displayname", "This will be shown instead of the real handle.");
-		$fields["Appareance"]["Name color"] = array(0, "namecolor", "Your username will be shown using this color (leave this blank to return to the default color). This is an hexadecimal number.");
+		$fields["Login information"]["Display name"]= array(0, "displayname", "This will be shown instead of the real handle.");
+		$fields["Appareance"]["Name color"] 		= array(0, "namecolor", "Your username will be shown using this color (leave this blank to return to the default color). This is an hexadecimal number.");
 	}
 	if ($isadmin){
 		
 		$fields["Login information"]["User name"]	= array(0, "name", "Change the real handle by entering one here.");
 		$fields["Login information"]["Powerlevel"]	= array(4, "powerlevel", "");
+		$fields["Options"]["Coins"]					= array(0, "coins", "Change the normal coin value.");
+		$fields["Options"]["Green coins"]			= array(0, "gcoins", "Admin only coins, increment those whenever you feel like.");
+		
 	}
 	
+	
+	
 	// extra fields
+	$name = $user['name'];
+	
 	$password = "<input type='password' name='pass1' autocomplete='".($edituser ? "off" : "on" )."'> Retype: <input type='password' name='pass2' autocomplete='".($edituser ? "off" : "on" )."'>";
 	
 	
@@ -226,7 +250,7 @@
 			
 			$desc = $edituser ? "" : "<br/><small>$data[2]</small>";
 			if (!$data[0]) // text box
-				$input = "<input type='text' name='$data[1]' value='".$user[$data[1]]."'>";
+				$input = "<input type='text' name='$data[1]' value=\"".$user[$data[1]]."\">";
 			else if ($data[0] == 1) // large
 				$input = "<textarea name='$data[1]' rows='10' cols='80' style='width: 100%; max-width: 800px; resize:vertical;' wrap='virtual'>".htmlspecialchars($user[$data[1]])."</textarea>";
 			else if ($data[0] == 2){ // radio
@@ -258,7 +282,7 @@
 	<table class='main w nb'>
 		$t
 	<tr><td class='head c b' colspan=2>&nbsp;</td></tr>
-	<tr><td class='light c br'>&nbsp;</td><td class='dim b'><input type='submit' name='save' value='$pagetitle'></td></tr>
+	<tr><td class='light c br'>&nbsp;</td><td class='dim b'><input type='submit' name='save' value=\"$pagetitle\"></td></tr>
 	</table>
 	</form>
 	";

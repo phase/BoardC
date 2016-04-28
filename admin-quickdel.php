@@ -30,11 +30,14 @@
 		$sql->start();
 		
 		$c[] = $sql->query("DELETE FROM users WHERE id = $id");
-		$c[] = $sql->query("ALTER TABLE `users` AUTO_INCREMENT=$id");
+		$c[] = $sql->query("ALTER TABLE users AUTO_INCREMENT=$id");
+		$c[] = $sql->query("DELETE FROM users_rpg WHERE id = $id");
+		$c[] = $sql->query("ALTER TABLE users_rpg AUTO_INCREMENT=$id");
 		$c[] = $sql->query("DELETE FROM user_avatars WHERE user = $id");
 		$c[] = $sql->query("UPDATE posts SET user=$dest,avatar=0 WHERE user = $id");
 		$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
 		$c[] = $sql->query("DELETE FROM ratings WHERE userfrom = $id OR userto = $id");
+		
 		if (filter_int($_POST['ipban'])) ipban("", false, $data['lastip']);
 		
 		foreach(glob("userpic/$id/*") as $f)

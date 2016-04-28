@@ -36,6 +36,8 @@
 			
 			$c[] = $sql->query("DELETE FROM users WHERE id = $id");
 			$c[] = $sql->query("DELETE FROM user_avatars WHERE user = $id");
+			$c[] = $sql->query("DELETE FROM users_rpg WHERE user = $id");
+			
 			// doesn't take into consideration avatars in posts_old, but who cares
 			$c[] = $sql->query("UPDATE posts SET user=$dest,avatar=0 WHERE user = $id");
 			$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
@@ -164,17 +166,17 @@
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Search IP:</b></td>
-		<td class='dim' colspan=5><input type='text' name='ips' value='$ips'></td>
+		<td class='dim' colspan=5><input type='text' name='ips' value=\"$ips\"></td>
 	</tr>
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Search Name:</b></td>
-		<td class='dim' colspan=5><input type='text' name='sname' value='$sname'></td>
+		<td class='dim' colspan=5><input type='text' name='sname' value=\"$sname\"></td>
 	</tr>
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Custom WHERE:</b></td>
-		<td class='dim' colspan=5><input type='text' style='width: 500px' name='cwhere' value='$where'></td>
+		<td class='dim' colspan=5><input type='text' style='width: 500px' name='cwhere' value=\"$where\"></td>
 	</tr>
 	<tr><td class='dark c' colspan=7><input type='submit' name='switch' value='Update query'></td></tr>
 	<!-- deluser list starts here -->

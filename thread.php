@@ -141,12 +141,12 @@
 						
 						<tr>
 							<td class='light' style='width: 100px;'>Name:</td>
-							<td class='dim'><input style='width: 400px;' type='text' name='newname' value='".htmlspecialchars($rname)."'></td>
+							<td class='dim'><input style='width: 400px;' type='text' name='newname' value=\"".htmlspecialchars($rname)."\"></td>
 						</tr>
 						
 						<tr>
 							<td class='light'>Title:</td>
-							<td class='dim'><input style='width: 400px;' type='text' name='newtitle' value = '".htmlspecialchars($rtitle)."'></td>
+							<td class='dim'><input style='width: 400px;' type='text' name='newtitle' value=\"".htmlspecialchars($rtitle)."\"></td>
 						</tr>
 						
 						<tr><td class='dim' colspan=2><input type='submit' name='dorename' value='Rename'></td></tr>
@@ -278,11 +278,11 @@
 				$icon_txt .= "<br/>";
 			}
 			$link = trim($link);
-			$icon_txt .= "<nobr><input type='radio' name='icon' value='$link' ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
+			$icon_txt .= "<nobr><input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
 			$i++;
 		}
 		$icon_txt .= "<br/>
-		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value='".filter_string($_POST['icon_c'])."'></nobr>";
+		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value=\"".filter_string($_POST['icon_c'])."\"></nobr>";
 		
 		pageheader("Change thread icon");
 		print "<br/><form method='POST' action='thread.php?id=$lookup&ticon'>
@@ -447,7 +447,7 @@
 	LEFT JOIN users AS u
 	ON p.user = u.id
 	LEFT JOIN posts_old AS o
-	ON p.id = o.pid
+	ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)
 	WHERE p.thread = $lookup
 	ORDER BY p.id ASC
 	LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."

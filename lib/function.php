@@ -6,7 +6,7 @@
 	currently this contains all the functions, except for the mysql and firewall classes
 	*/
 	
-	// Suppress everything, including fatal errors (integrated error handler).
+	// Suppress everything, including fatal errors (the integrated error handler will be used instead).
 	error_reporting(0);	
 	ini_set("default_charset", "UTF-8");
 
@@ -22,21 +22,7 @@
 	$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	$sql->selectdb($sqldb);
 	unset($sqlhost,$sqluser,$sqlpass,$sqldb,$sqlpersist);
-	
-	/*
-	if (isset($_GET['enable'])){
-		$sql->query("UPDATE misc SET disable=0");
-		die("Enabled");
-	}
-	if (isset($_GET['disable'])){
-		$sql->query("UPDATE misc SET disable=1");
-		die("Disabled");
-	}
-	if (isset($_GET['resetmisc'])){
-		$sql->query("UPDATE misc SET 0");
-		die("Disabled");
-	}*/
-	
+
 	
 	set_error_handler('errortest');
 	
@@ -44,14 +30,8 @@
 		print "<span style='background: #000; color:#f00'; width:100%; text-align: center;'>Warning: register_globals enabled!</span>";
 	}
 	
-	if (get_magic_quotes_gpc()){
+	if (get_magic_quotes_gpc())
 		die("If the magic quotes are turned on, it's likely the PHP version you're using is too low for the board to run.");
-		/*foreach (array($_GET, $_POST, $_COOKIE) as $superg)
-			foreach ($superg as $i => $var)
-				$superg[$i] = stripslashes($var);
-				
-		unset ($var, $i, $superg);*/
-	}
 	
 	// placeholder functions for compatibility
 	if (!function_exists("password_hash")){
@@ -129,44 +109,6 @@
 	if (count($_FILES))
 		if (!$config['enable-file-uploads'])
 			errorpage("File uploads are disabled. Now kindly go away.");
-
-/*
-	if (isset($_GET['testpass'])){
-		$testpassword = filter_string($_GET['testpass']);
-		$atemppass = password_hash($testpassword, PASSWORD_DEFAULT);
-		print "testpass: $testpassword<br/>
-		output: $atemppass<br/><br/>";
-		die();
-	}
-	
-
-	if (isset($_GET['write'])){
-		$sql->start();
-			$c[] = $sql->query("INSERT INTO forums (id, name, title, powerlevel) VALUES (1, 'Test Forum', 'This is the first Forum!', 0)");
-			$c[] = $sql->query("INSERT INTO threads (id, name, title, time, forum, user) VALUES (1, 'Test thread', 'This is a test description', 0, 1, 1)");
-			$in = $sql->prepare("INSERT INTO posts (id, text, time, thread, user, rev, deleted, nohtml, nosmilies) VALUES (?,?,?,?,?,?,?,?,?)");
-				$c[] = $sql->execute($in, array(1, "Hello world, Test post", 1, 1, 1, 0, 0, 0, 0));
-				$c[] = $sql->execute($in, array(2, "Hello world, Test post 2", 1, 1, 1, 0, 0, 0, 0));
-				$c[] = $sql->execute($in, array(3, "<a href=\"about:blank\">Sample Link</a>", 1, 1, 1, 0, 0, 0, 0));
-				$c[] = $sql->execute($in, array(4, "I'm not user #1", 1, 1, 2, 0, 0, 0, 0));
-				$c[] = $sql->execute($in, array(5, "Hello world, Test post AGAIN", 1, 1, 1, 0, 0, 0, 0));
-		$flag = false;
-		foreach ($c as $sigh)
-			if ($sigh===false)
-				$flag = true;
-		
-		if ($flag){
-			$sql->undo();
-			print "failure";
-		}
-		else{
-			$sql->end();
-			print "done";
-		}
-
-		die("<br/>click <a href=\"".$_SERVER['REQUEST_URI']."\">here</a>");
-	}*/
-	
 	
 	function sgfilter(&$source){
 		
@@ -204,7 +146,6 @@
 	# Load user
 	
 	// Guest perms moved up
-	//$views = $sql->resultq("SELECT views FROM misc");
 	$miscdata = $sql->fetchq("SELECT * FROM misc");
 		
 	
@@ -222,11 +163,25 @@
 			errorpage("What do you think you're doing?");
 		}
 		
-		$userdata = $sql->fetchq("SELECT * FROM users WHERE id = ".intval($_COOKIE['id']), true)[0];
+		$userdata = $sql->fetchq("
+		SELECT u.*,r.*
+		FROM users u
+		LEFT JOIN users_rpg r
+		ON u.id = r.id
+		WHERE u.id = ".intval($_COOKIE['id']), true)[0];
 		
-		//if (password_verify($_COOKIE['verify'], $userdata['password'])){
 		if ($_COOKIE['verify'] == $userdata['password']){
 			$loguser = $userdata;
+			if ($loguser['lastip'] != $_SERVER['REMOTE_ADDR']){
+				
+				trigger_error("User ".$loguser['name']." (ID #".$loguser['id']." changed IP from ".$loguser['lastip']." to ".$_SERVER['REMOTE_ADDR'], E_USER_NOTICE);
+				if ($sql->resultq("SELECT 1 FROM ipbans WHERE ip = ".$loguser['lastip'])){ // Just in case
+					trigger_error("Previous IP address was IP banned - updated IP bans list.", E_USER_NOTICE);
+					ipban("Auto - IP ban evasion", false);
+					header("Location: index.php");
+				}
+				$loguser['lastip'] = $_SERVER['REMOTE_ADDR'];
+			}
 		}
 		else {
 			setcookie('id', NULL);
@@ -330,16 +285,59 @@
 		}
 	}	
 	
+	// RPG stuff
+	function dorpgstatus($user){
+		return "
+			<table class='main' style='width: 256px;'>
+				<tr><td class='head c'>RPG status TEMP</td></tr>
+				<tr><td class='light c' style='height: 212px;'>
+
+					<img src='images/coin.gif'> - ".$user['coins']." | 
+					<img src='images/coin2.gif'> - ".$user['gcoins']."<br/>
+					HP: ".$user['hp']."<br/>
+					MP: ".$user['mp']."<br/>
+					Attack: ".$user['atk']."<br/>
+					Defense: ".$user['def']."<br/>
+					Intelligence: ".$user['intl']."<br/>
+					Mdf: ".$user['mdf']."<br/>
+					Dexterity: ".$user['dex']."<br/>
+					Luck: ".$user['lck']."<br/>
+					Speed: ".$user['spd']."<br/>
+					
+					<font color=red>Image not implemented</font>
+					
+				</td></tr>
+			</table>";
+	}
+	
+	function getuseritems($user){
+		global $sql;
+		for($i=0, $max=$sql->resultq("SELECT MAX(id) FROM shop_categories"); $i<$max+1; $i++)
+			if (filter_int($user["item$i"]))
+				$q[] = $user["item$i"];
+		return isset($q) ? $q : false;
+	}
+
+	$q = getuseritems($loguser);
+	
+	if (!empty($q)){
+		$itemdb = $sql->query("
+		SELECT hp, mp, atk, def, intl, mdf, dex, lck, spd, special
+		FROM shop_items
+		WHERE id IN (".implode(", ", $q).")
+		");
+		
+		while ($item = $sql->fetch($itemdb))
+			if ($item['special'] == 3) $config['show-comments'] = true;
+		
+		unset($itemdb, $q);
+	}
+	
 	// Online users update
 	function update_hits($forum = 0){
 		global $loguser, $sql;
-	//	$sql->start();
-	//  useless online table nuked. RIP (v0.08 - v0.15)
-	//	$sql->query("DELETE FROM online WHERE time<".(ctime()-900)." OR ip='".$_SERVER['REMOTE_ADDR']."'"); // 5 minutes + leftover ip
-	//	$sql->queryp("INSERT INTO online (user, ip, time, page, useragent, forum) VALUES (?,?,?,?,?,0)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], ctime(), $_SERVER['REQUEST_URI'], $_SERVER['HTTP_USER_AGENT']));
 		$sql->queryp("INSERT INTO hits (user, ip, time, page, useragent, forum) VALUES (?,?,?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], ctime(), $_SERVER['REQUEST_URI'], $_SERVER['HTTP_USER_AGENT'], $forum));
 		if ($loguser['id'])	$sql->query("UPDATE users SET lastview = ".ctime()." WHERE id = ".$loguser['id']);
-	//	$sql->finish();
 	}
 	
 	// First character is always /
@@ -360,7 +358,7 @@
 	
 	function canviewforum($fid){
 		global $sql;
-		//if (!$fid) return false;
+
 		$minpower = $sql->resultq("SELECT powerlevel FROM forums WHERE id = $fid");
 		if ($minpower === false) return false;
 		else return powlcheck($minpower);
@@ -393,7 +391,7 @@
 	function donamecolor($powl, $sex, $usercolor = false){
 		
 		static $colors;
-		
+				
 		if (!$usercolor){
 			// User colors now defined by CSS, hardcoded stuff not needed anymore
 			if ($powl>4) $powl = 4;
@@ -428,16 +426,16 @@
 		
 		if (!$u){
 			if (!isset($udb[$uid])){
-				$u = ($uid == $loguser['id']) ?	$u = $loguser :	$sql->fetchq("SELECT id, name, displayname, namecolor, powerlevel, sex, icon FROM users WHERE id = ".intval($uid));
+				$u = ($uid == $loguser['id']) ?	$loguser : $sql->fetchq("SELECT id, name, displayname, namecolor, powerlevel, sex, icon FROM users WHERE id = ".intval($uid));
 				$udb[$uid] = $u;
 			}
 			else $u = $udb[$uid];
 		}
-		
+
 		$icon = isset($u['icon']) && $showicon ? "<img src='".$u['icon']."'>" : "";
 		
 		if (!$u) return "<a class='danger'>(Invalid Userlink)</a>";
-
+		
 		if ($u['displayname']){
 			$name = htmlspecialchars($u['displayname']);
 			$title = "title='Also known as: ".htmlspecialchars($u['name'])."'";
@@ -948,8 +946,8 @@
 		if ($string != $source)
 			$sql->queryp("INSERT INTO jstrap (user, ip, source, filtered) VALUES (?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], $source, $string));
 
-		$string = str_ireplace("script","scr<z>ipt", $string);		
-		$string = str_ireplace("javascript", "java<z>script", $string);
+		$string = str_ireplace("javascript", "javas<z>cript", $string);
+		$string = preg_replace("'(<|=|\'|\")(.*?)script(.*?)='si","<z>", $string);
 		$string = str_ireplace("iframe", "i<z>frame", $string); 
 		$string = str_ireplace("meta", "me<z>ta", $string);
 		
@@ -1050,13 +1048,18 @@
 		if (!powlcheck(5))
 			$fw_error = "";
 		
+		if (powlcheck(1))
+			$links .= "<a href='shoped.php'>Shop Editor</a> - ";		
+		
 		if (powlcheck(4))
 			$links .= "<a href='admin.php'>Admin</a> - <a href='/phpmyadmin'>PMA</a> - <a href='register.php'>Rereggie</a> - ";
+
+		
 		
 		if (!$loguser['id'])
 			$links .= "<a href='login.php'>Login</a> - <a href='register.php'>Register</a>";
 		else
-			$links .= "<a href='login.php?logout'>Logout</a> - <a href='editprofile.php'>Edit profile</a> - <a href='editavatars.php'>Edit avatars</a>";
+			$links .= "<a href='login.php?logout'>Logout</a> - <a href='editprofile.php'>Edit profile</a> - <a href='editavatars.php'>Edit avatars</a> - <a href='shop.php'>Item shop</a>";
 		
 		$links2 = "<a href='index.php'>Main</a> - <a href='online.php'>Online users</a><!-- | 
 		<a href='thread.php?id=1'>Test Thread</a>
@@ -1156,12 +1159,22 @@
 		}
 		
 		$endtime = microtime(true) - $GLOBALS['startingtime'];
+		// why
+		if (!$hacks['correct-board-name'])
+			$boardinfo = "
+			<table class='main c'><tr><td class='light'>
+			BoardC ".$config['board-version']."<br/>
+			2016 Kak
+			</td></tr></table>";
+			
+		else $boardinfo = "<table><tr>
+		<td><img src='images/poweredbyacmlm.gif'></td>
+		<td class='fonts'>Acmlmboard C - ".$config['board-version']."<br/>&copy; 2016 Kak
+		</td></tr></table>
+		";
 		
 		die("<br/>
-		<center>$errorprint<table class='main c'><tr><td class='light'>
-		".($hacks['correct-board-name'] ? "Not Acmlmboard" : "BoardC")." ".$config['board-version']."<br/>
-		2016 Kak
-		</td></tr></table><small>
+		<center>$errorprint<small>$boardinfo
 		Queries: ".$sql->queries." - PQueries: ".$sql->pqueries." | Total: ".($sql->queries+$sql->pqueries)."<br/>
 		Query Execution Time: ".(number_format($sql->querytime, 6))." seconds<br/>
 		Script Execution Time: ".(number_format($endtime - $sql->querytime, 6))." seconds<br/>
@@ -1203,7 +1216,7 @@
 		}
 		
 		/* TODO: Irc Reporting
-			if ($loguser['powerlevel'] > 3){
+			if ($loguser['powerlevel'] < 4){
 				$msg = $type_txt[$type]." - $string in $file at line $line";
 		*/
 		

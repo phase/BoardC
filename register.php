@@ -138,6 +138,7 @@
 		$c[] = $sql->execute($newuser, array($user, password_hash($pass, PASSWORD_DEFAULT), $_SERVER['REMOTE_ADDR'], $config['default-date-format'], $config['default-time-format'], ctime()) );
 		
 		if ($sql->finish($c)){
+			$sql->query("INSERT INTO users_rpg () VALUES ()");
 			$id = $sql->resultq("SELECT MAX(id) FROM users");
 			mkdir("userpic/$id");
 			trigger_error("New user: $user (".$config['board-url']."profile.php?id=$id)");

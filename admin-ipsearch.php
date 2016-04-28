@@ -94,11 +94,11 @@
 		
 		<tr>
 			<td class='light'><b>IP Address:</b></td>
-			<td class='dim'><input type='text' name='ip' value='$ip'></td>
+			<td class='dim'><input type='text' name='ip' value=\"$ip\"></td>
 		</tr>
 		<tr>
 			<td class='light'><b>Search for an IP range:</b></td>
-			<td class='dim'><input type='text' name='ip1' value='$ip1'> and <input type='text' name='ip2' value='$ip2'></td>
+			<td class='dim'><input type='text' name='ip1' value=\"$ip1\"> and <input type='text' name='ip2' value=\"$ip2\"></td>
 		</tr>
 "./*		<tr>
 			<td class='light'><b>Where to search:</b></td>
