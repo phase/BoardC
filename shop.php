@@ -152,9 +152,6 @@
 		while ($item = $sql->fetch($items)){
 			$item = array_map('l', $item);
 			
-			if ($item['coins'] > 99999999) 	$item['coins'] = "tons";
-			if ($item['gcoins'] > 99999999) $item['gcoins'] = "tons";
-			
 			if (in_array($item['id'], $ideq)){
 				$buy_txt = "<td class='dim' colspan=2><a href='?sell=".$item['id']."'>Sell</a></td>";
 				$col_txt = "selected";
@@ -165,6 +162,9 @@
 					<td class='light' style='width: 10px'><s href='?preview=".$item['id']."'>Preview</s></td>";
 				$col_txt = $can_buy ? "" : "disabled";
 			}
+					
+			$item['coins']  = ($item['coins'] > 9999999)  ? "tons" : filter_int($item['coins']);
+			$item['gcoins'] = ($item['gcoins'] > 9999999) ? "tons" : filter_int($item['gcoins']);
 			
 			$txt .= "
 				<tr>
@@ -182,8 +182,8 @@
 					<td class='dim $col_txt' >".$item['dex']."</td>
 					<td class='dim $col_txt' >".$item['lck']."</td>
 					<td class='dim $col_txt' >".$item['spd']."</td>
-					<td class='light $col_txt'>".filter_int($item['coins'])."</td>
-					<td class='light $col_txt'>".filter_int($item['gcoins'])."</td>
+					<td class='light $col_txt'>".$item['coins']."</td>
+					<td class='light $col_txt'>".$item['gcoins']."</td>
 				</tr>
 			";
 		}
