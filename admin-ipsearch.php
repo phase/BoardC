@@ -46,6 +46,8 @@
 		LIMIT 0,200
 		");
 		
+		$udb = array();
+		$useudb = filter_int($_POST['useudb']);
 		$txt = array("", "", "", "");
 		// id, userlink, since, ip
 		while ($user = $sql->fetch($users)){
@@ -54,6 +56,10 @@
 		}
 		while ($hit = $sql->fetch($hits)){
 			if (!$ip && !iprange($ip1, $hit['ip'], $ip2)) continue;
+			if ($useudb){
+				if (isset($udb[$hit['id']])) continue;
+				else $udb[$hit['id']] = true;
+			}
 			$txt[1] .= "<tr><td class='light'>".($hit['id'] ? makeuserlink(false, $hit) : "[Guest]")."</td><td class='light'>".printdate($hit['time'])."</td><td class='dim'>".htmlspecialchars(input_filters($hit['useragent']))."</td><td class='dim'>".htmlspecialchars(input_filters($hit['page']))."</td><td class='dim'>".$hit['ip']." <small><a href='https://www.google.com/search?q=".$hit['ip']."'>[G]</a> <a href='https://en.wikipedia.org/wiki/User:".$hit['ip']."'>[W]</a></small></td></tr>";
 		}
 		$txt = "<center><br/>
@@ -86,6 +92,7 @@
 	else $txt = "";
 	
 //	$radio[$where] = "checked";
+	$udbsel = filter_int($_POST['useudb']) ? "checked" : "";
 	
 	print "
 	<form method='POST' action='admin-ipsearch.php'>
@@ -104,7 +111,7 @@
 			<td class='light'><b>Where to search:</b></td>
 			<td class='dim'><input type='radio' name='where' value=0 ".filter_string($radio[0]).">Users - <input type='radio' name='where' value=1 ".filter_string($radio[1]).">Hits - <input type='radio' name='where' value=2 ".filter_string($radio[2])."><s>Firewall log</s></td>
 		</tr>*/"
-		<tr><td class='dim' colspan=2><input type='submit' name='dosearch' value='Search'></td></tr>
+		<tr><td class='dim' colspan=2><input type='submit' name='dosearch' value='Search'> <input type='checkbox' name='useudb' value=1 $udbsel>Show only 1 match/user</td></tr>
 	</table></center>
 	</form>
 	

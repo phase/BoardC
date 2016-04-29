@@ -12,6 +12,7 @@
 
 	function itemformat($x, $sell = false){
 		// Get the operator, reverse it appropriately when an item is sold and calculate the new RPG status value
+		// This should probably go by a switch() instead of $otmp and eval
 		global $sql, $loguser;
 		
 		static $act = array('+','x','/','-');
@@ -22,8 +23,9 @@
 			if ($oper === false) trigger_error("Item started with invalid operand ".$x[$s][0], E_USER_WARNING);
 			$n = (float)(trim($x[$s], '+-x/ '));
 			if ($oper == 2 && $n == 0) $n = 1; // Divide by zero check
-			eval("\$tmp = ".$loguser[$s]." ".$act[$oper]." \$n;");
-			$q[] = "$s = '".floor($tmp)."'";
+			$otmp = ($oper == 1) ? "*" : $act[$oper]; // replace with correct muliplication
+			eval("\$tmp = ".$loguser[$s]." $otmp \$n;");
+			$q[] = "$s = '".floor(($tmp < 1) ? 1 : $tmp)."'"; // renders *0 incorrect but prevents awkward situations
 		}
 
 		$sql->query("UPDATE users_rpg SET ".implode(", ", $q)." WHERE id = ".$loguser['id']);

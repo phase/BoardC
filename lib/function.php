@@ -336,7 +336,7 @@
 	// Online users update
 	function update_hits($forum = 0){
 		global $loguser, $sql;
-		$sql->queryp("INSERT INTO hits (user, ip, time, page, useragent, forum) VALUES (?,?,?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], ctime(), $_SERVER['REQUEST_URI'], $_SERVER['HTTP_USER_AGENT'], $forum));
+		$sql->queryp("INSERT INTO hits (user, ip, time, page, useragent, forum, referer) VALUES (?,?,?,?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], ctime(), $_SERVER['REQUEST_URI'], $_SERVER['HTTP_USER_AGENT'], $forum, $_SERVER['HTTP_REFERER']));
 		if ($loguser['id'])	$sql->query("UPDATE users SET lastview = ".ctime()." WHERE id = ".$loguser['id']);
 	}
 	
@@ -358,8 +358,8 @@
 	
 	function canviewforum($fid){
 		global $sql;
-
-		$minpower = $sql->resultq("SELECT powerlevel FROM forums WHERE id = $fid");
+		
+		$minpower = $sql->resultq("SELECT powerlevel FROM forums WHERE id = ".filter_int($fid));
 		if ($minpower === false) return false;
 		else return powlcheck($minpower);
 	}
@@ -1259,8 +1259,8 @@
 		return true;
 	}
 	
-	function threadpost($post, $mini = false, $merge = false, $nocontrols = false){
-		global $ismod, $loguser, $config;
+	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = ""){
+		global $ismod, $loguser, $config, $error_id;
 		
 		static $theme = false;
 		// Reverse post color scheme
@@ -1365,6 +1365,7 @@
 			'sex' => $post['usex'],
 			'powerlevel' => $post['upowl'],
 		);
+
 		
 		if (filter_int($post['trev'])){
 			
@@ -1378,10 +1379,10 @@
 			}
 			else $revjump = "";
 			
-			$datetxt = "Posted on ".printdate($post['rtime'])." Revision ".($post['rev']+1)." (Last edited by ".makeuserlink($post['lastedited']).": ".printdate($post['time']).") $revjump";
+			$datetxt = "Posted on ".printdate($post['rtime'])."$extra Revision ".($post['rev']+1)." (Last edited by ".makeuserlink($post['lastedited']).": ".printdate($post['time']).") $revjump";
 		}
 		else			
-			$datetxt = "Posted on ".printdate($post['time']);
+			$datetxt = "Posted on ".printdate($post['time']).$extra;
 		
 		$inputmerge = $merge ? "<input type='checkbox' name='c_merge[]' value=".$post['id'].">" : "";
 		

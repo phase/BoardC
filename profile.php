@@ -110,7 +110,7 @@
 		");
 	
 		while ($item = $sql->fetch($itemdb))
-			$item_txt .= "<tr class='c'><td class='light fonts'>".$item['cat']."</td><td class='dim fonts'>".$item['item']."</td></tr>";
+			$item_txt .= "<tr class='c'><td class='light fonts'>".$item['cat']."</td><td class='dim fonts w'>".$item['item']."</td></tr>";
 	}
 	else $item_txt = "<tr><td class='light fonts c' colspan=2>No items bought</td></tr>";
 		
@@ -119,7 +119,7 @@
 	<br/>
 	
 	<table class='main w'>
-		<tr><td class='head c fonts' colspan=2>Equipped items</td></tr>
+		<tr><td class='head c' colspan=2>Equipped items</td></tr>
 		$item_txt
 	</table></center>
 	";
@@ -173,6 +173,7 @@
 		<tr><td class='head c'><small>User Controls</small></td></tr>
 		<tr>
 			<td class='dim c'><small>
+				<a href='thread.php?user=$id'>Show posts</a> |
 				".($isadmin ? "<a href='editprofile.php?id=$id'>Edit user</a> | <a href='editavatars.php?id=$id'>Edit avatars</a> |" : "")."
 				<s>View threads by this user</s> |
 				<s>Send private message</s> |
@@ -182,7 +183,7 @@
 		<tr>
 			<td class='dim c'><small>
 				<a href='listposts.php?id=$id'>List posts by this user</a> |
-				<s>Posts by time of day</s> |
+				<a href='postsbytime.php?id=$id'>Posts by time of day</a> |
 				<s>Posts by thread</s> |
 				<a href='listposts.php?id=$id&fmode'>Posts by forum</a>
 			</small></td>

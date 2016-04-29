@@ -4,6 +4,7 @@
 	
 
 	$pid = filter_int($_GET['pid']);
+	$usermode = filter_int($_GET['user']);
 	
 	if (filter_int($_GET['id']))
 		$lookup = intval($_GET['id']);
@@ -24,10 +25,98 @@
 			unset($i, $posts, $getpost);
 		}
 	}
-	
+	else if ($usermode){
+		update_hits();
+		
+		// normal gethreadinfo doesn't work for this
+		// maybe this should have been put in its own file due to the extreme differences on how this is handled
+		$user = $sql->fetchq("
+			SELECT u.head head, u.sign sign, u.lastip ip, u.name uname, u.displayname udname, u.title utitle, u.namecolor ucolor,
+			u.sex usex, u.powerlevel upowl, u.posts, u.since, u.location,
+			(UNIX_TIMESTAMP(NOW())+".$config['default-time-zone']."-u.lastview) lastview, p.time lastpost
+			FROM users u
+			
+			LEFT JOIN posts p
+			ON u.id = p.user
+			
+			WHERE u.id = $usermode
+			ORDER BY p.time DESC
+		");
+		
+		if (!$user)
+			errorpage("This user doesn't exist!");
+		
+		pageheader("Posts by ".($user['udname'] ? $user['udname'] : $user['uname']));
+
+		$posts = $sql->query("
+		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
+		t.id tid, t.name tname, f.id fid, f.powerlevel fpowl
+		FROM posts AS p
+		LEFT JOIN threads AS t
+		ON p.thread = t.id
+		LEFT JOIN forums AS f
+		ON t.forum = f.id
+		LEFT JOIN posts_old AS o
+		ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)
+		WHERE p.user = $usermode
+		ORDER BY p.id ASC
+		LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
+		");
+		
+		if ($posts){
+			
+			$pagectrl = dopagelist($user['posts'], $loguser['ppp'], "thread", "&user=$usermode");
+			print "<a href='index.php'>".$config['board-name']."</a> - Posts by ".makeuserlink($usermode)."<br/>$pagectrl";
+
+			
+			$isadmin = powlcheck(4);
+			
+			$startingpost = $_GET['page']*$loguser['ppp']+1;
+			$c = 0;
+			
+			foreach ($posts as $post){
+				
+				if 		($post['tid'] && !$post['fid'])				$error_id = 4; # Thread in bad forum
+				else if (!$post['tid'] && $post['id'])				$error_id = 3; # post in bad thread
+				else if (!$post['tid'])								$error_id = 2; # Thread doesn't exist
+				else if ($post['fid'] && !powlcheck($post['fpowl']))$error_id = 1; # minpower check
+				else $error_id = 0;
+				
+				$post['postcur'] = $startingpost + $c;
+				$c++;
+				
+				if ($error_id && !$isadmin){
+					$txt .= "<tr><td class='light c' colspan=2><i>(Restricted forum)</i></td></tr>";
+					continue;
+				}
+				/*
+				if ($error_id)
+					print "This is a bad post.";
+				*/
+				// Silences post errors, as only admins can see those anyway
+				if (!$isadmin){
+					if (!isset($moddb[$post['fid']]))
+						$moddb[$post['fid']] = ismod($post['fid']);
+					$ismod = $moddb[$post['fid']];
+				}
+				else $ismod = true;
+				
+				$post['trev'] = $post['rev'];
+				if (!$post['tname']) $post['tname'] = "[Invalid thread ID #".$post['thread']."]";
+				
+				print threadpost($post+$user, false, false, false, ", in <a href='thread.php?pid=".$post['id']."'>".$post['tname']."</a> ");
+			
+			}
+			print $pagectrl;
+			pagefooter();
+		}
+		else errorpage("No posts to show.", false);
+		
+		
+		
+	}
 	else errorpage("No thread selected.");
-	
-	
+
 	$tdata = getthreadinfo($lookup, $_GET['pid']);
 	
 	$thread = $tdata[0];
@@ -43,6 +132,9 @@
 	unset($tdata);
 	
 	$ismod = ismod(isset($thread['forum']) ? $thread['forum'] : false);
+	
+	// online update, revised
+	update_hits(filter_int($forum['id']));
 	
 	if ($error_id){
 		// id => print error, irc error, kill
@@ -393,8 +485,7 @@
 			</table>";
 	}
 	
-	// online update, revised
-	update_hits($forum['id']);
+
 	//$sql->query("UPDATE hits SET forum=".$forum['id']." WHERE ip='".$_SERVER['REMOTE_ADDR']."' ORDER BY time DESC LIMIT 1");
 	
 	pageheader($thread['name']);
