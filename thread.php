@@ -31,9 +31,9 @@
 		// normal gethreadinfo doesn't work for this
 		// maybe this should have been put in its own file due to the extreme differences on how this is handled
 		$user = $sql->fetchq("
-			SELECT u.head head, u.sign sign, u.lastip ip, u.name uname, u.displayname udname, u.title utitle, u.namecolor ucolor,
-			u.sex usex, u.powerlevel upowl, u.posts, u.since, u.location,
-			(UNIX_TIMESTAMP(NOW())+".$config['default-time-zone']."-u.lastview) lastview, p.time lastpost
+			SELECT u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor,
+			u.sex, u.powerlevel, u.posts, u.since, u.location,
+			u.lastview, p.time lastpost
 			FROM users u
 			
 			LEFT JOIN posts p
@@ -46,7 +46,7 @@
 		if (!$user)
 			errorpage("This user doesn't exist!");
 		
-		pageheader("Posts by ".($user['udname'] ? $user['udname'] : $user['uname']));
+		pageheader("Posts by ".($user['displayname'] ? $user['displayname'] : $user['name']));
 
 		$posts = $sql->query("
 		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
@@ -57,7 +57,7 @@
 		LEFT JOIN forums AS f
 		ON t.forum = f.id
 		LEFT JOIN posts_old AS o
-		ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)
+		ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
 		WHERE p.user = $usermode
 		ORDER BY p.id ASC
 		LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
@@ -101,7 +101,7 @@
 				}
 				else $ismod = true;
 				
-				$post['trev'] = $post['rev'];
+				$post['crev'] = $post['rev'];
 				if (!$post['tname']) $post['tname'] = "[Invalid thread ID #".$post['thread']."]";
 				
 				print threadpost($post+$user, false, false, false, ", in <a href='thread.php?pid=".$post['id']."'>".$post['tname']."</a> ");
@@ -513,7 +513,7 @@
 				Moderating options:
 				<$w href='thread.php?id=$lookup&tren'>Rename</$w> |
 				<$w href='thread.php?id=$lookup&ticon'>Change icon</$w> |
-				<a href='thread.php?id=$lookup&tmove'>Move</a> |
+				<$w href='thread.php?id=$lookup&tmove'>Move</$w> |
 				<$w href='thread.php?id=$lookup&tstick'>".($thread['sticky'] ? "Uns" : "S")."tick</$w> |
 				<$w href='thread.php?id=$lookup&tclose'>".($thread['closed'] ? "Open" : "Close")."</$w> |
 				".($forum['id']==$config['trash-id'] ? "" : "<$w href='thread.php?id=$lookup&ttrash'>Trash</$w> |")."
@@ -531,14 +531,12 @@
 	// Massive query to fetch almost everything threadpost needs
 	$posts = $sql->query("
 	SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-	u.head head, u.sign sign, u.lastip ip, u.name uname, u.displayname udname, u.title utitle, u.namecolor ucolor,
-	u.sex usex, u.powerlevel upowl, u.posts, u.since, u.location,
-	(UNIX_TIMESTAMP(NOW())+".$config['default-time-zone']."-u.lastview) lastview
+	u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.since, u.location, u.lastview
 	FROM posts AS p
 	LEFT JOIN users AS u
 	ON p.user = u.id
 	LEFT JOIN posts_old AS o
-	ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)
+	ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
 	WHERE p.thread = $lookup
 	ORDER BY p.id ASC
 	LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
@@ -595,11 +593,11 @@
 				if (filter_int($_GET['pin']) == $post['id'])
 					$post['deleted'] = false;
 				
-				$post['trev'] = $post['rev']; //total revision
+				//$post['trev'] = $post['rev']; //total revision
 				
 				// old version of post
 				if (isset($_GET['rev']) && filter_int($_GET['pid'])==$post['id'])
-					$post = array_replace($post, $sql->fetchq("SELECT text,rev,time,nohtml,nosmilies,nolayout,avatar FROM posts_old  WHERE pid = ".$post['id']." AND rev = ".filter_int($_GET['rev'])));
+					$post = array_replace($post, $sql->fetchq("SELECT text,rev crev,time,nohtml,nosmilies,nolayout,avatar FROM posts_old  WHERE pid = ".$post['id']." AND rev = ".filter_int($_GET['rev'])));
 			}
 
 			print threadpost($post, false, $showmergecheckbox);
@@ -611,7 +609,7 @@
 			print "</form>";
 	}
 	else print "
-		<center><table class='special c'>
+		<center><table class='main c'>
 			<tr><td class='light'>
 				The thread is empty. There are no posts to show.<br/>To create a new post, click New Reply.
 			</td></tr>

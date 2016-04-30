@@ -107,27 +107,27 @@
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				'head' => $loguser['head'],
-				'sign' => $loguser['sign'],
+				//'head' => $loguser['head'],
+				//'sign' => $loguser['sign'],
 				'thread' => $thread['id'],
-				'uname' => $loguser['name'],
+				/*'uname' => $loguser['name'],
 				'udname' => $loguser['displayname'],
 				'ucolor' => $loguser['namecolor'],
 				'usex' => $loguser['sex'],
 				'upowl' => $loguser['powerlevel'],
 				'utitle' => $loguser['title'],
-				
+				*/
 				'postcur' => $loguser['posts']+1,
 				'posts' => $loguser['posts']+1,
-				'since' => $loguser['since'],
-				'location' => $loguser['location'],
+				//'since' => $loguser['since'],
+				//'location' => $loguser['location'],
 				'lastpost' => ctime(),
-				'lastview' => 0,
+				'lastview' => ctime(),
 				'avatar' => filter_int($_POST['avatar']),
 				
 			);
 			print "<table class='main w c'>
-			<tr><td class='head' style='border-bottom: none;'>Post Preview</td></tr></table>".threadpost($data, false, false, true);
+			<tr><td class='head' style='border-bottom: none;'>Post Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true);
 		}
 		
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
@@ -235,28 +235,28 @@
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				'head' => $loguser['head'],
-				'sign' => $loguser['sign'],
+				//'head' => $loguser['head'],
+				//'sign' => $loguser['sign'],
 				'thread' => $_GET['id'],
-				'uname' => $loguser['name'],
+				/*'uname' => $loguser['name'],
 				'udname' => $loguser['displayname'],
 				'ucolor' => $loguser['namecolor'],
 				'usex' => $loguser['sex'],
 				'upowl' => $loguser['powerlevel'],
 				'utitle' => $loguser['title'],
-				
+				*/
 				'postcur' => $loguser['posts']+1,
 				'posts' => $loguser['posts']+1,
-				'since' => $loguser['since'],
-				'location' => $loguser['location'],
+				//'since' => $loguser['since'],
+				//'location' => $loguser['location'],
 				'lastpost' => ctime(),
-				'lastview' => 0,
+				'lastview' => ctime(),
 				'avatar' => filter_int($_POST['avatar']),
 			);
 			print "<table class='main w'>
 			<tr><td class='head c' colspan=2>Thread Preview</td></tr>
 			<tr><td class='light c' style='border-bottom: none'>".($icon ? "<img src='$icon'>" : "&nbsp;")."</td><td class='dim w' style='border-bottom: none'>$name".($title ? "<br/><small>$title</small>" : "")."</td></tr></table>
-			".threadpost($data, false, false, true);
+			".threadpost(array_merge($loguser,$data), false, false, true);
 		}
 		
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
@@ -393,9 +393,7 @@
 		// A copy of a massive query to fetch almost everything threadpost needs
 		$post = $sql->fetchq("
 		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-		u.head head, u.sign sign, u.lastip ip, u.name uname, u.displayname udname, u.title utitle, u.namecolor ucolor,
-		u.sex usex, u.powerlevel upowl, u.posts, u.since, u.location,
-		(UNIX_TIMESTAMP(NOW())+".$config['default-time-zone']."-u.lastview) lastview
+		u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.since, u.location, u.lastview
 		FROM posts AS p
 		LEFT JOIN users AS u
 		ON p.user = u.id
@@ -458,39 +456,39 @@
 			$lastpost = $data[1];
 			
 			$data = array(
-				'id' => $post['id'],
+				/*'id' => $post['id'],
 				'user' => $post['user'],
-				'ip' => $post['ip'],
+				'ip' => $post['ip'],*/
 				'deleted' => 0,
-				'time' => $post['time'],
+				//'time' => $post['time'],
 				'rev' => $post['rev']+1,
 				'text' => filter_string($_POST['message']),
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				'head' => $post['head'],
-				'sign' => $post['sign'], 
+				//'head' => $post['head'],
+				//'sign' => $post['sign'], 
 				'thread' => $thread['id'],
-				'uname' => $post['uname'],
+				/*'uname' => $post['uname'],
 				'udname' => $post['udname'],
 				'ucolor' => $post['ucolor'],
 				'usex' => $post['usex'],
 				'upowl' => $post['upowl'],
 				'utitle' => $post['utitle'],
-
+				*/
 				'postcur' => array_search($post['id'], $postids[$post['user']])+1,
-				'posts' => $post['posts'],
+				/*'posts' => $post['posts'],
 				'since' => $post['since'],
-				'location' => $post['location'],
+				'location' => $post['location'],*/
 				'lastpost' => max($lastpost[$post['user']]),
-				'lastview' => ctime()-$post['lastview'],
-				'trev' => $post['rev']+1,
+				//'lastview' => ctime()-$post['lastview'],
+				'crev' => $post['rev']+1,
 				'rtime' => ctime(),
 				'lastedited' => $loguser['id'],
 				'avatar'	=> filter_int($_POST['avatar']),
 			);
 			print "<table class='main w'>
-			<tr><td class='head c' style='border-bottom: none'>Post Preview</td></tr></table>".threadpost($data, false, false, true);
+			<tr><td class='head c' style='border-bottom: none'>Post Preview</td></tr></table>".threadpost($post+$data, false, false, true);
 			
 			// Moved here [0.06]
 			$nsm = filter_int($_POST['nosmilies']);

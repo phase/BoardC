@@ -1,11 +1,9 @@
 body {
-	background: #999;
 	font-family: Verdana, Geneva, sans-serif;
 	font-size: 13px;
-	color: #fff;
 	
-	background-color: #000F1F;
-	background-image: url('images/themes/night/starsbg.png');
+	color: #DDDDDD;
+	background: #013;
 }
 body, table {
 	color: #DDDDDD;
@@ -68,35 +66,28 @@ td.light,td.dim,td.head,td.dark{
 	border-bottom:	#000000 1px solid;
 }
 
-.light{
-	background: #111133;
-	
-}
-.dim{
-	background: #11112B;
-}
-.head{
-	background: #302048;
-	color: #FFEEFF;
-}
-.dark{
-	background: #2F2F5F;
-	color: #FFEEFF;
-}
+.light	{background:#05375F}
+.dim	{background:#15426D}
+.dark	{background:#0F265F}
+.head	{background:#0048B7 url("images/header_shade.png") repeat-x bottom center; text-shadow: 1px 1px 2px #000;}
 
-
-textarea, input, select, button {
-	border: 1px solid #663399;
-	background-color: #000000;
-	color: #DDDDDD;
-  font:	10pt verdana;
-}
-.submit {
-	border: 2px solid #663399;
-}
-input.radio {
-	border:	none;
-	background: none;
-	color: #DDDDDD;
+textarea, input, select{
+	border:	#000000 solid 1px;
+	background:#000000;
+	color:	#DDDDDD;
 	font:	10pt verdana;
 }
+
+textarea:focus {
+  border:	#000000 solid 1px;
+  background:#000000;
+  color:	#DDDDDD;
+  font:	10pt verdana;}
+.radio{
+  border:	none;
+  background:none;
+  color:	#DDDDDD;
+  font:	10pt verdana;}
+.submit{
+  border:	#000000 solid 2px;
+  font:	10pt verdana;}

@@ -88,7 +88,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.17a",
+		dialog(	"This will setup BoardC Pre-Release v0.18",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -99,7 +99,7 @@
 					<tr><td class='light'>Deleted User ID:</td><td class='light'>".$config['deleted-user-id']."</td></tr>
 					</table><br/>
 					
-				If these are correct, click 'Continue'. Otherwise, edit lib/config.php",
+				If these are correct, click 'Continue'. Otherwise, edit config.php in the 'lib' directory.",
 				"<input type='submit' name='start' value='Continue'><input type='hidden' name='step' value=1>");
 	}				
 	else if ($step == 1){
@@ -113,8 +113,8 @@
 			<tr><td class='light'>Retype Password:</td><td class='light'><input type='text' name='pass2'></td></tr>
 			</table><br/>
 			
-		Click continue to start executing the SQL commands. This may take more than 30 seconds.<br/>WARNING: This will drop the specified database!",
-		"<input type='submit' name='start' value='Continue'><input type='hidden' name='step' value=2>");
+		Click Install to start executing the SQL commands. This may take more than 30 seconds.<br/>WARNING: This will drop the specified database!",
+		"<input type='submit' name='start' value='Install'><input type='hidden' name='step' value=2>");
 	}
 	else if ($step == 2){
 		$name = filter_string($_POST['username']);
@@ -213,7 +213,8 @@ CREATE TABLE `hits` (
   `page` text NOT NULL,
   `useragent` text NOT NULL,
   `user` int(32) NOT NULL DEFAULT '0',
-  `forum` int(32) NOT NULL DEFAULT '0'
+  `forum` int(32) NOT NULL DEFAULT '0',
+  `referer` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts` (
@@ -290,8 +291,9 @@ CREATE TABLE `themes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `themes` (`id`, `name`, `file`) VALUES
-(0, 'Default', 'default.css'),
-(1, 'Night (Jul)', 'night.css');");
+(1, 'Default', 'default.css'),
+(2, 'Night (Jul)', 'night.css'),
+(3, 'Hydra\'s Blue Thing (Alternate)', 'hbluealt.css');");
 query("
 CREATE TABLE `threads` (
   `id` int(32) NOT NULL,
@@ -346,7 +348,7 @@ CREATE TABLE `users` (
   `realname` varchar(64) NOT NULL,
   `location` varchar(64) NOT NULL,
   `birthday` int(32) DEFAULT NULL,
-  `theme` int(8) NOT NULL DEFAULT '0',
+  `theme` int(8) NOT NULL DEFAULT '1',
   `showhead` tinyint(1) NOT NULL DEFAULT '1',
   `signsep` int(3) NOT NULL DEFAULT '1',
   `icon` text,
@@ -431,11 +433,11 @@ ALTER TABLE `forummods`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `forums`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+ALTER TABLE `hits`
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `ipbans`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `jstrap`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `hits`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `posts`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
@@ -443,6 +445,12 @@ ALTER TABLE `posts_old`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `ratings`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `shop_categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+ALTER TABLE `shop_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+ALTER TABLE `themes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 ALTER TABLE `threads`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 ALTER TABLE `tor`
@@ -451,10 +459,6 @@ ALTER TABLE `users`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=".($config['deleted-user-id']+1).";
 ALTER TABLE `user_avatars`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `shop_categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-ALTER TABLE `shop_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 ALTER TABLE `users_rpg`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=".($config['deleted-user-id']+1).";
 ");
@@ -465,6 +469,7 @@ ALTER TABLE `users_rpg`
 			$c = $sql->end();
 			if ($c !== false){
 				if (!file_exists("userpic")) mkdir("userpic");
+				if (!file_exists("userpic/1")) mkdir("userpic/1");
 				die("Operation completed successfully.\nYou can (and <i>should</i>) delete this file and login <a href='login.php' style='background: #fff'>here</a>.");
 			}
 			else die("An unknown error occurred while closing the transaction.");

@@ -50,7 +50,7 @@
 	
 	
 	$user = $sql->fetchq("
-	SELECT id, name, displayname, namecolor, powerlevel, sex, icon, powerlevel, posts, since, lastip
+	SELECT id, name, displayname, namecolor, powerlevel, sex, icon, powerlevel, posts, since, lastip, lastview
 	FROM users
 	WHERE powerlevel < 1
 	AND id != ".$config['deleted-user-id']."
@@ -62,6 +62,7 @@
 		errorpage("There are no more users to delete! You can go <a href='index.php'>home</a> now.", false);
 	
 	$list = "";
+	$lazy = htmlspecialchars(input_filters($sql->resultq("SELECT page FROM hits WHERE user=".$user['id']." ORDER BY id DESC")));
 	
 	print "
 	<form method='POST' action='admin-quickdel.php'>
@@ -79,6 +80,7 @@
 			<tr><td class='light'>Posts:</td><td class='light'>".$user['posts']."</td></tr>
 			<tr><td class='light'>IP Address:</td><td class='light'>".$user['lastip']."</td></tr>
 			<tr><td class='light'>Registered:</td><td class='light'>".choosetime(ctime()-$user['since'])." ago</td></tr>
+			<tr><td class='light'>Last view:</td><td class='light'>$lazy, at ".choosetime(ctime()-$user['lastview'])." ago</td></tr>
 			</table></center><br/>
 			
 		</td>

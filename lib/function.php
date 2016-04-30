@@ -431,6 +431,8 @@
 			}
 			else $u = $udb[$uid];
 		}
+		
+		if ($uid) $u['id'] = $uid; // hack for compatibility, allows to remove useless code
 
 		$icon = isset($u['icon']) && $showicon ? "<img src='".$u['icon']."'>" : "";
 		
@@ -1329,7 +1331,7 @@
 			
 			if (!$mini)
 				$sidebar = "
-				<small>".($post['utitle'] ? $post['utitle']."<br/>" : "")."
+				<small>".($post['title'] ? $post['title']."<br/>" : "")."
 				$avatar<br/>
 				Posts: ".$post['postcur']."/".$post['posts']."<br/>
 				EXP: [NUM]<br/>
@@ -1339,7 +1341,7 @@
 				".($post['location'] ? "From: ".$post['location']."<br/>" : "")."
 				<br/>
 				Since last post: ".choosetime(ctime()-$post['lastpost'])."<br/>
-				Last activity: ".choosetime($post['lastview'])."</small>
+				Last activity: ".choosetime(ctime()-$post['lastview'])."</small>
 				";
 			else $sidebar = "";
 			
@@ -1357,6 +1359,7 @@
 		
 		$controls .= " | ID: ".$post['id'];
 		
+		/*
 		$data = array(
 			'id' => $uid,
 			'name' => $post['uname'],
@@ -1366,23 +1369,33 @@
 			'powerlevel' => $post['upowl'],
 		);
 
+
+		before:
+		trev - total revision
+		rev - current revision (used to be replaced with this)
 		
-		if (filter_int($post['trev'])){
+		now:
+		rev - total revision
+		crev - current revision (doesn't replace rev anymore)
+		*/
+		
+		if (filter_int($post['rev'])){
 			
-			$data = false;
+			if (!isset($post['crev'])) $post['crev'] = $post['rev']; // imply max revision if it isn't set
 			
 			// post revision jump
 			if ($ismod){
-				for($i=0, $revjump="Revision: ";$i<$post['trev'];$i++)
-					$revjump .= "<a href='thread.php?pid=".$post['id']."&pin=".$post['id']."&rev=$i#".$post['id']."'>".($i+1)."</a> ";
+				for($i=0, $revjump="Revision: ";$i<$post['rev'];$i++){
+					$a = ($post['crev'] == $i) ? "z" : "a"; 
+					$revjump .= "<$a href='thread.php?pid=".$post['id']."&pin=".$post['id']."&rev=$i#".$post['id']."'>".($i+1)."</$a> ";
+				}
 				$revjump .= "<a href='thread.php?pid=".$post['id']."#".$post['id']."'>".($i+1)."</a>";
 			}
 			else $revjump = "";
 			
-			$datetxt = "Posted on ".printdate($post['rtime'])."$extra Revision ".($post['rev']+1)." (Last edited by ".makeuserlink($post['lastedited']).": ".printdate($post['time']).") $revjump";
+			$datetxt = "Posted on ".printdate($post['rtime'])."$extra Revision ".($post['crev']+1)." (Last edited by ".makeuserlink($post['lastedited']).": ".printdate($post['time']).") $revjump";
 		}
-		else			
-			$datetxt = "Posted on ".printdate($post['time']).$extra;
+		else $datetxt = "Posted on ".printdate($post['time']).$extra;
 		
 		$inputmerge = $merge ? "<input type='checkbox' name='c_merge[]' value=".$post['id'].">" : "";
 		
@@ -1390,7 +1403,7 @@
 		
 		if (isset($_GET['lol'])){
 			return "<table class='main'><tr><td class='$theme'>
-			USER: ".makeuserlink($uid, $data)."<br/>
+			USER: ".makeuserlink($uid, $post)."<br/>
 			MESSAGE: ".$post['text']."<br/>
 			</td></tr></table>
 			";
@@ -1399,7 +1412,7 @@
 		return "
 		<table id='".$post['id']."' class='main content_$uid'>
 			<tr>
-				<td class='topbar1_$uid $theme' style='min-width: 200px; border-bottom: none'>$inputmerge".makeuserlink($uid, $data)."</td>
+				<td class='topbar1_$uid $theme' style='min-width: 200px; border-bottom: none'>$inputmerge".makeuserlink($uid, $post)."</td>
 				<td class='topbar2_$uid $theme w fonts' style='text-align: right'>
 				<table class='fonts' style='margin: 0px; border-spacing: 0px;'><tr><td><nobr>$datetxt</nobr></td><td class='w'></td><td><nobr>$controls</nobr></td></tr></table></td>
 			</tr>
@@ -1412,7 +1425,7 @@
 		
 		else return "
 			<tr id='".$post['id']."'>
-				<td class='head $theme' style='min-width: 200px;'>".makeuserlink($uid, $data)."</td>
+				<td class='head $theme' style='min-width: 200px;'>".makeuserlink($uid, $post)."</td>
 				<td class='head $theme w' style='text-align: right'>
 				<table class='fonts' style='margin: 0px; border-spacing: 0px;'><tr><td><nobr>$datetxt</nobr></td><td class='w'></td><td><nobr>$controls</nobr></td></tr></table></td>
 			</tr>
@@ -1426,10 +1439,13 @@
 		global $loguser, $sql;
 		
 		$posts = $sql->query("
-		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 as nolayout, p.nohtml as nohtml, p.nosmilies as nosmilies, NULL as utitle, u.name AS uname, u.displayname AS udname, u.namecolor AS ucolor, u.sex AS usex, u.powerlevel AS upowl
+		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, o.time rtime,
+		NULL title, u.name, u.displayname, u.namecolor, u.sex, u.powerlevel
 		FROM posts AS p
 		LEFT JOIN users AS u
 		ON p.user = u.id
+		LEFT JOIN posts_old AS o
+		ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
 		WHERE p.thread = $thread_id
 		ORDER BY p.id DESC
 		LIMIT ".$loguser['ppp']."
@@ -1474,16 +1490,9 @@
 				LIMIT 1
 			");
 			
-			/*		
-			$forum = $sql->fetchq("
-			SELECT f.id, f.name, f.powerlevel
-			FROM forums AS f
-			WHERE f.id = ".filter_int($thread['forum'])."
-			");
-			
 			if (!$pid)
 				$pid = $sql->resultq("SELECT id FROM posts WHERE thread = $lookup");
-			*/
+
 			if (!$pid) $pid = filter_int($data['pid']);
 			
 			// Rebuild $forum and $thread since everything expects it this way
@@ -1510,12 +1519,7 @@
 				'icon'		=> filter_string($data['icon']),
 				
 			);
-			
 
-		//	$thread['id'] = filter_int($thread['id']);
-		//	$forum['id'] = filter_int($forum['id']);
-
-			
 			// Error Handling
 			
 			if 		($thread['id'] && !$forum['id'])				$error_id = 4; # Thread in bad forum
@@ -1532,8 +1536,6 @@
 		}
 		
 		if ($error_id){
-			// Account for not knowing the post ID
-	//		if (!isset($pid)) $pid = 0;
 				switch ($error_id){
 					case 3:{
 						$thread['id'] = $lookup;
@@ -1565,13 +1567,13 @@
 		
 		$adminpages = array(
 			"admin.php"				=> "Main ACP",
+			"admin-updatethemes.php"=> "Update Themes",
 			"admin-threadfix.php" 	=> "Thread Fix",
 			"admin-userfix.php" 	=> "User Fix",
 			"admin-editforums.php" 	=> "Edit Forums",
 			"admin-editmods.php" 	=> "Edit Mods",
 			"admin-ipsearch.php" 	=> "IP Search",
 			"admin-quickdel.php" 	=> "?",
-			
 		);
 		if (powlcheck(5)) $adminpages["admin-deluser.php"] = "Delete User";
 			

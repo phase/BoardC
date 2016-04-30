@@ -136,29 +136,29 @@
 		'ip' => $user['lastip'],
 		'deleted' => 0,
 		'rev' => 0,
-		'text' => "This is a sample Text.<br/>and this is a <a href='about:blank'>sample Link</a>[quote=Some random programmer]Hello World![quote]No user here.[/quote][/quote]",
+		'text' => "Sample text.[quote=fhqwhgads]A sample quote, with a <a href='about:blank'>link</a>, for testing your layout[/quote]This is how your post will appear.",
 		'time' => ctime(),
 		'nolayout' => 0,
 		'nosmilies' => 0,
 		'nohtml' => 0,
-		'head' => $user['head'],
-		'sign' => $user['sign'],
+		//'head' => $user['head'],
+		//'sign' => $user['sign'],
 		'thread' => 0,
-		'uname' => $user['name'],
+		/*'uname' => $user['name'],
 		'udname' => $user['displayname'],
 		'ucolor' => $user['namecolor'],
 		'usex' => $user['sex'],
 		'upowl' => $user['powerlevel'],
 		'utitle' => $user['title'],
-	
+	*/
 		'postcur' => $user['posts'],
-		'posts' => $user['posts'],
+		/*'posts' => $user['posts'],
 		'since' => $user['since'],
-		'location' => $user['location'],
+		'location' => $user['location'],*/
 		'lastpost' => $user['posts'] ? max($lastpost[$user['id']]) : ctime(),
-		'lastview' => ctime()-$user['lastview'],
+		//'lastview' => ctime()-$user['lastview'],
 		'trev' => 0,
-		'rtime' => ctime(),
+		//'rtime' => ctime(),
 		'lastedited' => 0,
 		'avatar'	=> 0,
 	);
@@ -167,7 +167,7 @@
 	Profile for ".makeuserlink(false, $user, true)."
 	<table><tr><td class='w'>$field_txt</td><td valign='top'>$stats_txt</td></tr></table>
 				
-	".threadpost($sample, false, false, true)."
+	".threadpost($user+$sample, false, false, true)."
 	<br/>
 	<table class='main w'>
 		<tr><td class='head c'><small>User Controls</small></td></tr>
@@ -175,7 +175,7 @@
 			<td class='dim c'><small>
 				<a href='thread.php?user=$id'>Show posts</a> |
 				".($isadmin ? "<a href='editprofile.php?id=$id'>Edit user</a> | <a href='editavatars.php?id=$id'>Edit avatars</a> |" : "")."
-				<s>View threads by this user</s> |
+				<a href='forum.php?user=$id'>View threads by this user</a> |
 				<s>Send private message</s> |
 				<a href='rateuser.php?id=$id'>Rate user</a>
 			</td>
@@ -184,7 +184,7 @@
 			<td class='dim c'><small>
 				<a href='listposts.php?id=$id'>List posts by this user</a> |
 				<a href='postsbytime.php?id=$id'>Posts by time of day</a> |
-				<s>Posts by thread</s> |
+				<a href='postsbythread.php?id=$id'>Posts by thread</a> |
 				<a href='listposts.php?id=$id&fmode'>Posts by forum</a>
 			</small></td>
 		</tr>
