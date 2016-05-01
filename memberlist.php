@@ -36,7 +36,7 @@
 	
 
 	// uh no
-	if ($sexdo===NULL || $sortdo===NULL || (!$isadmin && $sortdo == 'lastip'))
+	if ($sexdo===NULL || $sortdo===NULL || (!$isadmin && $sortdo == 'lastip ASC'))
 		errorpage("Invalid selection.", false);
 	
 	// pagecount
