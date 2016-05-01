@@ -1063,7 +1063,7 @@
 		else
 			$links .= "<a href='login.php?logout'>Logout</a> - <a href='editprofile.php'>Edit profile</a> - <a href='editavatars.php'>Edit avatars</a> - <a href='shop.php'>Item shop</a>";
 		
-		$links2 = "<a href='index.php'>Main</a> - <a href='memberlist.php'>Memberlist</a> - <a href='online.php'>Online users</a><!-- | 
+		$links2 = "<a href='index.php'>Main</a> - <a href='memberlist.php'>Memberlist</a> - <a href='calendar.php'>Calendar</a> - <a href='online.php'>Online users</a><!-- | 
 		<a href='thread.php?id=1'>Test Thread</a>
 		<a href='thread.php?id=2'>Test Thread 2</a>
 		<a href='thread.php?id=5'>XSS Test</a>--><br/>
