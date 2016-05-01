@@ -17,7 +17,7 @@
 		WHERE t.user = $user";
 		
 		$userdata = $sql->fetchq("
-			SELECT u.name, u.displayname
+			SELECT u.name, u.displayname, u.threads
 			FROM users u
 			LEFT JOIN posts p ON u.id = p.user
 			WHERE u.id = $user
@@ -29,7 +29,7 @@
 		
 		// hack hack hack
 		$forum['name'] = "Threads by ".($userdata['displayname'] ? $userdata['displayname'] : $userdata['name']);
-		$forum['threads'] = $loguser['threads'];
+		$forum['threads'] = $userdata['threads'];
 		pageheader($forum['name']);
 		
 	}
