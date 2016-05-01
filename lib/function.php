@@ -1268,7 +1268,7 @@
 		// Reverse post color scheme
 		$theme = ($theme == "light") ? "dim" : "light";
 		
-		if (!isset($ismod)){
+		if (!isset($ismod) || isset($ismod_a)){
 			static $ismod_a;
 			if (!isset($ismod_a[$post['thread']])) $ismod_a[$post['thread']] = ismod($post['thread']); //useful when printing posts from different threads (ie: list posts)
 		
