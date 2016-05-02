@@ -43,41 +43,41 @@
 	unset ($newuser, $dayusers, $daythreads, $p, $k, $d, $x);
 	
 	// index page PM box
-	
-	$pm =  $sql->fetchq("
-	
-		SELECT  p.id pid, COUNT(p.id) pcount,p.time,
-				u.id,u.name,u.displayname,u.title,u.sex,u.powerlevel,u.namecolor
-		FROM pms p
-		LEFT JOIN users u ON p.user = u.id
-		WHERE p.userto = ".$loguser['id']."
-		ORDER by p.id DESC
-	
-	");
-	
-	if ($pm['pcount']){
-		$new = ""; // TEMP!
-		$newcount = 0; // TEMP!
-		$pm_txt = "You have ".$pm['pcount']." private message".($pm['pcount']==1 ? "" : "s	")." ($newcount new). <a href='private.php?act=view&id=".$pm['pid']."'>Last message</a> from ".makeuserlink(false, $pm)." on ".printdate($pm['time']);
-	}
-	else{
-		$new = "";
-		$pm_txt = "You have no private messages.";
-	}
-	
-	print "
-	<table class='main w'>
-		<tr><td class='head fonts c' colspan=2>Private messages</td></tr>
+	if ($loguser['id']){
+		$pm =  $sql->fetchq("
 		
-		<tr>
-			<td class='light c'>$new</td>
-			<td class='dim'>
-				<a href='private.php'>Private messages</a> -- $pm_txt
-			</td>
-		</tr>
-	</table><br/>
-	";
-	
+			SELECT  p.id pid, COUNT(p.id) pcount,p.time,
+					u.id,u.name,u.displayname,u.title,u.sex,u.powerlevel,u.namecolor
+			FROM pms p
+			LEFT JOIN users u ON p.user = u.id
+			WHERE p.userto = ".$loguser['id']."
+			ORDER by p.id DESC
+		
+		");
+		
+		if ($pm['pcount']){
+			$new = ""; // TEMP!
+			$newcount = 0; // TEMP!
+			$pm_txt = "You have ".$pm['pcount']." private message".($pm['pcount']==1 ? "" : "s	")." ($newcount new). <a href='private.php?act=view&id=".$pm['pid']."'>Last message</a> from ".makeuserlink(false, $pm)." on ".printdate($pm['time']);
+		}
+		else{
+			$new = "";
+			$pm_txt = "You have no private messages.";
+		}
+		
+		print "
+		<table class='main w'>
+			<tr><td class='head fonts c' colspan=2>Private messages</td></tr>
+			
+			<tr>
+				<td class='light c'>$new</td>
+				<td class='dim'>
+					<a href='private.php'>Private messages</a> -- $pm_txt
+				</td>
+			</tr>
+		</table><br/>
+		";
+	}
 	
 	$hidden = powlcheck(3) ? "" : "AND hidden=0";
 	$catsel = isset($_GET['cat']) ? "AND c.id=".filter_int($_GET['cat']) : "";
