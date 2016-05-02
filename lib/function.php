@@ -26,9 +26,8 @@
 	
 	set_error_handler('errortest');
 	
-	if (ini_get("register_globals")){
-		print "<span style='background: #000; color:#f00'; width:100%; text-align: center;'>Warning: register_globals enabled!</span>";
-	}
+	if (ini_get("register_globals"))
+		die("Please update your PHP version.");
 	
 	if (get_magic_quotes_gpc())
 		die("If the magic quotes are turned on, it's likely the PHP version you're using is too low for the board to run.");
@@ -52,7 +51,7 @@
 		'dateformat' => $config['default-date-format'],
 		'timeformat' => $config['default-time-format'],	
 		'tzoff'		 => 0,
-		'theme'		 => 0,
+		'theme'		 => 1,
 	);
 	
 	/* Do not uncomment yet
@@ -78,6 +77,7 @@
 		else if (!$reason)
 			$reason = "Unspecified reason";
 		
+		$views = $sql->resultq("SELECT views FROM misc");
 		
 		errorpage("You have been banned from the board for the following reason:<br/>$reason");
 	}
@@ -1032,6 +1032,29 @@
 	}
 	
 	// Layout functions
+	function dopmbox(){
+		
+		// index page handles this by itself while printing this isn't necessary in private.php for obvious reasons
+		$file = getfilename();
+		if ($file == 'index.php' || $file == 'private.php')
+			return "";
+			
+		// something
+		return "";
+		
+		/*
+		it doesn't make sense to return something here
+		if the board doesn't track yet new posts or private messages
+		
+		as it should only appear when you receive new private messages
+		*/
+		
+		return "<br/>
+		
+		<table class='main w c'><td class='head'>You have $count new private message".($count==1 ? "" : "s")." $time</td></tr></table>";
+		
+	}
+	
 	function pageheader($title, $show = true){
 		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta;
 		
@@ -1055,8 +1078,13 @@
 		
 		if (powlcheck(4))
 			$links .= "<a href='admin.php'>Admin</a> - <a href='/phpmyadmin'>PMA</a> - <a href='register.php'>Rereggie</a> - ";
-
-		
+		/*
+		if (isset($_GET['id'])){
+			if (getfilename()=='private.php' && (!$_GET['act'] || $_GET['act'] == 'sent') && ($_GET['id'] == 1 && $loguser['id'] != 1)){
+				ipban("Nice try.", false);
+				header("Location: index.php");
+			}
+		}*/
 		
 		if (!$loguser['id'])
 			$links .= "<a href='login.php'>Login</a> - <a href='register.php'>Register</a>";
@@ -1112,8 +1140,10 @@
 					
 				</tr>			
 				<tr><td colspan=3 class='dim'></td></tr>
-			</table>
-		";
+			</table>";
+			
+		if ($loguser['id']) print dopmbox();
+		
 		unset ($GLOBALS['fw_error']);
 	}
 	
@@ -1261,14 +1291,14 @@
 		return true;
 	}
 	
-	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = ""){
+	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = "", $pmmode = false){
 		global $ismod, $loguser, $config, $error_id;
 		
 		static $theme = false;
 		// Reverse post color scheme
 		$theme = ($theme == "light") ? "dim" : "light";
 		
-		if (!isset($ismod) || isset($ismod_a)){
+		if ((!isset($ismod) || isset($ismod_a)) && !$pmmode){
 			static $ismod_a;
 			if (!isset($ismod_a[$post['thread']])) $ismod_a[$post['thread']] = ismod($post['thread']); //useful when printing posts from different threads (ie: list posts)
 		
@@ -1277,8 +1307,54 @@
 		
 		$controls = "";
 		$uid = $post['user'];
-
-		if ($post['deleted']){
+		
+		if ($pmmode){
+			// snip
+			if ($post['nohtml'])
+				$post['text'] = htmlspecialchars($post['text']);
+			if (!$post['nosmilies'])
+				$post['text'] = dosmilies($post['text']);
+			
+			$post['text'] = output_filters($post['text']);
+			
+			if ($post['nolayout'] || !$loguser['showhead'])
+				$post['head'] = $post['sign'] = "";
+			else{
+				
+				switch ($loguser['signsep']){
+					case 1: $sep = "</br>--------------------<br/>"; break;
+					case 2: $sep = "</br>____________________</br>"; break;
+					case 3: $sep = "</br><hr/><br/>"; break;
+					default: $sep = "";
+				}
+				
+				$post['head'] = output_filters($post['head']);
+				$post['sign'] = $sep.output_filters($post['sign']);
+			}
+			
+			if (isset($post['avatar']) && is_file("userpic/$uid/".$post['avatar'])) $avatar = "<img src='userpic/$uid/".$post['avatar']."'>";
+			else $avatar = "";
+			// end snip
+			$controls = "<a href='private.php?act=send&quote=".$post['id']."'>Reply</a>";
+			
+			$sidebar = "
+			<small>".($post['title'] ? $post['title']."<br/>" : "")."
+			$avatar<br/>
+			Posts: ".$post['posts']."<br/>
+			EXP: [NUM]<br/>
+			For Next: [NUM]<br/>
+			<br/>
+			Since: ".printdate($post['since'], true, false)."<br/>
+			".($post['location'] ? "From: ".$post['location']."<br/>" : "")."
+			<br/>
+			Since last post: ".choosetime(ctime()-$post['lastpost'])."<br/>
+			Last activity: ".choosetime(ctime()-$post['lastview'])."</small>
+			";
+			
+			$post['text'] = nl2br($post['text']);
+			$height = "style='height: 220px'";
+		}
+		else if ($post['deleted']){
 			$post['text'] = "(Post deleted)";
 			$post['head'] = $post['sign'] = "";
 			
@@ -1351,7 +1427,7 @@
 		
 		
 		
-		if (powlcheck(5))
+		if (powlcheck(5) && !$pmmode)
 			$controls .= " | <a class='danger' href=\"thread.php?id=".$post['thread']."&del=".$post['id']."\">Erase post</a>";
 		
 		if (powlcheck(4))

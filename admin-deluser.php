@@ -40,6 +40,8 @@
 			
 			// doesn't take into consideration avatars in posts_old, but who cares
 			$c[] = $sql->query("UPDATE posts SET user=$dest,avatar=0 WHERE user = $id");
+			$c[] = $sql->query("UPDATE pms SET user=$dest,avatar=0 WHERE user = $id");
+			$c[] = $sql->query("UPDATE pms SET userto=$dest WHERE userto = $id");
 			$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
 			
 			$c[] = $sql->query("DELETE FROM ratings WHERE userfrom = $id OR userto = $id");

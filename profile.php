@@ -3,12 +3,12 @@
 	require "lib/function.php";
 	
 	$id = filter_int($_GET['id']);
-	
+	/*
 	if (isset($_GET['time'])){
 		print ctime()."<br/>".mktime(0,0,0,12,8,1997)."";
 		x_die();
 	}
-	
+	*/
 	$user = $sql->fetchq("
 	SELECT u.id id, u.name, u.displayname, u.title, u.powerlevel, u.sex, u.namecolor, u.icon, u.lastip, u.ban_expire, u.since,
 			u.head, u.sign, u.lastview, u.bio, u.posts, u.threads, u.homepage, u.homepage_name, u.email, u.twitter, u.facebook, u.youtube,
@@ -45,7 +45,7 @@
 	4 	=> "Administrator",
 	5 	=> "Sysadmin",
 	);
-	//errorpage("Under construction.", false);
+
 	$isadmin = powlcheck(4);
 	$totaldays = (ctime()-$user['since'])/86400;
 	$user['rating'] = $sql->resultq("SELECT AVG(rating) FROM ratings WHERE userto = $id"); 
@@ -141,24 +141,10 @@
 		'nolayout' => 0,
 		'nosmilies' => 0,
 		'nohtml' => 0,
-		//'head' => $user['head'],
-		//'sign' => $user['sign'],
 		'thread' => 0,
-		/*'uname' => $user['name'],
-		'udname' => $user['displayname'],
-		'ucolor' => $user['namecolor'],
-		'usex' => $user['sex'],
-		'upowl' => $user['powerlevel'],
-		'utitle' => $user['title'],
-	*/
 		'postcur' => $user['posts'],
-		/*'posts' => $user['posts'],
-		'since' => $user['since'],
-		'location' => $user['location'],*/
 		'lastpost' => $user['posts'] ? max($lastpost[$user['id']]) : ctime(),
-		//'lastview' => ctime()-$user['lastview'],
 		'trev' => 0,
-		//'rtime' => ctime(),
 		'lastedited' => 0,
 		'avatar'	=> 0,
 	);
@@ -176,7 +162,8 @@
 				<a href='thread.php?user=$id'>Show posts</a> |
 				".($isadmin ? "<a href='editprofile.php?id=$id'>Edit user</a> | <a href='editavatars.php?id=$id'>Edit avatars</a> |" : "")."
 				<a href='forum.php?user=$id'>View threads by this user</a> |
-				<s>Send private message</s> |
+				<a href='private.php?act=send&id=$id'>Send private message</a> |
+				".($isadmin && $id!=1 ? "<a href='private.php?id=$id'>View private messages</a> |" : "")."
 				<a href='rateuser.php?id=$id'>Rate user</a>
 			</td>
 		</tr>

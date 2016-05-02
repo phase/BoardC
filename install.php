@@ -88,7 +88,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.18",
+		dialog(	"This will setup BoardC Pre-Release v0.20",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -215,6 +215,20 @@ CREATE TABLE `hits` (
   `user` int(32) NOT NULL DEFAULT '0',
   `forum` int(32) NOT NULL DEFAULT '0',
   `referer` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `pms` (
+  `id` int(32) NOT NULL,
+  `name` text NOT NULL,
+  `title` text NOT NULL,
+  `user` int(32) NOT NULL,
+  `userto` int(32) NOT NULL,
+  `time` int(32) NOT NULL,
+  `text` text NOT NULL,
+  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
+  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
+  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
+  `avatar` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts` (
@@ -401,6 +415,8 @@ ALTER TABLE `jstrap`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `hits`
   ADD PRIMARY KEY (`id`);
+ALTER TABLE `pms`
+  ADD PRIMARY KEY (`id`);
 ALTER TABLE `posts`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `posts_old`
@@ -438,6 +454,8 @@ ALTER TABLE `hits`
 ALTER TABLE `ipbans`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `jstrap`
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `pms`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `posts`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
