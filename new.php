@@ -3,18 +3,20 @@
 	
 	require "lib/function.php";
 	
-	if 		(!isset($_GET['act']))		errorpage("No action specified.");
-	else if ($bot || $proxy || $tor)	errorpage("Fuck off.");
-	else if (!$loguser['id'])			errorpage("You need to be logged in to do that.");
-	else if ($loguser['powerlevel']<0)	errorpage("Banned users aren't allowed to do this.");
+	if 		(!isset($_GET['act']))				errorpage("No action specified.");
+	else if ($bot || $proxy || $tor)			errorpage("Fuck off.");
+	else if (!$loguser['id'])					errorpage("You need to be logged in to do that.");
+	else if ($loguser['powerlevel']<0)			errorpage("Banned users aren't allowed to do this.");
+	else if (filter_bool($miscdata['noposts']))	errorpage("Posting has been disabled temporarily.");
 	
+	$id = filter_int($_GET['id']);
 	
 	if ($_GET['act'] == 'newreply'){
 
-		if (!isset($_GET['id']))
+		if (!$id)
 			errorpage("No thread ID specified");
 		
-		$lookup = filter_int($_GET['id']);
+		$lookup = $id;
 		$pid = filter_int($_GET['pid']);
 		$quote = filter_int($_GET['quote']);
 		
@@ -88,8 +90,12 @@
 				$sql->query("UPDATE forums SET posts = (posts+1) WHERE id = ".$thread['forum']);
 				$sql->query("UPDATE misc SET posts = posts+1");
 				$sql->query("UPDATE users SET posts = (posts+1), coins=coins+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
+				$sql->query("INSERT INTO new_posts () VALUES ()");
 			}
 			
+			$pid = $sql->query("SELECT MAX(id) FROM posts");
+			update_last_post($thread['id'], array('id' => $thread['id'], 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
+
 			if ($sql->finish($go)) errorpage("Successfully posted the reply.", false);
 			else errorpage("Couldn't post the reply.", false);
 		}
@@ -107,24 +113,13 @@
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				//'head' => $loguser['head'],
-				//'sign' => $loguser['sign'],
 				'thread' => $thread['id'],
-				/*'uname' => $loguser['name'],
-				'udname' => $loguser['displayname'],
-				'ucolor' => $loguser['namecolor'],
-				'usex' => $loguser['sex'],
-				'upowl' => $loguser['powerlevel'],
-				'utitle' => $loguser['title'],
-				*/
 				'postcur' => $loguser['posts']+1,
 				'posts' => $loguser['posts']+1,
-				//'since' => $loguser['since'],
-				//'location' => $loguser['location'],
 				'lastpost' => ctime(),
 				'lastview' => ctime(),
 				'avatar' => filter_int($_POST['avatar']),
-				
+				'new'	=> 0
 			);
 			print "<table class='main w c'>
 			<tr><td class='head' style='border-bottom: none;'>Post Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true);
@@ -163,7 +158,7 @@
 	else if ($_GET['act'] == "newthread"){
 		
 
-		if (!isset($_GET['id']))
+		if (!$id)
 			errorpage("No forum ID specified");
 		
 		
@@ -171,7 +166,7 @@
 		$forum = $sql->fetchq("
 		SELECT f.id, f.name, f.powerlevel, f.theme
 		FROM forums AS f
-		WHERE f.id = ".filter_int($_GET['id'])."
+		WHERE f.id = $id
 		");
 		
 		if (!isset($forum['id']))
@@ -211,11 +206,15 @@
 			
 			$c[] = $sql->execute($addreply, array(input_filters($msg), ctime(), $fid, $loguser['id'], 0, 0, filter_int($_POST['nohtml']), filter_int($_POST['nosmilies']), filter_int($_POST['nolayout']), filter_int($_POST['avatar']) ));
 
-			$sql->query("UPDATE forums SET threads = (threads+1), posts=(posts+1) WHERE id = ".filter_int($_GET['id']));
+			$sql->query("UPDATE forums SET threads = (threads+1), posts=(posts+1) WHERE id = $id");
 			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
 			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
 			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
+			$sql->query("INSERT INTO new_posts () VALUES ()");
+			
+			update_last_post($fid, array('id' => $fid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
 
+			
 			if ($sql->finish($c)) errorpage("The thread has been created.", false);
 			else errorpage("Couldn't create the thread. An error occured.", false);
 			
@@ -235,23 +234,13 @@
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				//'head' => $loguser['head'],
-				//'sign' => $loguser['sign'],
-				'thread' => $_GET['id'],
-				/*'uname' => $loguser['name'],
-				'udname' => $loguser['displayname'],
-				'ucolor' => $loguser['namecolor'],
-				'usex' => $loguser['sex'],
-				'upowl' => $loguser['powerlevel'],
-				'utitle' => $loguser['title'],
-				*/
+				'thread' => $id,
 				'postcur' => $loguser['posts']+1,
 				'posts' => $loguser['posts']+1,
-				//'since' => $loguser['since'],
-				//'location' => $loguser['location'],
 				'lastpost' => ctime(),
 				'lastview' => ctime(),
 				'avatar' => filter_int($_POST['avatar']),
+				'new'	=> 0
 			);
 			print "<table class='main w'>
 			<tr><td class='head c' colspan=2>Thread Preview</td></tr>
@@ -285,7 +274,7 @@
 		
 		print "
 		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - New Thread<br/>
-		<form action='new.php?act=newthread&id=".$_GET['id']."'  method='POST'>
+		<form action='new.php?act=newthread&id=$id'  method='POST'>
 		
 			<table class='main'>
 				<tr>
@@ -341,13 +330,297 @@
 		</form>
 		";
 	}
+	
+	else if ($_GET['act'] == "newpoll"){
+		
+		// here it goes
+		// the first time \0 is used as a separator
+
+		if (!$id)
+			errorpage("No forum ID specified");
+		
+		
+		
+		$forum = $sql->fetchq("
+		SELECT f.id, f.name, f.powerlevel, f.theme
+		FROM forums AS f
+		WHERE f.id = $id
+		");
+		
+		if (!isset($forum['id']))
+			errorpage("Invalid forum ID");
+		if (!powlcheck($forum['powerlevel']))
+			errorpage("You're not allowed to create polls in this restricted forum");
+		
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		pageheader($forum['name']." - New Poll");
+		
+		// Load previously sent or defaults		
+		$name = isset($_POST['name']) ? $_POST['name'] : "";
+		$title = isset($_POST['title']) ? $_POST['title'] : "";
+		$msg = isset($_POST['message']) ? $_POST['message'] : "";
+		$briefing = isset($_POST['briefing']) ? $_POST['briefing'] : "";
+		$addopt = filter_int($_POST['addopt']) ? filter_int($_POST['addopt']) : 1;
+		
+		
+		
+		if (filter_string($_POST['icon_c'])) 	$icon = $_POST['icon_c'];
+		else if (filter_string($_POST['icon'])) $icon = $_POST['icon'];
+		else 									$icon = 0;
+		
+
+		if (isset($_POST['submit'])){
+			
+			if (!filter_string($name))
+				errorpage("You have left the thread name empty!", false);
+			
+			if (!filter_string($title))
+				errorpage("You have left the question empty!", false);
+			
+			if (!filter_string($msg))
+				errorpage("You've left the message blank!", false);
+			
+			if (!isset($_POST['chtext']))
+				errorpage("You haven't specified the options!", false);
+			
+			
+			$sql->start();
+			
+			// strike #1 for concatenation of options with the NULL value
+			$title = input_filters($title);
+			$title.= "\0".input_filters($briefing);
+			$title.= "\0".filter_int($_POST['multivote']);
+			
+			foreach($_POST['chtext'] as $i => $chtext){
+				if (isset($_POST['remove'][$i]) || !$chtext) continue;
+				$title .= "\0".input_filters($chtext)."\0".input_filters($_POST['chcolor'][$i]);
+			}
+			//errorpage("Unfinished", false);
+			
+			$newthread = $sql->prepare("INSERT INTO threads (name, title, time, forum, user, icon, ispoll) VALUES (?,?,?,?,?,?,1)");
+
+			$c[] = $sql->execute($newthread, array(input_filters($name), $title, ctime(), $forum['id'], $loguser['id'], input_filters($icon) ));
+			$fid = $sql->resultq("SELECT MAX(id) FROM threads");
+			
+			$addreply = $sql->prepare("INSERT INTO `posts` (`text`, `time`, `thread`, `user`, `rev`, `deleted`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?,?,?)");
+			
+			$c[] = $sql->execute($addreply, array(input_filters($msg), ctime(), $fid, $loguser['id'], 0, 0, filter_int($_POST['nohtml']), filter_int($_POST['nosmilies']), filter_int($_POST['nolayout']), filter_int($_POST['avatar']) ));
+
+			$sql->query("UPDATE forums SET threads = (threads+1), posts=(posts+1) WHERE id = $id");
+			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
+			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
+			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
+			$sql->query("INSERT INTO new_posts () VALUES ()");
+			update_last_post($fid, array('id' => $fid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
+			
+			if ($sql->finish($c)) errorpage("The poll has been created.", false);
+			else errorpage("Couldn't create the poll. An error occured.", false);
+			
+			
+		}
+		
+
+		$choice_txt = "";
+		$choice_out = ""; // this is actually for the preview page, but might as well build this here
+
+		$n = 1;
+
+		if (isset($_POST['chtext'])){
+			// build options from array, delete too
+			foreach($_POST['chtext'] as $i => $chtext){
+				if (isset($_POST['remove'][$i]) || !$chtext) continue;
+				$choice_txt .= "
+				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext)."\" type='text'> &nbsp;
+				Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($_POST['chcolor'][$i])."\" type='text'> &nbsp;
+				<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+				
+				$choice_out .= "
+				<tr>
+					<td class='light' width='20%'>$chtext</td>
+					<td class='dim' width='60%'><table bgcolor='".$_POST['chcolor'][$i]."' cellpadding='0' cellspacing='0' width='50%'><tr><td>&nbsp;</td></tr></table></td>
+					<td class='light c' width='20%'>? votes, ??.?%</td>
+				</tr>
+				";
+				
+				$n++;
+			}
+		}
+		
+		if (isset($_POST['changeopt'])){
+			// add set option number
+			for ($n;$n<$addopt;$n++)
+				$choice_txt .= "
+				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+				Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
+				<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+		}
+		$choice_txt .= "
+			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+			Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
+			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+		
+		if (isset($_POST['preview'])){
+
+			$data = array(
+				'id' => $sql->resultq("SELECT MAX(id) FROM posts")+1,
+				'user' => $loguser['id'],
+				'ip' => $loguser['lastip'],
+				'deleted' => 0,
+				'rev' => 0,
+				'text' => $msg,
+				'time' => ctime(),
+				'nolayout' => filter_int($_POST['nolayout']),
+				'nosmilies' => filter_int($_POST['nosmilies']),
+				'nohtml' => filter_int($_POST['nohtml']),
+				'thread' => $id,
+				'postcur' => $loguser['posts']+1,
+				'posts' => $loguser['posts']+1,
+				'lastpost' => ctime(),
+				'lastview' => ctime(),
+				'avatar' => filter_int($_POST['avatar']),
+				'new'	=> 0
+			);
+			print "
+			<table class='main w'>
+				<tr><td class='head c' colspan=3>Poll Preview</td></tr>
+				
+				<tr><td colspan='3' class='dark c'><b>$title</b></td></tr>
+				
+				<tr><td class='dim fonts' colspan='3'>$briefing</td></tr>
+				
+				$choice_out
+				
+				<tr>
+					<td class='dim fonts' colspan='3'>Multi-voting is ".(filter_int($_POST['multivote']) ? "enabled" : "disabled").".</td>
+				</tr>
+			</table>
+			
+			<br/>
+			<table class='main w'>
+			<tr><td class='head c' colspan=3>Post Preview</td></tr>
+			<tr><td class='light c' style='border-bottom: none'>".($icon ? "<img src='$icon'>" : "&nbsp;")."</td><td class='dim w' style='border-bottom: none' colspan=2>$name</td></tr></table>
+			".threadpost(array_merge($loguser,$data), false, false, true);
+
+		}
+		
+		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
+		$nohtmlc = isset($_POST['nohtml']) ? "checked" : "";
+		$nolayoutc = isset($_POST['nolayout']) ? "checked" : "";
+		
+		
+		$vote_sel[filter_int($_POST['multivote'])] = "checked";
+		
+		
+		
+		$icons = getthreadicons();
+		$icon_sel[$icon] = "checked";
+		
+		$icon_txt = "";
+		$i = 0;
+
+		foreach($icons as $link){
+			if ($i == 10){
+				$i = 0;
+				$icon_txt .= "<br/>";
+			}
+			$link = trim($link);
+			$icon_txt .= "<nobr><input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
+			$i++;
+		}
+		$icon_txt .= "<br/>
+		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value=\"".filter_string($_POST['icon_c'])."\"></nobr>";
+		
+		
+		print "
+		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - New Thread<br/>
+		<form action='new.php?act=newpoll&id=$id'  method='POST'>
+		
+			<table class='main'>
+				<tr>
+					<td colspan=2 class='head c'>
+						New Poll
+					</td>
+				</tr>
+				
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Poll icon:</b>
+					</td>
+					<td class='dim'>
+						$icon_txt
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Poll title:</b>
+					</td>
+					<td class='dim'>
+						<input style='width: 400px;' type='text' name='name' value=\"".htmlspecialchars($name)."\">
+					</td>
+				</tr>
+				
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Question:</b>
+					</td>
+					<td class='dim'>
+						<input style='width: 400px;' type='text' name='title' value=\"".htmlspecialchars($title)."\">
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Briefing:</b>
+					</td>
+					<td class='dim'>
+						<textarea name='briefing' rows='2' cols='80' wrap='virtual'>".htmlspecialchars($briefing)."</textarea>
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Multi-voting:</b>
+					</td>
+					<td class='dim'>
+						<input type='radio' name='multivote' value=0 ".filter_string($vote_sel[0]).">Disabled&nbsp;&nbsp;&nbsp;&nbsp;
+						<input type='radio' name='multivote' value=1 ".filter_string($vote_sel[1]).">Enabled
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Choices:</b>
+					</td>
+					<td class='dim'>
+						$choice_txt
+						<input type='submit' name='changeopt' value='Submit changes'> and show <input type='text' name='addopt' value='$addopt' size='4' maxlength='1'> options
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Post:</b>
+					</td>
+					<td class='light' style='border-right: none'>
+						<textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'>".htmlspecialchars($msg)."</textarea>
+					</td>
+				</tr>
+				<tr>
+					<td colspan=3 class='dim'>
+						<input type='submit' value='Submit poll' name='submit'>&nbsp;
+						<input type='submit' value='Preview poll' name='preview'>&nbsp;
+						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
+						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
+						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
+						".getavatars($loguser['id'], filter_int($_POST['avatar']))."
+				</td></tr>
+			</table>
+		</form>
+		";
+	}
 
 	else if ($_GET['act'] == 'editpost'){
-		
-		if (!isset($_GET['id']))
+
+		if (!$id)
 			errorpage("No post ID specified");
 		
-		$pid = filter_int($_GET['id']);
+		$pid = $id;
 		$lookup = getthreadfrompost($pid);
 		
 		$tdata = getthreadinfo($lookup, $pid);
@@ -456,32 +729,15 @@
 			$lastpost = $data[1];
 			
 			$data = array(
-				/*'id' => $post['id'],
-				'user' => $post['user'],
-				'ip' => $post['ip'],*/
 				'deleted' => 0,
-				//'time' => $post['time'],
 				'rev' => $post['rev']+1,
 				'text' => filter_string($_POST['message']),
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				//'head' => $post['head'],
-				//'sign' => $post['sign'], 
 				'thread' => $thread['id'],
-				/*'uname' => $post['uname'],
-				'udname' => $post['udname'],
-				'ucolor' => $post['ucolor'],
-				'usex' => $post['usex'],
-				'upowl' => $post['upowl'],
-				'utitle' => $post['utitle'],
-				*/
 				'postcur' => array_search($post['id'], $postids[$post['user']])+1,
-				/*'posts' => $post['posts'],
-				'since' => $post['since'],
-				'location' => $post['location'],*/
 				'lastpost' => max($lastpost[$post['user']]),
-				//'lastview' => ctime()-$post['lastview'],
 				'crev' => $post['rev']+1,
 				'rtime' => ctime(),
 				'lastedited' => $loguser['id'],

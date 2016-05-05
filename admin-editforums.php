@@ -43,6 +43,8 @@
 					errorpage("wrong forum");
 				
 				$sql->query("UPDATE threads SET forum=".filter_int($_POST['forumjump2'])." WHERE forum=$id");
+				$sql->query("UPDATE forums SET lastpostid = NULL WHERE id = $id");
+				update_last_post(filter_int($_POST['forumjump2']), false, true);
 				errorpage("Threads moved!");
 			}
 			$output = "

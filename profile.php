@@ -10,22 +10,17 @@
 	}
 	*/
 	$user = $sql->fetchq("
-	SELECT u.id id, u.name, u.displayname, u.title, u.powerlevel, u.sex, u.namecolor, u.icon, u.lastip, u.ban_expire, u.since,
+	SELECT  $userfields, u.title, u.lastip, u.ban_expire, u.since,
 			u.head, u.sign, u.lastview, u.bio, u.posts, u.threads, u.homepage, u.homepage_name, u.email, u.twitter, u.facebook, u.youtube,
 			u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins,
 			p.time, t.id tid, t.name tname, t.forum tforum, f.name fname,
 			r.*
 	FROM users AS u
-	LEFT JOIN posts AS p
-	ON u.id=p.user
-	LEFT JOIN threads AS t
-	ON p.thread=t.id
-	LEFT JOIN forums AS f
-	ON t.forum=f.id
-	LEFT JOIN user_avatars AS a
-	ON u.id = a.user
-	LEFT JOIN users_rpg AS r
-	ON u.id = r.id
+	LEFT JOIN posts AS p ON u.id=p.user
+	LEFT JOIN threads AS t ON p.thread=t.id
+	LEFT JOIN forums AS f ON t.forum=f.id
+	LEFT JOIN user_avatars AS a ON u.id = a.user
+	LEFT JOIN users_rpg AS r ON u.id = r.id
 	WHERE u.id=$id
 	ORDER BY p.time DESC");
 	
@@ -131,29 +126,29 @@
 
 	
 	$sample = array(
-		'id' => 0,
-		'user' => $id,
-		'ip' => $user['lastip'],
-		'deleted' => 0,
-		'rev' => 0,
-		'text' => "Sample text.[quote=fhqwhgads]A sample quote, with a <a href='about:blank'>link</a>, for testing your layout[/quote]This is how your post will appear.",
-		'time' => ctime(),
-		'nolayout' => 0,
+		'id' 		=> 0,
+		'user' 		=> $id,
+		'ip'		=> $user['lastip'],
+		'deleted'	=> 0,
+		'rev' 		=> 0,
+		'text' 		=> "Sample text.[quote=fhqwhgads]A sample quote, with a <a href='about:blank'>link</a>, for testing your layout[/quote]This is how your post will appear.",
+		'time' 		=> ctime(),
+		'nolayout' 	=> 0,
 		'nosmilies' => 0,
-		'nohtml' => 0,
-		'thread' => 0,
-		'postcur' => $user['posts'],
-		'lastpost' => $user['posts'] ? max($lastpost[$user['id']]) : ctime(),
-		'trev' => 0,
-		'lastedited' => 0,
+		'nohtml' 	=> 0,
+		'thread' 	=> 0,
+		'lastpost' 	=> $user['posts'] ? max($lastpost[$user['id']]) : ctime(),
+		'trev' 		=> 0,
+		'lastedited'=> 0,
 		'avatar'	=> 0,
+		'new'		=> 0,
 	);
 
 	print "
 	Profile for ".makeuserlink(false, $user, true)."
 	<table><tr><td class='w'>$field_txt</td><td valign='top'>$stats_txt</td></tr></table>
 				
-	".threadpost($user+$sample, false, false, true)."
+	".threadpost($user+$sample, false, false, true, false, true)."
 	<br/>
 	<table class='main w'>
 		<tr><td class='head c'><small>User Controls</small></td></tr>

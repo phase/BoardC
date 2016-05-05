@@ -1,12 +1,31 @@
 <?php
 	require "lib/function.php";
 	
+	if (isset($_GET['markforumread'])){
+		if ($loguser['id']){
+			
+			$val = isset($_GET['r']) ? 1 : 0;
+			
+			if (filter_int($_GET['forumid'])){
+				$join = "LEFT JOIN posts p ON n.id = p.id LEFT JOIN threads t ON p.thread = t.id";
+				$where = "WHERE t.forum = ".intval($_GET['forumid']);
+			}
+			else{
+				$join = "";
+				$where = "";
+			}
+			
+			$sql->query("UPDATE new_posts n $join SET n.user".$loguser['id']."= $val $where");
+		}
+		
+		header("Location: ".(filter_int($_GET['forumid']) ? "forum.php?id=".$_GET['forumid'] : "index.php"));
+	}	
+	
 	pageheader($config['board-name'], false);
 	
 	// Header 2
 	
-	//$misc = $sql->fetchq("SELECT threads, posts FROM misc");
-	
+
 	$newuser = $sql->fetchq("SELECT COUNT(id) as count, MAX(id) as maxid FROM users");
 	$d = ctime()-86400;
 	
@@ -46,19 +65,18 @@
 	if ($loguser['id']){
 		$pm =  $sql->fetchq("
 		
-			SELECT  p.id pid, COUNT(p.id) pcount,p.time,
-					u.id,u.name,u.displayname,u.title,u.sex,u.powerlevel,u.namecolor
+			SELECT  p.id pid, COUNT(p.id) pcount,p.time, SUM(p.new) new,
+					$userfields
 			FROM pms p
 			LEFT JOIN users u ON p.user = u.id
 			WHERE p.userto = ".$loguser['id']."
 			ORDER by p.id DESC
-		
+			
 		");
 		
 		if ($pm['pcount']){
-			$new = ""; // TEMP!
-			$newcount = 0; // TEMP!
-			$pm_txt = "You have ".$pm['pcount']." private message".($pm['pcount']==1 ? "" : "s	")." ($newcount new). <a href='private.php?act=view&id=".$pm['pid']."'>Last message</a> from ".makeuserlink(false, $pm)." on ".printdate($pm['time']);
+			$new = $pm['new'] ? "<img src='images/status/new.gif'>" : "";
+			$pm_txt = "You have ".$pm['pcount']." private message".($pm['pcount']==1 ? "" : "s	")." (".$pm['new']." new). <a href='private.php?act=view&id=".$pm['pid']."'>Last message</a> from ".makeuserlink(false, $pm)." on ".printdate($pm['time']);
 		}
 		else{
 			$new = "";
@@ -81,12 +99,21 @@
 	
 	$hidden = powlcheck(3) ? "" : "AND hidden=0";
 	$catsel = isset($_GET['cat']) ? "AND c.id=".filter_int($_GET['cat']) : "";
-	// change to fetch,true to save queries on forummods fetch
+
+
 	$forums = $sql->query("
-	SELECT f.id id, f.name name, title, hidden, threads, posts, category, c.name catname
-	FROM forums as f
-	LEFT JOIN categories AS c
-	ON category = c.id
+	SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime, c.name catname, n.user".$loguser['id']." new, $userfields
+	FROM forums f
+	LEFT JOIN categories c ON f.category = c.id
+	LEFT JOIN users u ON f.lastpostuser = u.id
+	LEFT JOIN new_posts n ON n.id =
+		(
+			SELECT MIN(n.id) FROM new_posts n
+			LEFT JOIN posts p ON n.id = p.id
+			LEFT JOIN threads t ON p.thread = t.id
+			WHERE n.user".$loguser['id']." = 1
+			AND t.forum = f.id
+		)
 	WHERE (f.powerlevel<=".$loguser['powerlevel']." AND c.powerlevel <=".$loguser['powerlevel']." $hidden $catsel)
 	ORDER BY c.ord , f.ord, f.id
 	");
@@ -94,10 +121,12 @@
 	if (!$forums)
 		print "<table class='main w c'><tr><td class='dark'>The admin hasn't configured the forum list yet.<br/>Come back later</td></tr></table>";
 	else{
+		
+		$forummods = $sql->fetchq("SELECT f.fid, $userfields FROM forummods f LEFT JOIN users u ON f.uid = u.id", true, PDO::FETCH_ASSOC|PDO::FETCH_GROUP);
+		//d($forummods);
+		
 		print "
 		<table class='main w nb'>
-<!--			<tr><td colspan=5 class='head b'>Forum list</td></tr> -->
-			
 			<tr>
 				<td class='head'>&nbsp;</td>
 				<td class='head w c'>Forum</td>
@@ -116,28 +145,24 @@
 				print "<tr><td class='dark c b' colspan=5><a href='index.php?cat=$cat'>".$forum['catname']."</a></td></tr>";
 			}
 			
-			$postdata = $sql->fetchq("
-				SELECT posts.id as id, posts.time as time, posts.user as user, posts.thread as thread, threads.id as tid, threads.forum as tforum
-				FROM `posts`
-				INNER JOIN threads
-				ON posts.thread=threads.id
-				WHERE threads.forum = ".$forum['id']."
-				ORDER BY `time` DESC
-				LIMIT 1");
-				
-			
-			if ($postdata) $lastpost = "<nobr>".printdate($postdata['time'])."<br/><small><nobr> by ".makeuserlink($postdata['user'])." <a href='thread.php?pid=".$postdata['id']."#".$postdata['id']."'><img src='images/status/getlast.png'></a></nobr></small>";
+			if ($forum['lastpostid']) $lastpost = "<nobr>".printdate($forum['lastposttime'])."<br/><small><nobr> by ".makeuserlink(false, $forum)." <a href='thread.php?pid=".$forum['lastpostid']."#".$forum['lastpostid']."'><img src='images/status/getlast.png'></a></nobr></small>";
 			else $lastpost = "Nothing";
+			
+			for ($i=0;isset($forummods[$forum['fid']][$i]); $i++)
+				$mods[] = makeuserlink(false, $forummods[$forum['fid']][$i]);
+			
+			$new = $forum['new'] ? "<img src='images/status/new.gif'>" : ""; 
 			
 			print "
 			<tr>
-				<td class='light c'>&nbsp;</td>
-				<td class='dim br'><a href='forum.php?id=".$forum['id']."'>".$forum['name']."</a><small><br/>".$forum['title']."<br/>".doforummods($forum['id'])."</small></td>
+				<td class='light c'>$new</td>
+				<td class='dim br'><a href='forum.php?id=".$forum['fid']."'>".$forum['fname']."</a><small>".($forum['title'] ? "<br/>".$forum['title'] : "")."<br/>".(isset($mods) ? "(Moderated by: ".implode(", ", $mods).")" : "")."</small></td>
 				<td class='light c'>".$forum['threads']."</td>
 				<td class='light c'>".$forum['posts']."</td>
 				<td class='dim c'>$lastpost</td>
 			</tr>";
 			
+			$mods = NULL;
 		}
 		
 		print "</table>";

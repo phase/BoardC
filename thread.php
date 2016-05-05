@@ -52,10 +52,8 @@
 		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
 		t.id tid, t.name tname, f.id fid, f.powerlevel fpowl
 		FROM posts AS p
-		LEFT JOIN threads AS t
-		ON p.thread = t.id
-		LEFT JOIN forums AS f
-		ON t.forum = f.id
+		LEFT JOIN threads AS t	ON p.thread = t.id
+		LEFT JOIN forums AS f ON t.forum = f.id
 		LEFT JOIN posts_old AS o
 		ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
 		WHERE p.user = $usermode
@@ -170,8 +168,85 @@
 	/*
 	Reminder: the only two error_ids that can get here are 3 and 4
 	*/
+	
+	if (filter_int($_GET['vote'])){
 
-	if (isset($_GET['tkill'])){
+		if ($thread['ispoll'] && $loguser['id']){
+			
+			$done = $sql->resultq("SELECT id FROM poll_votes WHERE user = ".$loguser['id']." AND thread = $lookup AND vote = ".filter_int($_GET['vote']));
+			
+			if ($done){// delete your vote when clicking on something you already voted on
+				$sql->query("DELETE from poll_votes WHERE id = $done");
+				header("Location: thread.php?id=$lookup");
+			}
+			else if (!$thread['polldata'][2]) // multiple votes flag
+				$sql->query("DELETE from poll_votes WHERE user = ".$loguser['id']." AND thread = $lookup");
+
+			
+			$sql->query("INSERT INTO poll_votes (user, thread, vote) VALUES (".$loguser['id'].", $lookup, ".filter_int($_GET['vote']).")");
+		}
+
+		header("Location: thread.php?id=$lookup");
+	}
+	else if (isset($_GET['votes'])){
+		
+		if (!powlcheck(4) || !$thread['ispoll']) header("Location: thread.php?id=$lookup");
+		
+		
+		$votes = $sql->query("
+			SELECT p.vote, u.id, u.name, u.displayname, u.namecolor, u.powerlevel, u.sex, u.icon
+			FROM poll_votes p
+			LEFT JOIN users u ON p.user = u.id
+			WHERE p.thread = $lookup
+		");
+		
+		$txt = "";
+		$total = 0;
+		$votedb = array(0);
+		$txtdb = array("");
+		
+		
+		while ($vote = $sql->fetch($votes)){
+			$votedb[$vote['vote']] = filter_int($votedb[$vote['vote']]) + 1;
+			$txtdb[$vote['vote']][] = makeuserlink(false, $vote, true);
+			$total++;
+		}
+		
+		// text
+		for($i=3,$n=1;isset($thread['polldata'][$i]);$i+=2,$n++)
+			$txt .= "
+				<tr>
+					<td class='light c'><b>".$thread['polldata'][$i]."</b></td>
+					<td class='dim c'>".filter_int($votedb[$n])."</td>
+					<td class='dim c'>".(isset($txtdb[$n]) ? implode(", ", $txtdb[$n]) : "None")."</td>
+				</tr>
+			";
+		
+		pageheader($thread['title']." - Poll votes");
+		
+		print "<br/><center><table class='main'>
+		
+		<tr><td class='head c' colspan=3>Poll votes for <b>".$thread['title']."</b></td></tr>
+		
+		<tr>
+			<td class='head c'>Option</td>
+			<td class='head c'>Votes</td>
+			<td class='head c'>Users</td>
+		</tr>
+		$txt
+		<tr>
+			<td class='dark c'><i><b>Total votes<b></i></td>
+			<td class='dark c'>$total</td>
+			<td class='dark c'>&nbsp;</td>
+		</tr>
+		<tr><td class='light c' colspan=3><a href='thread.php?id=$lookup'>Return to the poll</a></td></tr>
+		</table></center>
+		";
+		
+		pagefooter();
+		
+	}
+	else if (isset($_GET['tkill'])){
 		if (!powlcheck(5))
 			errorpage("Don't you know you shouldn't play with nuclear bombs?");
 		
@@ -185,7 +260,7 @@
 			//print $diff;
 			if (!$error_id)		$c[]  = $sql->query("UPDATE forums SET posts=(posts-$diff),threads=(threads-1) WHERE id=".$thread['forum']);
 								$c[]  = $sql->query("UPDATE misc SET posts=(posts-$diff),threads=(threads-1)");
-
+			update_last_post($forum['id'], false, true);
 			if ($sql->finish($c)) errorpage("Erased thread from the database!");
 			else errorpage("Couldn't delete the thread.");
 		}
@@ -220,7 +295,17 @@
 			if (!filter_string($_POST['newname']))
 				errorpage("You have left the thread name empty! (only the thread title is optional)", false);
 			
-			$sql->queryp("UPDATE threads SET name = ?, title = ? WHERE id = ".$lookup, array($_POST['newname'], $_POST['newtitle']));
+			if ($thread['ispoll']){
+				/*if (!filter_string($_POST['newtitle']))
+					errorpage("You have left the thread title empty!", false);
+			
+				$thread['polldata'][0] = input_filters($_POST['newtitle']);
+				$_POST['newtitle'] = implode("\0",$thread['polldata']);
+				*/
+				$sql->queryp("UPDATE threads SET name = ? WHERE id = ".$lookup, array(input_filters($_POST['newname'])));
+			}
+
+			else $sql->queryp("UPDATE threads SET name = ?, title = ? WHERE id = ".$lookup, array(input_filters($_POST['newname']), $_POST['newtitle']));
 			errorpage("The thread has been renamed.", false);
 			
 		}
@@ -235,12 +320,12 @@
 							<td class='light' style='width: 100px;'>Name:</td>
 							<td class='dim'><input style='width: 400px;' type='text' name='newname' value=\"".htmlspecialchars($rname)."\"></td>
 						</tr>
-						
+						".($thread['ispoll'] ? "" : "
 						<tr>
 							<td class='light'>Title:</td>
 							<td class='dim'><input style='width: 400px;' type='text' name='newtitle' value=\"".htmlspecialchars($rtitle)."\"></td>
-						</tr>
-						
+						</tr>"
+						)."
 						<tr><td class='dim' colspan=2><input type='submit' name='dorename' value='Rename'></td></tr>
 					</table>
 				</form>
@@ -271,7 +356,8 @@
 				$c[] = $sql->query("UPDATE forums SET threads=threads-1,posts=posts-".($thread['replies']+1)." WHERE id = ".$forum['id']);
 			
 			$c[] = $sql->query("UPDATE forums SET threads=threads+1,posts=posts+".($thread['replies']+1)." WHERE id = $newforum");
-			
+			update_last_post($forum['id'], false, true);
+			update_last_post($newforum, false, true);
 			if ($sql->finish($c)) errorpage("The thread has been moved.", false);
 			else errorpage("Couldn't move the thread.", false);
 		}
@@ -418,7 +504,8 @@
 					$x = "id IN (".implode(", ", $_POST['c_merge']).") AND";
 				}
 				$c[] = $sql->query("UPDATE posts SET thread=".filter_int($_POST['moveto'])." WHERE $x thread=$lookup");
-			
+				update_last_post($lookup);
+				update_last_post(filter_int($_POST['moveto']));
 				errorpage($sql->finish($c) ? "Posts moved!<br/><small>(Now run Thread Fix)</small>": "Couldn't move the posts.");
 				
 			}
@@ -439,10 +526,11 @@
 				}
 				// copied from minipostlist, slightly different query	
 					$posts = $sql->query("
-					SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 as nolayout, p.nohtml as nohtml, p.nosmilies as nosmilies, 0 as avatar, NULL as utitle, u.name AS uname, u.displayname AS udname, u.namecolor AS ucolor, u.sex AS usex, u.powerlevel AS upowl
-					FROM posts AS p
-					LEFT JOIN users AS u
-					ON p.user = u.id
+					SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, o.time rtime,
+					NULL title, $userfields welpwelp, n.user".$loguser['id']." new
+					FROM posts p
+					LEFT JOIN users u ON p.user = u.id
+					LEFT JOIN new_posts ON p.id = n.id
 					WHERE p.id IN (".implode(", ", $_POST['c_merge']).") AND thread=$lookup");
 					
 					$txt_mini = "<br/><table class='main w'><tr><td colspan=2 class='dark'>Posts to move:</td></tr>";
@@ -485,12 +573,10 @@
 			</table>";
 	}
 	
-
-	//$sql->query("UPDATE hits SET forum=".$forum['id']." WHERE ip='".$_SERVER['REMOTE_ADDR']."' ORDER BY time DESC LIMIT 1");
 	
 	pageheader($thread['name']);
 	
-	$newreply_txt = "<a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>";
+	$newreply_txt = "<a href='new.php?act=newpoll&id=".$forum['id']."'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>";
 	
 	if ($thread['closed']){
 		$newreply = "<img src='images/text/threadclosed.png'>";
@@ -531,12 +617,12 @@
 	// Massive query to fetch almost everything threadpost needs
 	$posts = $sql->query("
 	SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-	u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.since, u.location, u.lastview
+	n.user".$loguser['id']." new,
+	u.head, u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview
 	FROM posts AS p
-	LEFT JOIN users AS u
-	ON p.user = u.id
-	LEFT JOIN posts_old AS o
-	ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+	LEFT JOIN users AS u ON p.user = u.id
+	LEFT JOIN posts_old AS o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+	LEFT JOIN new_posts n ON p.id = n.id
 	WHERE p.thread = $lookup
 	ORDER BY p.id ASC
 	LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
@@ -549,11 +635,14 @@
 		$postids = $data[0];
 		$lastpost = $data[1];
 		unset ($data);
-		
+			
 		// Page numbers
 		$pagectrl = dopagelist($thread['replies']+1, $loguser['ppp'], "thread", $showmergecheckbox ? "&tmerge" : "");
 
 		print $pagectrl;
+		
+		if ($thread['ispoll'])
+			print poll_print($thread['polldata']);
 		
 		while ($post = $sql->fetch($posts)){
 
@@ -586,6 +675,13 @@
 					$sql->query("UPDATE misc SET posts=posts-1");
 					$sql->query("UPDATE users SET posts=posts-1 WHERE id=".$post['user']);
 					
+					if ($error_id != 3){
+						if ($thread['replies']==0 && !$error_id){// we're deleting the last post
+							$sql->query("DELETE FROM threads WHERE id = $lookup");
+							update_last_post($forum['id'], false, true);
+						}						
+						else update_last_post($lookup);
+					}
 					$sql->end();
 					continue;
 				}
@@ -593,12 +689,13 @@
 				if (filter_int($_GET['pin']) == $post['id'])
 					$post['deleted'] = false;
 				
-				//$post['trev'] = $post['rev']; //total revision
-				
 				// old version of post
 				if (isset($_GET['rev']) && filter_int($_GET['pid'])==$post['id'])
 					$post = array_replace($post, $sql->fetchq("SELECT text,rev crev,time,nohtml,nosmilies,nolayout,avatar FROM posts_old  WHERE pid = ".$post['id']." AND rev = ".filter_int($_GET['rev'])));
 			}
+			
+			if ($post['new'])
+				$set[] = $post['id'];
 
 			print threadpost($post, false, $showmergecheckbox);
 
@@ -607,6 +704,9 @@
 		
 		if ($showmergecheckbox)
 			print "</form>";
+		
+		if (isset($set))
+			$sql->query("UPDATE new_posts SET user".$loguser['id']." = 0 WHERE id IN (".implode(", ", $set).")");
 	}
 	else print "
 		<center><table class='main c'>
@@ -617,7 +717,7 @@
 		";
 	
 
-	if ($loguser['id']) print "
+	/*if ($loguser['id']) */print "
 	<table class='w'><tr>
 		<td>".doforumjump($forum['id'])."</td>
 		<td style='text-align: right;'>$newreply</td></tr>

@@ -16,6 +16,12 @@
 	if ($where > 2) $where = 0;
 	*/
 	
+	if (isset($_GET['ip'])){
+		$_POST['dosearch'] = true;
+		$ip = $_GET['ip'];
+	}
+		
+	
 	if (isset($_POST['dosearch'])){
 		
 		if (!$ip && (!$ip1 || !$ip2))
@@ -41,7 +47,7 @@
 		FROM hits h
 		LEFT JOIN users u
 		ON h.user = u.id
-		".($ip ? "WHERE h.ip = '$ip'" : "")."
+		".($ip ? "WHERE h.ip = '$ip' AND " : "WHERE")." ".(filter_int($_POST['usedb']) ? "h.id IN (SELECT MAX(x.id) FROM hits x WHERE x.ip = h.ip)" : "1")."
 		ORDER BY h.time DESC
 		LIMIT 0,200
 		");
@@ -111,7 +117,7 @@
 			<td class='light'><b>Where to search:</b></td>
 			<td class='dim'><input type='radio' name='where' value=0 ".filter_string($radio[0]).">Users - <input type='radio' name='where' value=1 ".filter_string($radio[1]).">Hits - <input type='radio' name='where' value=2 ".filter_string($radio[2])."><s>Firewall log</s></td>
 		</tr>*/"
-		<tr><td class='dim' colspan=2><input type='submit' name='dosearch' value='Search'> <input type='checkbox' name='useudb' value=1 $udbsel>Show only 1 match/user</td></tr>
+		<tr><td class='dim' colspan=2><input type='submit' name='dosearch' value='Search'> <input type='checkbox' name='useudb' value=1 $udbsel>Show only last match for any IP</td></tr>
 	</table></center>
 	</form>
 	

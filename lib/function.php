@@ -4,15 +4,24 @@
 	this file could be possibly split
 	
 	currently this contains all the functions, except for the mysql and firewall classes
+	
+	possible post-split files:
+	function.php
+	threadpost.php
+	layout.php
+	helpers.php
+	rpg.php
 	*/
 	
-	// Suppress everything, including fatal errors (the integrated error handler will be used instead).
+	// Suppress everything, including fatal errors (the integrated error handler will be used instead)
+	
 	error_reporting(0);	
 	ini_set("default_charset", "UTF-8");
 
 	
 	$startingtime = microtime(true);
 	$errors = array();
+	$userfields = "u.name, u.displayname, u.sex, u.powerlevel, u.namecolor, u.icon, u.id"; // consistency is god
 	
 	require "lib/config.php";
 	require "lib/mysql.php";
@@ -23,8 +32,8 @@
 	$sql->selectdb($sqldb);
 	unset($sqlhost,$sqluser,$sqlpass,$sqldb,$sqlpersist);
 
-	
-	set_error_handler('errortest');
+
+	set_error_handler('error_reporter');
 	
 	if (ini_get("register_globals"))
 		die("Please update your PHP version.");
@@ -96,19 +105,22 @@
 		}
 		
 		$fw = new firewall;
-	}
 	
 	if ($fw->dead || isset($_GET['sec']))
 		$fw->minilog();
+	
+	}
 	
 	if (strpos(strtolower(filter_string($_SERVER['HTTP_X_REQUESTED_WITH'])),'xmlhttprequest')!== false)
 		$misc['ajax_request'] = true;
 	else $misc['ajax_request'] = false;
 	
+
 	// saved from the old firewall, remove this bit when the new one is finished
 	if (count($_FILES))
 		if (!$config['enable-file-uploads'])
 			errorpage("File uploads are disabled. Now kindly go away.");
+	
 	
 	function sgfilter(&$source){
 		
@@ -120,7 +132,7 @@
 		$result = $source;
 		
 		// Control Codes
-		$result = trim($result, "\x00..\x1F"); //always remove \x00 as it's internally used as a separator for other stuff (or at least it should be, as it's not actually used yet)
+		$result = trim($result, "\x00..\x1F"); //always remove \x00 as it's internally used as a separator for other stuff (ie: poll data)
 		$result = trim($result, "\x7F");		
 		
 		//Unicode Control Codes
@@ -209,7 +221,7 @@
 		$config['show-comments'] = true;
 	
 	// with the powerlevels set up, register now the shutdown function
-	register_shutdown_function('shutdowntest', false, powlcheck(5), $GLOBALS['errors']);
+	register_shutdown_function('error_printer', false, powlcheck(5), $GLOBALS['errors']);
 	
 	if (!$loguser['timeformat'])
 		$loguser['timeformat'] = $config['default-time-format'];
@@ -296,13 +308,13 @@
 					<img src='images/coin2.gif'> - ".$user['gcoins']."<br/>
 					HP: ".$user['hp']."<br/>
 					MP: ".$user['mp']."<br/>
-					Attack: ".$user['atk']."<br/>
-					Defense: ".$user['def']."<br/>
-					Intelligence: ".$user['intl']."<br/>
-					Mdf: ".$user['mdf']."<br/>
-					Dexterity: ".$user['dex']."<br/>
-					Luck: ".$user['lck']."<br/>
-					Speed: ".$user['spd']."<br/>
+					Atk: ".$user['atk']."<br/>
+					Def: ".$user['def']."<br/>
+					Int: ".$user['intl']."<br/>
+					MDf: ".$user['mdf']."<br/>
+					Dex: ".$user['dex']."<br/>
+					Lck: ".$user['lck']."<br/>
+					Spd: ".$user['spd']."<br/>
 					
 					<font color=red>Image not implemented</font>
 					
@@ -373,21 +385,7 @@
 		
 		return (powlcheck(2) || $makemealocalmod) ? true : false;
 	}
-	
-	function doforummods($forum, $mods = NULL){
-		global $sql;
-		
-		if (!$mods)
-			$mods = $sql->query("SELECT uid FROM forummods WHERE fid = $forum");
-		
-		if (!$mods) return ""; //"TEST: No Mods.";
-		
-		while ($mod = $sql->fetch($mods))
-			$txt[] = makeuserlink($mod['uid']);
-		
-		return "(moderated by: ".implode(", ",$txt).")";
-	}
-	
+
 	function donamecolor($powl, $sex, $usercolor = false){
 		
 		static $colors;
@@ -421,12 +419,12 @@
 	}
 	
 	function makeuserlink($uid, $u = NULL, $showicon = false){
-		global $sql, $loguser;
+		global $sql, $loguser, $userfields;
 		static $udb = array();
 		
 		if (!$u){
 			if (!isset($udb[$uid])){
-				$u = ($uid == $loguser['id']) ?	$loguser : $sql->fetchq("SELECT id, name, displayname, namecolor, powerlevel, sex, icon FROM users WHERE id = ".intval($uid));
+				$u = ($uid == $loguser['id']) ?	$loguser : $sql->fetchq("SELECT $userfields FROM users u WHERE u.id = ".intval($uid));
 				$udb[$uid] = $u;
 			}
 			else $u = $udb[$uid];
@@ -454,7 +452,7 @@
 	}
 
 	function onlineusers($forum = false){
-		global $sql, $bot, $proxy, $tor;
+		global $sql, $bot, $proxy, $tor, $userfields;
 		
 		$bots = "[NUM]"; // TEMP
 		
@@ -463,16 +461,15 @@
 		// TODO: in online db specify if it's a bot, proxy or tor
 		
 		$online = $sql->query("
-		SELECT h.forum, h.ip, f.id fid, f.name fname,
-		u.id, u.name, u.displayname, u.namecolor, u.powerlevel, u.sex, u.icon
-		FROM hits h
-		LEFT JOIN users u 
-		ON h.user = u.id
-		LEFT JOIN forums as f
-		ON h.forum=f.id
-		WHERE h.time>".(ctime()-300)."
-		".($forum ? "AND h.forum = $forum" : "")."
-		ORDER BY h.time DESC
+			SELECT h.forum, h.ip, f.id fid, f.name fname, $userfields
+			FROM hits h
+			
+			LEFT JOIN users u ON h.user = u.id
+			LEFT JOIN forums as f ON h.forum=f.id
+			
+			WHERE h.time>".(ctime()-300)."
+			".($forum ? "AND h.forum = $forum" : "")."
+			ORDER BY h.time DESC
 		");
 		$txt = "";
 		
@@ -557,19 +554,21 @@
 	
 	function dopagelist($total, $limit, $script, $extra=""){
 		
-/*		$txt="";
-		if ($total>$limit){
-			$n = 0;*/
-		for($txt="",$n=0,$i=$total, $page=filter_int($_GET['page']), $id=filter_int($_GET['id']);$i>0;$i-=$limit){
+
+		if ($total<=$limit)
+			return "";
+		
+		$page	= filter_int($_GET['page']);
+		$id		= filter_int($_GET['id']);
+		
+		for($txt="",$n=0;$total>0;$total-=$limit){
 			$type = ($page == $n) ? "z" : "a";
 			$txt .= "<$type href='$script.php?id=$id&page=$n$extra'>".($n+1)."</$type> ";
 			$n++;
 		}
-		if (!$txt || $txt=="<z href='$script.php?id=$id&page=0$extra'>1</z> ") return ""; //ugh
-		else return "<small>Pages: $txt</small>";
-//		}
 		
-//		return $txt;
+		return "<small>Pages: $txt</small>";
+
 	}
 	
 	function dosmilies($string){
@@ -683,9 +682,10 @@
 	function ctime(){return time()+$GLOBALS['config']['default-time-zone'];}
 	function reverse_implode($separator, $string) {return implode($separator,array_reverse(explode($separator, $string)));}
 	function x_unquote($x){return str_replace("\"","",$x);}
-	function x_die($msg=""){shutdowntest(true, false, ""); die($msg);}
+	function x_die($msg=""){error_printer(true, false, ""); die($msg);}
 	function printdate($t, $x=true, $y=true){return date(($x?$GLOBALS['loguser']['dateformat']:"")." ".($y?$GLOBALS['loguser']['timeformat']:""), $t+$GLOBALS['loguser']['tzoff']*3600);}
 	function array_extract($a,$i){foreach($a as $j => $c){$r[$j]=$c[$i];}return $r;}
+	function d($x){print "<title>VDS - BoardC</title><body style='background: #000; color: #fff'><pre>";var_dump($x); x_die();}
 	function choosetime($t){
 		if 		($t<60) 	return "$t second".($t==1 ? "" : "s");
 		else if ($t<3600)	return sprintf("%d minute".($t<120 ? "" : "s"),$t/60);
@@ -696,6 +696,19 @@
 		$a = new DateTime(date("Y-m-d", $a));
 		$b = new DateTime(date("Y-m-d", $b));
 		return $b->diff($a)->y;
+	}
+	function split_null($s, $one = false){
+		$c = strlen($s);
+		for($i=0,$b="";$i<$c;$i++){
+			if ($s[$i] == "\0"){
+				if ($one) return $b;
+				$r[] = $b;
+				$b = "";
+			}
+			else $b .= $s[$i];
+		}
+		$r[] = $b;
+		return $r;
 	}
 	// math related functions
 		
@@ -732,6 +745,76 @@
 		
 		return $res;
 
+	}
+	
+	function update_last_post($id, $newdata = false, $fmode = false){
+		
+		// Modeled after makeuserlink, so you can directly send an array of values to enter
+
+		global $sql;
+		
+		if ($fmode){ 
+			if (!$newdata)
+				$newdata = $sql->fetchq("
+					SELECT p.id, p.user, p.time
+					FROM posts p
+					LEFT JOIN threads t ON p.thread = t.id
+					WHERE t.forum = $id
+					ORDER BY p.time DESC");
+					
+			if (!$newdata){
+				trigger_error("Attempted to update last post time for an invalid forum ID", E_NOTICE);
+				return false;
+			}
+			
+			if (!filter_int($newdata['id']))
+				$sql->query("UPDATE forums SET lastpostid = NULL WHERE id = $id");
+			else
+				$sql->query("
+					UPDATE forums SET lastpostid = ".$newdata['id'].", lastpostuser = ".$newdata['user'].", lastposttime = ".$newdata['time']."
+					WHERE id = $id");			
+			
+		}
+		
+		else{ // update thread + forum
+			
+			if (!$newdata)					
+				$newdata = $sql->fetchq("SELECT p.id, p.user, p.time, t.forum
+					FROM posts p
+					LEFT JOIN threads t ON p.thread = t.id
+					WHERE p.thread = $id
+					ORDER BY p.time DESC");
+			
+			if (!$newdata){
+				trigger_error("Attempted to update last post time for an invalid thread ID", E_NOTICE);
+				return false;
+			}
+			
+			if (!filter_int($newdata['id'])){
+				$sql->query("UPDATE threads SET lastpostid = NULL WHERE id = $id");
+				$sql->query("UPDATE forums SET lastpostid = NULL WHERE id = ".$newdata['forum']);
+			}
+				
+			else{
+				
+				$sql->query("
+					UPDATE threads SET
+						lastpostid = ".$newdata['id'].",
+						lastpostuser = ".$newdata['user'].",
+						lastposttime = ".$newdata['time']."
+					WHERE id = $id
+				");
+				
+				$sql->query("
+					UPDATE forums SET
+						lastpostid = ".$newdata['id'].",
+						lastpostuser = ".$newdata['user'].",
+						lastposttime = ".$newdata['time']."
+					WHERE id = ".$newdata['forum']."
+				");
+			}
+		}
+	
 	}
 	
 	function getfilename(){
@@ -1034,28 +1117,37 @@
 	// Layout functions
 	function dopmbox(){
 		
+		global $sql, $loguser, $userfields;
+		
 		// index page handles this by itself while printing this isn't necessary in private.php for obvious reasons
 		$file = getfilename();
 		if ($file == 'index.php' || $file == 'private.php')
 			return "";
-			
-		// something
-		return "";
+
+		$newpm = $sql->fetchq("
+			SELECT p.id pid, p.user, p.time, p.new, COUNT(p.new) count, $userfields
+			FROM pms p
+			LEFT JOIN users u ON p.user = u.id
+			WHERE p.userto = ".$loguser['id']."
+			AND p.new = 1
+			ORDER BY p.id DESC
+		");
 		
-		/*
-		it doesn't make sense to return something here
-		if the board doesn't track yet new posts or private messages
-		
-		as it should only appear when you receive new private messages
-		*/
-		
-		return "<br/>
-		
-		<table class='main w c'><td class='head'>You have $count new private message".($count==1 ? "" : "s")." $time</td></tr></table>";
+		if ($newpm['pid'])
+			return "<br/>
+			<table class='main w c'>
+				<tr>
+					<td class='dark'>
+						You have ".$newpm['count']." new private message".($newpm['count']==1 ? "" : "s").", <a href='private.php?act=view&id=".$newpm['pid']."'>last</a> by ".makeuserlink(false, $newpm)." at ".printdate($newpm['time'])."
+					</td>
+				</tr>
+			</table>";
+				
+		else return "";
 		
 	}
 	
-	function pageheader($title, $show = true){
+	function pageheader($title, $show = true, $forum = 0){
 		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta;
 		
 		if ($show)
@@ -1091,10 +1183,20 @@
 		else
 			$links .= "<a href='login.php?logout'>Logout</a> - <a href='editprofile.php'>Edit profile</a> - <a href='editavatars.php'>Edit avatars</a> - <a href='shop.php'>Item shop</a>";
 		
-		$links2 = "<a href='index.php'>Main</a> - <a href='memberlist.php'>Memberlist</a> - <a href='calendar.php'>Calendar</a> - <a href='online.php'>Online users</a><!-- | 
-		<a href='thread.php?id=1'>Test Thread</a>
-		<a href='thread.php?id=2'>Test Thread 2</a>
-		<a href='thread.php?id=5'>XSS Test</a>--><br/>
+		
+		if ($loguser['id']){
+			if (getfilename() == 'index.php') // mark all posts read
+				$links .= " - <a href='index.php?markforumread'>Mark all forums read</a> - <a class='danger' href='index.php?markforumread&r'>Reverse</a>";
+			else if ($forum) // mark all posts in forum read
+				$links .= " - <a href='index.php?markforumread&forumid=$forum'>Mark forum read</a> - <a class='danger' href='index.php?markforumread&forumid=$forum&r'>Reverse II</a>";
+		}
+		
+		$links2 = "
+		<a href='index.php'>Main</a> - 
+		<a href='memberlist.php'>Memberlist</a> -
+		<a href='calendar.php'>Calendar</a> -
+		<a href='online.php'>Online users</a>
+		<br/>
 		<a href='latestposts.php'>Latest posts</a> 
 		";
 		
@@ -1153,7 +1255,7 @@
 		global $config, $sql, $hacks;
 		$GLOBALS['fw'] = null;
 		
-		$errorlog = shutdowntest(true, powlcheck(5), $GLOBALS['errors']);
+		$errorlog = error_printer(true, powlcheck(5), $GLOBALS['errors']);
 
 		if ($errorlog){
 			$errorprint = "
@@ -1194,9 +1296,9 @@
 		// why
 		if (!$hacks['correct-board-name'])
 			$boardinfo = "
-			<table class='main c'><tr><td class='light'>
+			<table class='main c fonts'><tr><td class='light'>
 			BoardC ".$config['board-version']."<br/>
-			2016 Kak
+			&copy; 2016 Kak
 			</td></tr></table>";
 			
 		else $boardinfo = "<table><tr>
@@ -1224,7 +1326,7 @@
 		pagefooter();
 	}
 
-	function errortest($type, $string, $file, $line){
+	function error_reporter($type, $string, $file, $line){
 		global $loguser, $errors;
 		
 		static $type_txt = array(
@@ -1257,7 +1359,7 @@
 		
 	}
 
-	function shutdowntest($trigger, $report, $errors){
+	function error_printer($trigger, $report, $errors){
 		static $called = false;
 		
 		if (!$called){
@@ -1283,7 +1385,7 @@
 			}
 			else{
 					extract(error_get_last());
-					$ok = errortest($type, $message, $file, $line)[0];
+					$ok = error_reporter($type, $message, $file, $line)[0];
 					die("<pre>Fatal Error!\n\nType: $ok[0]\nMessage: $ok[1]\nFile: $ok[2]\nLine: $ok[3]</pre>");				
 			}
 		}
@@ -1337,9 +1439,9 @@
 			// end snip
 			$controls = "<a href='private.php?act=send&quote=".$post['id']."'>Reply</a>";
 			
-			$sidebar = "
-			<small>".($post['title'] ? $post['title']."<br/>" : "")."
-			$avatar<br/>
+			$sidebar = "<small>
+			".($post['title'] ? $post['title']."<br/>" : "")."
+			".($avatar ? "$avatar<br/>" : "")."
 			Posts: ".$post['posts']."<br/>
 			EXP: [NUM]<br/>
 			For Next: [NUM]<br/>
@@ -1348,8 +1450,7 @@
 			".($post['location'] ? "From: ".$post['location']."<br/>" : "")."
 			<br/>
 			Since last post: ".choosetime(ctime()-$post['lastpost'])."<br/>
-			Last activity: ".choosetime(ctime()-$post['lastview'])."</small>
-			";
+			Last activity: ".choosetime(ctime()-$post['lastview'])."</small>";
 			
 			$post['text'] = nl2br($post['text']);
 			$height = "style='height: 220px'";
@@ -1406,9 +1507,9 @@
 			
 			
 			if (!$mini)
-				$sidebar = "
-				<small>".($post['title'] ? $post['title']."<br/>" : "")."
-				$avatar<br/>
+				$sidebar = "<small>
+				".($post['title'] ? $post['title']."<br/>" : "")."
+				".($avatar ? "$avatar<br/>" : "")."
 				Posts: ".$post['postcur']."/".$post['posts']."<br/>
 				EXP: [NUM]<br/>
 				For Next: [NUM]<br/>
@@ -1417,8 +1518,7 @@
 				".($post['location'] ? "From: ".$post['location']."<br/>" : "")."
 				<br/>
 				Since last post: ".choosetime(ctime()-$post['lastpost'])."<br/>
-				Last activity: ".choosetime(ctime()-$post['lastview'])."</small>
-				";
+				Last activity: ".choosetime(ctime()-$post['lastview'])."</small>";
 			else $sidebar = "";
 			
 			$post['text'] = nl2br($post['text']);
@@ -1431,21 +1531,11 @@
 			$controls .= " | <a class='danger' href=\"thread.php?id=".$post['thread']."&del=".$post['id']."\">Erase post</a>";
 		
 		if (powlcheck(4))
-			$controls .= " | IP: ".$post['ip'];
+			$controls .= " | IP: <a href='admin-ipsearch.php?ip=".$post['ip']."'>".$post['ip']."</a>";
 		
 		$controls .= " | ID: ".$post['id'];
 		
 		/*
-		$data = array(
-			'id' => $uid,
-			'name' => $post['uname'],
-			'displayname' => $post['udname'],
-			'namecolor' => $post['ucolor'],
-			'sex' => $post['usex'],
-			'powerlevel' => $post['upowl'],
-		);
-
-
 		before:
 		trev - total revision
 		rev - current revision (used to be replaced with this)
@@ -1477,6 +1567,8 @@
 		
 		if ($nocontrols) $controls = "";
 		
+		$new = $post['new'] ? "<img src='images/status/new.gif'> - " : "";
+		
 		if (isset($_GET['lol'])){
 			return "<table class='main'><tr><td class='$theme'>
 			USER: ".makeuserlink($uid, $post)."<br/>
@@ -1490,7 +1582,7 @@
 			<tr>
 				<td class='topbar1_$uid $theme' style='min-width: 200px; border-bottom: none'>$inputmerge".makeuserlink($uid, $post)."</td>
 				<td class='topbar2_$uid $theme w fonts' style='text-align: right'>
-				<table class='fonts' style='margin: 0px; border-spacing: 0px;'><tr><td><nobr>$datetxt</nobr></td><td class='w'></td><td><nobr>$controls</nobr></td></tr></table></td>
+				<table class='fonts' style='margin: 0px; border-spacing: 0px;'><tr><td><nobr>$new$datetxt</nobr></td><td class='w'></td><td><nobr>$controls</nobr></td></tr></table></td>
 			</tr>
 			<tr>
 				<td class='sidebar_$uid $theme' valign='top'>$sidebar</td>
@@ -1503,25 +1595,35 @@
 			<tr id='".$post['id']."'>
 				<td class='head $theme' style='min-width: 200px;'>".makeuserlink($uid, $post)."</td>
 				<td class='head $theme w' style='text-align: right'>
-				<table class='fonts' style='margin: 0px; border-spacing: 0px;'><tr><td><nobr>$datetxt</nobr></td><td class='w'></td><td><nobr>$controls</nobr></td></tr></table></td>
+				<table class='fonts' style='margin: 0px; border-spacing: 0px;'><tr><td><nobr>$new$datetxt</nobr></td><td class='w'></td><td><nobr>$controls</nobr></td></tr></table></td>
 			</tr>
 			<tr>
 				<td colspan=2 class='$theme'>".$post['text']."</td>
 			</tr>
 		";	
 	}
+
+	if (isset($_GET['pupd'])){
+		
+		$i = $sql->query("SELECT id FROM posts");
+		
+		while ($id = $sql->fetch($i))
+			$sql->query("INSERT INTO new_posts (id) VALUES (".$id['id'].")");
+		
+		x_die("Done.");
+		
+	}
 	
 	function minipostlist($thread_id){
-		global $loguser, $sql;
+		global $loguser, $sql, $userfields;
 		
 		$posts = $sql->query("
 		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, o.time rtime,
-		NULL title, u.name, u.displayname, u.namecolor, u.sex, u.powerlevel
-		FROM posts AS p
-		LEFT JOIN users AS u
-		ON p.user = u.id
-		LEFT JOIN posts_old AS o
-		ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+		NULL title, $userfields welpwelp, n.user".$loguser['id']." new
+		FROM posts p
+		LEFT JOIN users u ON p.user = u.id
+		LEFT JOIN posts_old o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+		LEFT JOIN new_posts n ON p.id = n.id
 		WHERE p.thread = $thread_id
 		ORDER BY p.id DESC
 		LIMIT ".$loguser['ppp']."
@@ -1551,25 +1653,30 @@
 			
 			$data = $sql->fetchq("
 				SELECT p.id pid, p.thread rthread,
-				t.id, t.name, t.title, t.time, t.forum, t.user, t.views, t.replies, t.sticky, t.closed, t.icon,
+				t.id, t.name, t.title, t.time, t.forum, t.user, t.views, t.replies, t.sticky, t.closed, t.icon, t.ispoll,
+				t.lastpostid, t.lastpostuser, t.lastposttime,
 				f.id fid, f.name fname, f.powerlevel fpowl, f.theme
 				FROM posts p
 				
-				LEFT JOIN threads t
-				ON p.thread = t.id
-				
-				LEFT JOIN forums f
-				ON t.forum = f.id
+				LEFT JOIN threads t	ON p.thread = t.id
+				LEFT JOIN forums f ON t.forum = f.id
 				
 				WHERE p.thread = $lookup
 				".($pid ? "OR p.id = $pid" : "")."
-				LIMIT 1
 			");
 			
 			if (!$pid)
 				$pid = $sql->resultq("SELECT id FROM posts WHERE thread = $lookup");
 
 			if (!$pid) $pid = filter_int($data['pid']);
+			
+			
+			if (filter_int($data['ispoll'])){
+				$poll = split_null($data['title']);
+				$data['title'] = $poll[0];
+			}
+			
+			
 			
 			// Rebuild $forum and $thread since everything expects it this way
 			
@@ -1581,19 +1688,23 @@
 				
 			);
 			$thread = array(
-				'id'		=> filter_int($data['id']),
-				'name'		=> filter_string($data['name']),
-				'title'		=> filter_string($data['title']),
-				'time'		=> filter_int($data['time']),
-				'forum'		=> filter_int($data['forum']),
-				'user'		=> filter_int($data['user']),
-				'views'		=> filter_int($data['views']),
-				'replies'	=> filter_int($data['replies']),
-				'sticky'	=> filter_int($data['sticky']),
-				'closed'	=> filter_int($data['closed']),
-				'rthread'	=> filter_int($data['rthread']),
-				'icon'		=> filter_string($data['icon']),
-				
+				'id'			=> filter_int($data['id']),
+				'name'			=> filter_string($data['name']),
+				'title'			=> filter_string($data['title']),
+				'time'			=> filter_int($data['time']),
+				'forum'			=> filter_int($data['forum']),
+				'user'			=> filter_int($data['user']),
+				'views'			=> filter_int($data['views']),
+				'replies'		=> filter_int($data['replies']),
+				'sticky'		=> filter_int($data['sticky']),
+				'closed'		=> filter_int($data['closed']),
+				'rthread'		=> filter_int($data['rthread']),
+				'icon'			=> filter_string($data['icon']),
+				'lastpostid'	=> filter_int($data['lastpostid']),
+				'lastpostuser'	=> filter_int($data['lastpostuser']),
+				'lastposttime'	=> filter_int($data['lastposttime']),
+				'ispoll'		=> filter_bool($data['ispoll']),
+				'polldata' 		=> isset($poll) ? $poll : false
 			);
 
 			// Error Handling
@@ -1639,17 +1750,75 @@
 	
 	}
 	
+	function poll_print($p){
+		
+		global $loguser, $sql, $lookup;
+		
+
+		$votes = $sql->query("SELECT vote FROM poll_votes WHERE thread = $lookup");
+		
+		$total = 0;
+		$votedb = array(0);
+		
+		while ($vote = $sql->fetch($votes)){
+			$votedb[$vote['vote']] = filter_int($votedb[$vote['vote']]) + 1;
+			$total++;
+		}
+		
+		//d($votedb);
+		
+		$max = max($votedb);
+		if ($max != 0) $mul = 100/$max;
+		else $mul = 0;
+
+
+		$title = $p[0];
+		$briefing = $p[1];
+		$multivote = $p[2];
+		
+		for($i=3,$n=1,$choice_out="";isset($p[$i]);$i+=2,$n++){
+			
+			if (!$loguser['id']) $name = $p[$i];
+			else $name = "<a href='thread.php?".$_SERVER['QUERY_STRING']."&vote=$n'>".$p[$i]."</a>";
+			
+			$votes_num = filter_int($votedb[$n]);
+			$width = sprintf("%.1f", $votes_num/$total*100);
+			
+			$choice_out .= "
+			<tr>
+				<td class='light' width='20%'>$name</td>
+				<td class='dim' width='60%'><table bgcolor='".$p[$i+1]."' cellpadding='0' cellspacing='0' width='$width%'><tr><td>&nbsp;</td></tr></table></td>
+				<td class='light c' width='20%'>$votes_num vote".($votes_num==1 ? "" : "s").", $width%</td>
+			</tr>
+			";
+		}
+		
+		return "
+			<table class='main w'>
+				<tr><td colspan='3' class='dark c'><b>$title</b></td></tr>
+				
+				<tr><td class='dim fonts' colspan='3'>$briefing</td></tr>
+				
+				$choice_out
+				
+				<tr>
+					<td class='dim fonts' colspan='3'>Multi-voting is ".($multivote ? "enabled" : "disabled")." - $total votes in total. ".(powlcheck(4) ? "<a href='thread.php?".$_SERVER['QUERY_STRING']."&votes'>(View votes)</a>" : "")."</td>
+				</tr>
+			</table><br/>";
+	}
+	
 	function adminlinkbar(){
 		
 		$adminpages = array(
 			"admin.php"				=> "Main ACP",
 			"admin-updatethemes.php"=> "Update Themes",
 			"admin-threadfix.php" 	=> "Thread Fix",
+			"admin-threadfix2.php" 	=> "Thread Fix 2",
 			"admin-userfix.php" 	=> "User Fix",
 			"admin-editforums.php" 	=> "Edit Forums",
 			"admin-editmods.php" 	=> "Edit Mods",
 			"admin-ipsearch.php" 	=> "IP Search",
-			"admin-quickdel.php" 	=> "?",
+			"admin-quickdel.php" 	=> "The (Ban) Button&trade;",
 		);
 		if (powlcheck(5)) $adminpages["admin-deluser.php"] = "Delete User";
 			

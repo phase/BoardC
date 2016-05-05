@@ -22,19 +22,19 @@
 	function query($q){
 		// it's almost like $fw->banflags()
 		global $sql, $errors, $q_errors, $ok;
-		print "$q";
+		//print "$q";
 		$res = $sql->exec($q);
-		if ($res === false) {$errors++; $q_errors[] = $q; print " NG!\n";}
-		else {$ok++; print " OK!\n";}
+		if ($res === false) {$errors++; $q_errors[] = $q; print "$q NG!\n";}
+		else {$ok++; /*print " OK!\n";*/}
 	}
-	
+	// ALTER TABLE `new_posts` ADD `user1` BOOLEAN NOT NULL DEFAULT TRUE AFTER `post`;
 	function dialog($desc, $contents, $buttons, $title="Installer"){
 		die("<!doctype html>
 		<head>
 			<title>BoardC Installer</title>
 			<style type='text/css'>
 			body {
-				background: #999;
+				background: #000F1F url('images/themes/night/starsbg.png');
 				font-family: Verdana, Geneva, sans-serif;
 				font-size: 13px;
 				color: #fff;
@@ -44,8 +44,9 @@
 				font-weight: bold;
 			}
 			table.special{
-				border: solid 1px #000;
-				color: #000;
+				border-spacing: 1px;
+				border: solid 1px #88C;
+				background: #000;
 			}
 			
 			.c{
@@ -55,16 +56,22 @@
 				width: 100%;
 			}
 			.head{
-				background: #BBB;
+				background: #302048;
 			}
 			.dim{
-				background: #EEE;
+				background: #11112B;
 			}
 			.light{
-				background: #FFF;
+				background: #111133;
 			}
 			.dark{
-				background: #DDD;
+				background: #2F2F5F;
+			}
+			textarea,input,select{
+			  border:	#663399 solid 1px;
+			  background:#000000;
+			  color:	#DDDDDD;
+			  font:	10pt verdana;
 			}
 			</style>
 			<body>
@@ -72,9 +79,9 @@
 				<tr>
 					<td class='head c'><center><b>$title</b></center></td>
 				</tr>
-				<tr><td class='light c'>$desc</td></tr>
+				<tr><td class='dark c'>$desc</td></tr>
 				<tr><td class='dim'><center>$contents</center></td></tr>
-				<tr><td class='dark c'>$buttons</td></tr>
+				<tr><td class='light c'>$buttons</td></tr>
 			</table></form></center>
 			</body>
 		</head>");
@@ -88,7 +95,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.20",
+		dialog(	"This will setup BoardC Pre-Release v0.21",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -129,7 +136,7 @@
 		
 		// Here we go
 		print "<!doctype html><title>Installer</title><body style='background: #008; color: #fff;'>
-		<pre><b style='background: #fff; color: #008'>BoardC Installer</b>\n\n";
+		<pre><b style='background: #fff; color: #008'>BoardC Installer</b>\n\nInstalling...";
 
 		$sql->query("DROP DATABASE IF EXISTS `$sqldb`");	
 		$sql->start();
@@ -175,7 +182,10 @@ CREATE TABLE `forums` (
   `posts` int(32) NOT NULL DEFAULT '0',
   `category` int(32) NOT NULL DEFAULT '0',
   `ord` int(32) NOT NULL DEFAULT '0',
-  `theme` int(32) DEFAULT NULL
+  `theme` int(32) DEFAULT NULL,
+  `lastpostid` int(32) DEFAULT NULL,
+  `lastpostuser` int(32) DEFAULT NULL,
+  `lastposttime` int(32) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `forums` (`id`, `name`, `title`, `powerlevel`, `hidden`, `threads`, `posts`, `category`, `ord`) VALUES
@@ -202,9 +212,11 @@ CREATE TABLE `misc` (
   `views` int(32) NOT NULL,
   `theme` int(32) DEFAULT NULL,
   `threads` int(32) NOT NULL DEFAULT '0',
-  `posts` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-INSERT INTO `misc` (`disable`, `views`, `theme`, `threads`, `posts`) VALUES ('0', '0', NULL, '0', '0');");
+  `posts` int(32) NOT NULL DEFAULT '0',
+  `noposts` tinyint(1) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+INSERT INTO `misc` (`disable`, `views`, `theme`, `threads`, `posts`, `noposts`) VALUES ('0', '0', NULL, '0', '0', '0');");
 query("
 CREATE TABLE `hits` (
   `id` int(32) NOT NULL,
@@ -217,6 +229,12 @@ CREATE TABLE `hits` (
   `referer` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `new_posts` (
+  `id` int(32) NOT NULL,
+  `user0` tinyint(1) NOT NULL DEFAULT '0',
+  `user1` tinyint(1) NOT NULL DEFAULT '1'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used for per-user tracking new posts';");
+query("
 CREATE TABLE `pms` (
   `id` int(32) NOT NULL,
   `name` text NOT NULL,
@@ -228,7 +246,15 @@ CREATE TABLE `pms` (
   `nohtml` tinyint(1) NOT NULL DEFAULT '0',
   `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
   `nolayout` tinyint(1) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0'
+  `avatar` int(32) NOT NULL DEFAULT '0',
+  `new` tinyint(1) NOT NULL DEFAULT '1'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `poll_votes` (
+  `id` int(11) NOT NULL,
+  `user` int(32) NOT NULL,
+  `thread` int(32) NOT NULL,
+  `vote` int(8) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts` (
@@ -320,7 +346,11 @@ CREATE TABLE `threads` (
   `closed` tinyint(1) NOT NULL,
   `views` int(32) NOT NULL DEFAULT '0',
   `replies` int(32) NOT NULL DEFAULT '0',
-  `icon` text
+  `icon` text,
+  `ispoll` tinyint(1) NOT NULL DEFAULT '0',
+  `lastpostid` int(32) DEFAULT NULL,
+  `lastpostuser` int(32) DEFAULT NULL,
+  `lastposttime` int(32) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `tor` (
@@ -398,8 +428,7 @@ CREATE TABLE `user_avatars` (
   `user` int(32) NOT NULL,
   `file` int(16) NOT NULL,
   `title` varchar(32) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 ALTER TABLE `categories`
   ADD PRIMARY KEY (`id`);
@@ -415,7 +444,11 @@ ALTER TABLE `jstrap`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `hits`
   ADD PRIMARY KEY (`id`);
+ALTER TABLE `new_posts`
+  ADD PRIMARY KEY (`id`);
 ALTER TABLE `pms`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `poll_votes`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `posts`
   ADD PRIMARY KEY (`id`);
@@ -455,8 +488,12 @@ ALTER TABLE `ipbans`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `jstrap`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `new_posts`
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `pms`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `poll_votes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `posts`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 ALTER TABLE `posts_old`
@@ -494,7 +531,7 @@ ALTER TABLE `users_rpg`
 		}
 		else{
 			$sql->undo();
-			die("Installation failed.\n\n<small>Failed queries: ".implode("\n", $q_errors)."</small>");
+			die("Installation failed.");
 		}
 		
 	}

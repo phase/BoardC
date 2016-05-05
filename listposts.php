@@ -18,11 +18,7 @@
 	if (!$id)
 		errorpage("No user specified.");
 	
-	$user = $sql->fetchq("
-		SELECT id, name, displayname, namecolor, powerlevel, sex, posts
-		FROM users
-		WHERE id=$id
-	");
+	$user = $sql->fetchq("SELECT $userfields, u.posts FROM users u WHERE u.id=$id");
 	
 	if (!$user)
 		errorpage("Invalid user.");
@@ -102,12 +98,11 @@
 	else $invalid = "";
 	
 	$posts = $sql->query("
-	SELECT p.id, p.time, t.name, f.powerlevel, t.id tid, f.id fid, p.thread, t.forum,  f.name fname
+	SELECT p.id, p.time, t.name, f.powerlevel, t.id tid, f.id fid, p.thread, t.forum, f.name fname, n.user".$loguser['id']." new
 	FROM posts p
-	LEFT JOIN threads t
-	ON p.thread=t.id
-	LEFT JOIN forums f
-	ON t.forum=f.id
+	LEFT JOIN threads t ON p.thread=t.id
+	LEFT JOIN forums f ON t.forum=f.id
+	LEFT JOIN new_posts n ON p.id = n.id
 	WHERE p.user=$id
 	$invalid
 	$time_txt
@@ -135,7 +130,10 @@
 				else if (!$post['fid'])
 					$post['name'] .= "[Invalid forum ID #".$post['forum']."]";
 				
-				$link = "<a ".($post['tid'] && $post['fid'] ? "" : "class='danger' style='background: #fff'")." href='thread.php?pid=".$post['id']."#".$post['id']."'>".$post['name']."</a>";
+				$new = $post['new'] ? "<img src='images/status/new.gif'> " : "";
+				
+				
+				$link = "$new<a ".($post['tid'] && $post['fid'] ? "" : "class='danger' style='background: #fff'")." href='thread.php?pid=".$post['id']."#".$post['id']."'>".$post['name']."</a>";
 			}
 
 			$txt .= "

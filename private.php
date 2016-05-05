@@ -149,8 +149,8 @@
 		
 		//errorpage("Under construction!");
 		$post = $sql->fetchq("
-		SELECT  p.id,p.name pmname,p.user,p.userto,p.time,p.text,p.nohtml,p.nosmilies,p.nolayout,p.avatar,
-				u.name,u.displayname,u.title,u.sex,u.powerlevel,u.namecolor,u.head,u.sign,u.posts,u.since,u.location,u.lastview
+		SELECT  p.id,p.name pmname,p.user,p.userto,p.time,p.text,p.nohtml,p.nosmilies,p.nolayout,p.avatar,p.new,
+				$userfields,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview
 		FROM pms p
 		LEFT JOIN users u ON p.user = u.id
 		WHERE p.id = $id 
@@ -173,6 +173,9 @@
 			'rev' => 0,
 			'lastpost' => $sql->resultq("SELECT MAX(time) FROM posts WHERE user = ".$loguser['id']),
 		);
+		
+		if ($post['new'] && $post['userto'] == $loguser['id'])
+			$sql->query("UPDATE pms SET new = 0 WHERE id = $id");
 		
 		pageheader("Private Messages: ".htmlspecialchars($post['pmname']));
 		print $s.threadpost(array_merge($post,$data), false, false, false, false, true).$s;
@@ -199,7 +202,7 @@
 	
 	$pms = $sql->query("
 	
-		SELECT  p.id pid,p.name pmname,p.title pmtitle,p.user,p.userto,p.time,
+		SELECT  p.id pid,p.name pmname,p.title pmtitle,p.user,p.userto,p.time,p.new,
 				u.id,u.name,u.displayname,u.title,u.sex,u.powerlevel,u.namecolor
 		FROM pms p
 		LEFT JOIN users u ON $userlink = u.id
@@ -209,11 +212,9 @@
 	");
 	
 	while ($pm = $sql->fetch($pms)){
-		$new = ""; // TEMP!
-		
 		$txt .= "
 		<tr>
-			<td class='light c'>$new</td>
+			<td class='light c'>".($pm['new'] && $pmtype == "Inbox" ? "<img src='images/status/new.gif'>" : "")."</td>
 			<td class='dim'><a href='private.php?act=view&id=".$pm['pid']."'>".htmlspecialchars($pm['pmname'])."</a>".($pm['pmtitle'] ? "<br/><small>".htmlspecialchars($pm['pmtitle'])."</small>" : "")."</td>
 			<td class='dim c'>".makeuserlink(false, $pm)."</td>
 			<td class='dim c'>".printdate($pm['time'])."</td>

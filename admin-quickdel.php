@@ -5,7 +5,7 @@
 	if (!powlcheck(4))
 		errorpage("You're not an admin!");
 		
-	pageheader("?");
+	pageheader("Ban Button");
 		
 	print adminlinkbar();
 	
@@ -25,7 +25,7 @@
 
 		$data = $sql->fetchq("SELECT id, name, lastip FROM users ORDER BY id DESC");
 		if ($data['id'] != $id)
-			errorpage("Sorry, but you've been ninja'd by someone else. <a href='?'>Try again</a>", false);		
+			errorpage("Sorry, but you've either been ninja'd by someone else, or this isn't the last registered user. <a href='?'>Try again</a>", false);		
 		
 		$sql->start();
 		
@@ -38,6 +38,7 @@
 		$c[] = $sql->query("DELETE FROM pms WHERE user = $id OR userto = $id");
 		$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
 		$c[] = $sql->query("DELETE FROM ratings WHERE userfrom = $id OR userto = $id");
+		$c[] = $sql->query("ALTER TABLE new_posts DROP COLUMN user$id");
 		
 		if (filter_int($_POST['ipban'])) ipban("", false, $data['lastip']);
 		
@@ -59,8 +60,8 @@
 	ORDER BY id DESC
 	");
 	
-	if (!$user)
-		errorpage("There are no more users to delete! You can go <a href='index.php'>home</a> now.", false);
+	if (!$user || $user['id'] != $sql->resultq("SELECT MAX(id) FROM users"))
+		errorpage("There are no more users that can be deleted! You can go <a href='index.php'>home</a> now.", false);
 	
 	$list = "";
 	$lazy = htmlspecialchars(input_filters($sql->resultq("SELECT page FROM hits WHERE user=".$user['id']." ORDER BY id DESC")));
@@ -68,10 +69,10 @@
 	print "
 	<form method='POST' action='admin-quickdel.php'>
 	<center><table class='main c'>
-		<tr><td class='head'>?</td></tr>
+		<tr><td class='head'>Press Start Button</td></tr>
 		
 		<tr><td class='light'>
-			This will delete the latest registered user.<br/>(better description coming soon)
+			By pushing The Button&trade;, you will delete the latest registered user!<br/>Next up on the chopping block:
 		</td></tr>
 		<tr>
 		<td class='dim'>

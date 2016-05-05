@@ -33,7 +33,7 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle.png' title='Board Sea'>",
-		'board-version' =>			"0.20 Development Build",
+		'board-version' =>			"Development Build 0.21",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		

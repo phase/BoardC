@@ -15,11 +15,12 @@
 		else $theme = filter_int($_POST['theme']);
 		
 		$sql->start();
-		$update = $sql->prepare("UPDATE misc SET disable = ?, views = ?, theme = ?");
+		$update = $sql->prepare("UPDATE misc SET disable = ?, views = ?, theme = ?, noposts = ?");
 		$c[] = $sql->execute($update, array(
 			filter_int($_POST['disable']),
 			filter_int($_POST['views']),
-			$theme
+			$theme,
+			filter_int($_POST['noposts'])
 			)
 			);
 			
@@ -75,7 +76,15 @@
 				$theme_txt
 			</td>
 		</tr>
-		
+		<tr>
+			<td class='light'>
+				Disable posting<br/>
+				<small>Prevents the creation of new replies or threads.</small>
+			</td>
+			<td class='dim'>
+				<input type='checkbox' name='noposts' value=1 ".($opt['noposts'] ? "checked" : "").">Disable posting&nbsp;
+			</td>
+		</tr>
 		<tr><td class='dark' colspan=2><input type='submit' value='Save Settings' name='submit'></td></tr>
 		
 		</table></form>

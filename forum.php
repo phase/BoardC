@@ -11,9 +11,16 @@
 	
 	if ($user){
 		update_hits();
-		$where = ",t.forum , f.id fid, f.name fname, f.powerlevel
+		$where = ",n.id new, t.forum , f.id fid, f.name fname, f.powerlevel
 		FROM threads t
 		LEFT JOIN forums f ON t.forum = f.id
+		LEFT JOIN new_posts n ON n.id =
+		(
+			SELECT MIN(n.id) FROM new_posts n
+			LEFT JOIN posts p ON n.id = p.id
+			WHERE n.user".$loguser['id']." = 1
+			AND p.thread = t.id
+		)
 		WHERE t.user = $user";
 		
 		$userdata = $sql->fetchq("
@@ -34,7 +41,17 @@
 		
 	}
 	else if ($id)	{
-		$where = "FROM threads t WHERE t.forum = $id";
+		$where = ", n.id new
+		FROM threads t
+		LEFT JOIN new_posts n ON n.id =
+		(
+			SELECT MIN(n.id) FROM new_posts n
+			LEFT JOIN posts p ON n.id = p.id
+			WHERE n.user".$loguser['id']." = 1
+			AND p.thread = t.id
+		)
+		WHERE t.forum = $id
+		";
 	
 		$forum = $sql->fetchq("SELECT name, powerlevel, threads, theme FROM forums WHERE id = $id");
 		
@@ -47,7 +64,7 @@
 		update_hits($id);
 
 		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
-		pageheader($forum['name']);
+		pageheader($forum['name'], true, $id);
 	}
 	else errorpage("No forum ID specified.");
 
@@ -57,14 +74,14 @@
 			<td class='w'>
 				<a href='index.php'>".$config['board-name']."</a> - ".$forum['name']."</td>
 			<td>&nbsp;</td>
-			".($user ? "" : "<td style='text align: right'><a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></td>")."
+			".($user ? "" : "<td style='text align: right'><nobr><a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr></td>")."
 		</tr>
 	</table>";
 	
 	$threads = $sql->query("
-	SELECT t.id, t.name, t.title, t.time, t.user, t.views, t.replies, t.sticky, t.closed, t.icon
+	SELECT t.id, t.name, t.title, t.time, t.user, t.views, t.replies, t.sticky, t.closed, t.icon, t.ispoll, t.lastpostid, t.lastpostuser, t.lastposttime
 	$where
-	ORDER BY t.sticky DESC, t.id DESC
+	ORDER BY t.sticky DESC, t.lastposttime DESC
 	LIMIT ".(filter_int($_GET['page'])*$loguser['tpp']).", ".$loguser['tpp']."");
 
 	if (!$threads){
@@ -91,14 +108,19 @@
 		
 		while ($thread = $sql->fetch($threads)){
 			
-			// Temp
-			/*
-			$new = "&nbsp;"; 
+			// Separator between sticked threads and not
+			if ($c == 1 && $c != $thread['sticky']){
+				$c = $thread['sticky'];
+				print "<tr><td class='head fonts' colspan=7>&nbsp;</td></tr>";
+			}
+			$c = $thread['sticky'];
 			
-			if ($thread['sticky']) $new .= "[S]"; 
-			if ($thread['closed']) $new .= "[C]"; */
-			// Thread status conditions
-			$thread['new'] = 0; // TO-DO:
+
+			if ($thread['lastpostid'])
+				$lastpost = "<nobr>".printdate($thread['lastposttime'])."<br/><small><nobr> by ".makeuserlink($thread['lastpostuser'])." <a href='thread.php?pid=".$thread['lastpostid']."#".$thread['lastpostid']."'><img src='images/status/getlast.png'></a></nobr></small>";
+			else
+				$lastpost = "Nothing";
+
 			
 			$status = "";
 			
@@ -107,23 +129,6 @@
 			if($thread['new']) 			$status.="new";
 
 			$status = $status ? "<img src='images/status/$status.gif'>" : "&nbsp;";
-			
-			// Separator between sticked threads and not
-			if ($c == 1 && $c != $thread['sticky']){
-				$c = $thread['sticky'];
-				print "<tr><td class='head fonts' colspan=7>&nbsp;</td></tr>";
-			}
-			$c = $thread['sticky'];
-			
-			$postdata = $sql->fetchq("
-				SELECT `id`, `time`, `user`
-				FROM `posts`
-				WHERE `thread` = ".$thread['id']."
-				ORDER BY `time` DESC
-				LIMIT 1");
-			if (!empty($postdata))
-				$lastpost = "<nobr>".printdate($postdata['time'])."<br/><small><nobr> by ".makeuserlink($postdata['user'])." <a href='thread.php?pid=".$postdata['id']."#".$postdata['id']."'><img src='images/status/getlast.png'></a></nobr></small>";
-			else $lastpost = "Nothing"; // [0.09]
 			
 			// Threads by user specific
 			if ($user){
@@ -134,13 +139,19 @@
 				$smalltext = "&nbsp;&nbsp;&nbsp;&nbsp;In <a href='forum.php?id=".$thread['forum']."'".($thread['fid'] ? ">".$thread['fname'] : "class='danger' style='background: #fff'>Invalid forum ID #".$thread['forum'])."</a>";
 			}
 			else{
+				if ($thread['ispoll'])
+					$thread['title'] = split_null($thread['title'], true);
+				
 				$smalltext = htmlspecialchars($thread['title']);
 			}
+			
+			// new post link
+			$new = $thread['new'] ? "<a href='thread.php?pid=".$thread['new']."'><img src='images/status/getnew.png'></a> " : "";
 			
 			print "<tr>
 				<td class='light'>$status</td>
 				<td class='dim'>".($thread['icon'] ? "<img src='".$thread['icon']."'>" : "")."</td>
-				<td class='dim w' ><a href='thread.php?id=".$thread['id']."'>".htmlspecialchars($thread['name'])."</a><br/><small>$smalltext</small></td>
+				<td class='dim w' >$new".($thread['ispoll'] ? "Poll: " : "")."<a href='thread.php?id=".$thread['id']."'>".htmlspecialchars($thread['name'])."</a><br/><small>$smalltext</small></td>
 				<td class='dim c' >".makeuserlink($thread['user'])."<br/><small><nobr>".printdate($thread['time'])."</nobr></small></td>
 				<td class='light c' >".$thread['replies']."</td>
 				<td class='light c' >".$thread['views']."</td>
@@ -153,7 +164,7 @@
 	}
 	
 	if (!$user)
-		print "<table><td class='w' style='text-align: left;'>".doforumjump($id)."</td><td><a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></td></tr></table>";
+		print "<table><td class='w' style='text-align: left;'>".doforumjump($id)."</td><td><nobr><a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr></td></tr></table>";
 	
 	pagefooter();
 

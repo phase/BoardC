@@ -45,6 +45,7 @@
 			$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
 			
 			$c[] = $sql->query("DELETE FROM ratings WHERE userfrom = $id OR userto = $id");
+			$c[] = $sql->query("ALTER TABLE new_posts DROP COLUMN user$id");
 		}
 		//if ($sql->finish($c)){
 			// delete userpics too, but only if the SQL delete was successful to prevent any fun error
@@ -89,7 +90,7 @@
 	
 	
 	$users = $sql->query("
-	SELECT u.id, u.name, u.displayname, u.namecolor, u.powerlevel, u.sex, u.icon, u.powerlevel, u.ban_expire, u.posts, u.since, u.lastip, h.page
+	SELECT u.id, u.name, u.displayname, u.namecolor, u.powerlevel, u.sex, u.icon, u.powerlevel, u.ban_expire, u.posts, u.lastview,u.since, u.lastip, h.page
 	FROM users u
 	LEFT JOIN hits h
 	ON h.id = (SELECT MAX(h.id) FROM hits h WHERE h.ip = u.lastip)
@@ -125,6 +126,7 @@
 			<td class='dim'>".$user['posts']."</td>
 			<td class='light'>".printdate($user['since'])."</td>
 			<td class='light'>".$user['lastip']."</td>
+			<td class='light'>".printdate($user['lastview'])."</td>
 			<td class='light'>".$user['page']."</td>
 		</tr>
 		";
@@ -133,13 +135,13 @@
 	
 	print "<form method='POST' action='admin-deluser.php'>
 	<center><table class='main w'>
-	<tr><td class='head c' colspan=8>Delete User</td></tr>
+	<tr><td class='head c' colspan=9>Delete User</td></tr>
 	
 	
 	<tr>
 		<td class='dim'></td>
 		<td class='light c' style='width: 200px'><b>Show:</b></td>
-		<td class='dim' colspan=6>
+		<td class='dim' colspan=7>
 			<select name='show'>
 				<option value='-2' ".filter_string($sel['-2']).">".$powl_table['-2']."</option>
 				<option value='-1' ".filter_string($sel['-1']).">".$powl_table['-1']."</option>
@@ -156,7 +158,7 @@
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Sort:</b></td>
-		<td class='dim' colspan=6>
+		<td class='dim' colspan=7>
 			<select name='sort'>
 				<option value='id' ".filter_string($ssel['id']).">ID</option>
 				<option value='name' ".filter_string($ssel['name']).">Name</option>
@@ -171,19 +173,19 @@
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Search IP:</b></td>
-		<td class='dim' colspan=6><input type='text' name='ips' value=\"$ips\"></td>
+		<td class='dim' colspan=7><input type='text' name='ips' value=\"$ips\"></td>
 	</tr>
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Search Name:</b></td>
-		<td class='dim' colspan=6><input type='text' name='sname' value=\"$sname\"></td>
+		<td class='dim' colspan=7><input type='text' name='sname' value=\"$sname\"></td>
 	</tr>
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Custom WHERE:</b></td>
-		<td class='dim' colspan=6><input type='text' style='width: 500px' name='cwhere' value=\"$where\"></td>
+		<td class='dim' colspan=7><input type='text' style='width: 500px' name='cwhere' value=\"$where\"></td>
 	</tr>
-	<tr><td class='dark c' colspan=8><input type='submit' name='switch' value='Update query'></td></tr>
+	<tr><td class='dark c' colspan=9><input type='submit' name='switch' value='Update query'></td></tr>
 	<!-- deluser list starts here -->
 	<tr class='c'>
 		<td class='head'></td>
@@ -193,10 +195,11 @@
 		<td class='head'>Posts</td>
 		<td class='head'>Registered on</td>
 		<td class='head'>IP Address</td>
+		<td class='head'>Last Activity</td>
 		<td class='head'>Last View</td>
 	</tr>
 		$list
-	<tr><td class='dark c' colspan=8><input type='submit' name='rip' value='Delete User'></td></tr>
+	<tr><td class='dark c' colspan=9><input type='submit' name='rip' value='Delete User'></td></tr>
 	</table></center></form>
 	";
 	

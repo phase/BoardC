@@ -11,9 +11,9 @@
 	
 	
 	$user = $sql->fetchq("
-		SELECT id, name, displayname, namecolor, powerlevel, sex
-		FROM users
-		WHERE id=$id
+		SELECT $userfields
+		FROM users u
+		WHERE u.id=$id
 	");
 	if (!$user)	errorpage("Invalid user.");
 		
@@ -22,12 +22,13 @@
 	if ($time) $time_txt = "AND p.time>".(ctime()-$time);
 	else $time_txt = "";
 	$posts = $sql->query("
-	SELECT COUNT(p.id) pcount, p.thread,
+	SELECT COUNT(p.id) pcount, p.thread, n.user".$loguser['id']." new,
 	t.id tid, t.name tname, t.forum, t.replies,
 	f.id fid, f.name fname, f.powerlevel
 	FROM posts p
 	LEFT JOIN threads t ON p.thread = t.id
     LEFT JOIN forums f ON t.forum = f.id	
+	LEFT JOIN new_posts n ON p.id = n.id
 	WHERE p.user = $id
 	$time_txt
 	GROUP BY p.thread
@@ -43,12 +44,15 @@
 		else{
 			if (!$post['fid']) $forum = "<a class='danger' style='background: #fff' href='forum.php?id=".filter_int($post['forum'])."'>Invalid forum ID #".filter_int($post['forum'])."</a>";
 			else $forum = "<a href='".$post['forum']."'>".htmlspecialchars($post['fname'])."</a>";
+			
+			$new = $post['new'] ? "<img src='images/status/new.gif'> " : "";
+			
 			if (!$post['tid']){
-				$thread = "<a class='danger' style='background: #fff' href='thread.php?id=".filter_int($post['thread'])."'>Invalid thread ID #".filter_int($post['thread'])."</a>";
+				$thread = "$new<a class='danger' style='background: #fff' href='thread.php?id=".filter_int($post['thread'])."'>Invalid thread ID #".filter_int($post['thread'])."</a>";
 				$total = "-";
 			}
 			else {
-				$thread = "<a href='".$post['thread']."'>".htmlspecialchars($post['tname'])."</a>";
+				$thread = "$new<a href='".$post['thread']."'>".htmlspecialchars($post['tname'])."</a>";
 				$total = $post['replies']+1;
 			}
 		}
