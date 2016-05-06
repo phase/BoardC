@@ -100,21 +100,18 @@
 	$hidden = powlcheck(3) ? "" : "AND hidden=0";
 	$catsel = isset($_GET['cat']) ? "AND c.id=".filter_int($_GET['cat']) : "";
 
-
+	// subquery replaced by a wall of LEFT JOINs, number of new posts returned
 	$forums = $sql->query("
-	SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime, c.name catname, n.user".$loguser['id']." new, $userfields
+	SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime, c.name catname, SUM(n.user".$loguser['id'].") new, $userfields
 	FROM forums f
 	LEFT JOIN categories c ON f.category = c.id
 	LEFT JOIN users u ON f.lastpostuser = u.id
-	LEFT JOIN new_posts n ON n.id =
-		(
-			SELECT MIN(n.id) FROM new_posts n
-			LEFT JOIN posts p ON n.id = p.id
-			LEFT JOIN threads t ON p.thread = t.id
-			WHERE n.user".$loguser['id']." = 1
-			AND t.forum = f.id
-		)
+	LEFT JOIN threads t ON f.id = t.forum
+	LEFT JOIN posts p ON p.thread = t.id
+	LEFT JOIN new_posts n ON n.id = p.id
+
 	WHERE (f.powerlevel<=".$loguser['powerlevel']." AND c.powerlevel <=".$loguser['powerlevel']." $hidden $catsel)
+	GROUP BY f.id ASC
 	ORDER BY c.ord , f.ord, f.id
 	");
 	
@@ -151,7 +148,7 @@
 			for ($i=0;isset($forummods[$forum['fid']][$i]); $i++)
 				$mods[] = makeuserlink(false, $forummods[$forum['fid']][$i]);
 			
-			$new = $forum['new'] ? "<img src='images/status/new.gif'>" : ""; 
+			$new = $forum['new'] ? "<img src='images/status/new.gif'><small>".$forum['new']."</small>" : ""; 
 			
 			print "
 			<tr>

@@ -574,7 +574,7 @@
 	}
 	
 	
-	pageheader($thread['name']);
+	pageheader($thread['name'], true, $forum['id']);
 	
 	$newreply_txt = "<a href='new.php?act=newpoll&id=".$forum['id']."'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>";
 	

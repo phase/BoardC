@@ -11,17 +11,14 @@
 	
 	if ($user){
 		update_hits();
-		$where = ",n.id new, t.forum , f.id fid, f.name fname, f.powerlevel
+		$where = ",LEAST(n.id, 0) new, SUM(n.user".$loguser['id'].") ncount, t.forum , f.id fid, f.name fname, f.powerlevel
 		FROM threads t
 		LEFT JOIN forums f ON t.forum = f.id
-		LEFT JOIN new_posts n ON n.id =
-		(
-			SELECT MIN(n.id) FROM new_posts n
-			LEFT JOIN posts p ON n.id = p.id
-			WHERE n.user".$loguser['id']." = 1
-			AND p.thread = t.id
-		)
-		WHERE t.user = $user";
+		LEFT JOIN posts p ON p.thread = t.id
+		LEFT JOIN new_posts n ON n.id = p.id AND n.user".$loguser['id']." = 1
+		WHERE t.user = $user
+		GROUP BY t.id DESC
+		";
 		
 		$userdata = $sql->fetchq("
 			SELECT u.name, u.displayname, u.threads
@@ -41,16 +38,12 @@
 		
 	}
 	else if ($id)	{
-		$where = ", n.id new
+		$where = ", MIN(n.id) new, SUM(n.user".$loguser['id'].") ncount
 		FROM threads t
-		LEFT JOIN new_posts n ON n.id =
-		(
-			SELECT MIN(n.id) FROM new_posts n
-			LEFT JOIN posts p ON n.id = p.id
-			WHERE n.user".$loguser['id']." = 1
-			AND p.thread = t.id
-		)
+		LEFT JOIN posts p ON p.thread = t.id
+		LEFT JOIN new_posts n ON n.id = p.id AND n.user".$loguser['id']." = 1
 		WHERE t.forum = $id
+		GROUP BY t.id DESC
 		";
 	
 		$forum = $sql->fetchq("SELECT name, powerlevel, threads, theme FROM forums WHERE id = $id");
@@ -126,9 +119,9 @@
 			
 			if($thread['replies']>20) 	$status.="hot";
 			if($thread['closed']) 		$status.="off";
-			if($thread['new']) 			$status.="new";
+			if($thread['new'])			$status.="new";
 
-			$status = $status ? "<img src='images/status/$status.gif'>" : "&nbsp;";
+			$status = $status ? "<img src='images/status/$status.gif'>".$thread['ncount'] : "&nbsp;";
 			
 			// Threads by user specific
 			if ($user){
@@ -149,7 +142,7 @@
 			$new = $thread['new'] ? "<a href='thread.php?pid=".$thread['new']."'><img src='images/status/getnew.png'></a> " : "";
 			
 			print "<tr>
-				<td class='light'>$status</td>
+				<td class='light c'>$status</td>
 				<td class='dim'>".($thread['icon'] ? "<img src='".$thread['icon']."'>" : "")."</td>
 				<td class='dim w' >$new".($thread['ispoll'] ? "Poll: " : "")."<a href='thread.php?id=".$thread['id']."'>".htmlspecialchars($thread['name'])."</a><br/><small>$smalltext</small></td>
 				<td class='dim c' >".makeuserlink($thread['user'])."<br/><small><nobr>".printdate($thread['time'])."</nobr></small></td>

@@ -94,7 +94,7 @@
 			}
 			
 			$pid = $sql->query("SELECT MAX(id) FROM posts");
-			update_last_post($thread['id'], array('id' => $thread['id'], 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
+			update_last_post($thread['id'], array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
 
 			if ($sql->finish($go)) errorpage("Successfully posted the reply.", false);
 			else errorpage("Couldn't post the reply.", false);
@@ -212,7 +212,8 @@
 			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
 			$sql->query("INSERT INTO new_posts () VALUES ()");
 			
-			update_last_post($fid, array('id' => $fid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
+			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
+			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
 
 			
 			if ($sql->finish($c)) errorpage("The thread has been created.", false);
@@ -411,7 +412,9 @@
 			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
 			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
 			$sql->query("INSERT INTO new_posts () VALUES ()");
-			update_last_post($fid, array('id' => $fid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
+			
+			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
+			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
 			
 			if ($sql->finish($c)) errorpage("The poll has been created.", false);
 			else errorpage("Couldn't create the poll. An error occured.", false);
