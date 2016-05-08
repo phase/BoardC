@@ -34,6 +34,7 @@
 		// hack hack hack
 		$forum['name'] = "Threads by ".($userdata['displayname'] ? $userdata['displayname'] : $userdata['name']);
 		$forum['threads'] = $userdata['threads'];
+		$announce = "";
 		pageheader($forum['name']);
 		
 	}
@@ -58,19 +59,26 @@
 
 		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
 		pageheader($forum['name'], true, $id);
+		
+		$announce = doannbox($id);
 	}
 	else errorpage("No forum ID specified.");
 
+	
+	$ismod = ismod($id);
+	
+	$newthread = (!$user && $loguser['id'] && (!$miscdata['noposts'] || powlcheck(4))) ? "<nobr>".($ismod ? "<a href='announcement.php?id=$id'>New announcement</a> - " : "")."<a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr>" : "";
+	
 	print "<table class='main w fonts'><tr><td class='light c'>".onlineusers($id)."</td></tr></table>
 	<table class='w'>
 		<tr>
 			<td class='w'>
 				<a href='index.php'>".$config['board-name']."</a> - ".$forum['name']."</td>
 			<td>&nbsp;</td>
-			".($user ? "" : "<td style='text align: right'><nobr><a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr></td>")."
+			<td style='text align: right'>$newthread</td>
 		</tr>
 	</table>";
-	
+
 	$threads = $sql->query("
 	SELECT t.id, t.name, t.title, t.time, t.user, t.views, t.replies, t.sticky, t.closed, t.icon, t.ispoll, t.lastpostid, t.lastpostuser, t.lastposttime
 	$where
@@ -87,6 +95,7 @@
 
 		print "
 		$pagectrl<table class='main w'>
+		$announce
 			<tr>
 				<td class='head c br' >&nbsp;</td>
 				<td colspan=2 class='head w c br' >Thread</td>
@@ -157,7 +166,7 @@
 	}
 	
 	if (!$user)
-		print "<table><td class='w' style='text-align: left;'>".doforumjump($id)."</td><td><nobr><a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr></td></tr></table>";
+		print "<table><td class='w' style='text-align: left;'>".doforumjump($id)."</td><td>$newthread</td></tr></table>";
 	
 	pagefooter();
 

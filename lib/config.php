@@ -32,8 +32,8 @@
 		// Layout
 		
 		'board-name' =>				"BoardC",	
-		'board-title' =>			"<img src='images/sampletitle.png' title='Board Sea'>",
-		'board-version' =>			"Development Build 0.21",
+		'board-title' =>			"<img src='images/sampletitle2.png' title='Now in Badly-Drawn-Lego&trade; flavour!'>",
+		'board-version' =>			"Development Build 0.22",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		
@@ -63,8 +63,8 @@
 		
 		// Defaults
 		'default-time-zone' => 		3600,//GMT+1
-		'default-date-format' => 	"j/n/y",
-		'default-time-format' =>	"G:i:s",
+		'default-date-format' => 	"d/m/y",
+		'default-time-format' =>	"H:i:s",
 		
 		// Development stuff
 		

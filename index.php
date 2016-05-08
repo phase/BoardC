@@ -124,6 +124,7 @@
 		
 		print "
 		<table class='main w nb'>
+			".doannbox()."
 			<tr>
 				<td class='head'>&nbsp;</td>
 				<td class='head w c'>Forum</td>

@@ -12,9 +12,7 @@
 	$ip		= filter_string($_POST['ip']);
 	$ip1	= filter_string($_POST['ip1']);
 	$ip2	= filter_string($_POST['ip2']);
-/*	$where 	= filter_int($_POST['where']);
-	if ($where > 2) $where = 0;
-	*/
+
 	
 	if (isset($_GET['ip'])){
 		$_POST['dosearch'] = true;
@@ -26,20 +24,6 @@
 		
 		if (!$ip && (!$ip1 || !$ip2))
 			errorpage("You have left the IP field empty!", false);
-		
-		/*errorpage("Under construction", false);
-		
-		if ($where == 2)
-			errorpage("Like the new firewall, this isn't implemented.", false);
-		if ($where == 3)
-			errorpage("Alas, suspicious requests log not implemented.", false);
-		
-		if ($where == 1)
-			errorpage("Hits should be implemented in this build, but aren't yet.", false);
-		
-		
-		
-		$where_txt = array("users", "hits", "fwlog", "minilog");*/
 		
 		$users = $sql->query("SELECT lastip, id, name, displayname, namecolor, powerlevel, sex, since FROM users ".($ip ? "WHERE lastip = '$ip'" : "")." ORDER by id ASC");
 		$hits = $sql->query("
@@ -97,7 +81,6 @@
 	}
 	else $txt = "";
 	
-//	$radio[$where] = "checked";
 	$udbsel = filter_int($_POST['useudb']) ? "checked" : "";
 	
 	print "
@@ -113,11 +96,7 @@
 			<td class='light'><b>Search for an IP range:</b></td>
 			<td class='dim'><input type='text' name='ip1' value=\"$ip1\"> and <input type='text' name='ip2' value=\"$ip2\"></td>
 		</tr>
-"./*		<tr>
-			<td class='light'><b>Where to search:</b></td>
-			<td class='dim'><input type='radio' name='where' value=0 ".filter_string($radio[0]).">Users - <input type='radio' name='where' value=1 ".filter_string($radio[1]).">Hits - <input type='radio' name='where' value=2 ".filter_string($radio[2])."><s>Firewall log</s></td>
-		</tr>*/"
-		<tr><td class='dim' colspan=2><input type='submit' name='dosearch' value='Search'> <input type='checkbox' name='useudb' value=1 $udbsel>Show only last match for any IP</td></tr>
+		<tr><td class='dim' colspan=2><input type='submit' name='dosearch' value='Search'> <input type='checkbox' name='useudb' value=1 $udbsel>Show only last match for each user ID</td></tr>
 	</table></center>
 	</form>
 	

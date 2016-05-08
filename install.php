@@ -1,6 +1,7 @@
 <?php
 
 	require "lib/config.php";
+	error_reporting(0);
 	
 	function filter_bool(&$bool){
 		if (!isset($bool)) return false;
@@ -18,73 +19,153 @@
 	}
 	
 	function ctime(){return time()+$GLOBALS['config']['default-time-zone'];}
+	function printdate($t){return date($GLOBALS['config']['default-date-format']." ".$GLOBALS['config']['default-time-format'], $t+$GLOBALS['config']['default-time-zone']);}
 	
 	function query($q){
-		// it's almost like $fw->banflags()
 		global $sql, $errors, $q_errors, $ok;
-		//print "$q";
 		$res = $sql->exec($q);
 		if ($res === false) {$errors++; $q_errors[] = $q; print "$q NG!\n";}
-		else {$ok++; /*print " OK!\n";*/}
+		else $ok++;
 	}
-	// ALTER TABLE `new_posts` ADD `user1` BOOLEAN NOT NULL DEFAULT TRUE AFTER `post`;
+
 	function dialog($desc, $contents, $buttons, $title="Installer"){
-		die("<!doctype html>
-		<head>
-			<title>BoardC Installer</title>
+		global $config;
+		die("
+<!doctype html>
+<html>
+	<head>
+		<title>BoardC Installer</title>
 			<style type='text/css'>
-			body {
-				background: #000F1F url('images/themes/night/starsbg.png');
-				font-family: Verdana, Geneva, sans-serif;
-				font-size: 13px;
-				color: #fff;
-			}
-			a{
-				text-decoration: none;
-				font-weight: bold;
-			}
-			table.special{
-				border-spacing: 1px;
-				border: solid 1px #88C;
-				background: #000;
-			}
-			
-			.c{
-				text-align: center;
-			}
-			.w{
-				width: 100%;
-			}
-			.head{
-				background: #302048;
-			}
-			.dim{
-				background: #11112B;
-			}
-			.light{
-				background: #111133;
-			}
-			.dark{
-				background: #2F2F5F;
-			}
-			textarea,input,select{
-			  border:	#663399 solid 1px;
-			  background:#000000;
-			  color:	#DDDDDD;
-			  font:	10pt verdana;
-			}
+				body {
+					background: #999;
+					font-family: Verdana, Geneva, sans-serif;
+					font-size: 13px;
+					color: #fff;
+					
+					background-color: #000F1F;
+					background-image: url('images/themes/night/starsbg.png');
+				}
+				body, table {
+					color: #DDDDDD;
+					font:13px verdana;
+				}
+
+				.danger{
+					color: #FF0000 !important;
+				}
+				.selected{
+					color: #FFFF00 !important;
+				}
+				.disabled{
+					color: #888888 !important;
+				}
+				.notice{
+					color: #FFF !important;
+				}
+				.fonts {
+					font: 10px verdana;
+				}
+				.c{
+					text-align: center;
+				}
+
+				.w{
+					width: 100%;
+				}
+
+				a:link,a:visited,a:active,a:hover{text-decoration:none;font-weight:bold;}
+				a:link		{color: #BEBAFE}
+				a:visited	{color: #9990C0}
+				a:active	{color: #CFBEFF}
+				a:hover		{color: #CECAFE}
+
+				table.main{
+					border-spacing: 0px;
+					color: #fff;
+					border-top:	#000000 1px solid;
+					border-left: #000000 1px solid;
+				}
+
+				td.light,td.dim,td.head,td.dark{
+					border-right:	#000000 1px solid;
+					border-bottom:	#000000 1px solid;
+				}
+
+				.light{
+					background: #111133;
+					
+				}
+				.dim{
+					background: #11112B;
+				}
+				.head{
+					background: #302048;
+					color: #FFEEFF;
+				}
+				.dark{
+					background: #2F2F5F;
+					color: #FFEEFF;
+				}
+
+
+				textarea, input, select, button {
+					border: 1px solid #663399;
+					background-color: #000000;
+					color: #DDDDDD;
+				  font:	10pt verdana;
+				}
+				.submit {
+					border: 2px solid #663399;
+				}
+				input.radio {
+					border:	none;
+					background: none;
+					color: #DDDDDD;
+					font:	10pt verdana;
+				}
 			</style>
-			<body>
-			<center><div style='height: 30vh'>PRE-RELEASE VERSION</div><form method='POST' action='install.php'><table class='special'>
+			
+			<link rel='icon' type='image/png' href='images/favicon.png'>
+			
+		</head>
+		<body>
+			<table class='main c w fonts'>
+				<tr>
+					<td colspan=3 class='light b'><a href='".$config['board-url']."'>".$config['board-title']."</a><br/><a href='install.php'>Restart installation</a></td>
+				</tr>
+				<tr>
+					<td class='dim' style='width: 120px'>
+						<nobr>Views: 0</nobr>
+					</td>
+					<td class='dim'>
+						PRE-RELEASE<br/>VERSION
+					</td>
+					<td class='dim' style='width: 120px'>
+						<nobr>".printdate(ctime())."</nobr>
+					</td>
+					
+				</tr>			
+				<tr><td colspan=3 class='dim'></td></tr>
+			</table>
+			<br/>
+			<center><form method='POST' action='install.php'><table class='main'>
 				<tr>
 					<td class='head c'><center><b>$title</b></center></td>
 				</tr>
-				<tr><td class='dark c'>$desc</td></tr>
+				<tr><td class='light c'>$desc</td></tr>
 				<tr><td class='dim'><center>$contents</center></td></tr>
-				<tr><td class='light c'>$buttons</td></tr>
-			</table></form></center>
-			</body>
-		</head>");
+				<tr><td class='dark c'>$buttons</td></tr>
+			</table></form>
+			<br/>
+			
+			<table class='main c fonts'><tr><td class='light'>
+			BoardC ".$config['board-version']."<br/>
+			&copy; 2016 Kak
+			</td></tr></table>
+			</center>		
+			
+		</body>
+		</html>");
 	}
 	
 	$step = filter_int($_POST['step']);
@@ -150,6 +231,37 @@
 query("
 CREATE DATABASE `$sqldb`; DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
 $sql->selectdb($sqldb);
+
+query("
+CREATE TABLE `announcements` (
+  `id` int(11) NOT NULL,
+  `name` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` text COLLATE utf8mb4_unicode_ci,
+  `user` int(32) NOT NULL,
+  `time` int(32) NOT NULL,
+  `text` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
+  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
+  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
+  `avatar` int(32) NOT NULL DEFAULT '0',
+  `forum` int(32) NOT NULL DEFAULT '0',
+  `lastedited` int(32) NOT NULL DEFAULT '0',
+  `rev` int(5) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `announcements_old` (
+  `id` int(32) NOT NULL,
+  `aid` int(32) NOT NULL,
+  `name` text NOT NULL,
+  `title` text NOT NULL,
+  `text` text NOT NULL,
+  `time` int(32) NOT NULL,
+  `rev` int(4) NOT NULL,
+  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
+  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
+  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
+  `avatar` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `categories` (
   `id` int(32) NOT NULL,
@@ -228,6 +340,12 @@ CREATE TABLE `hits` (
   `forum` int(32) NOT NULL DEFAULT '0',
   `referer` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `new_announcements` (
+  `id` int(32) NOT NULL,
+  `user0` tinyint(1) NOT NULL DEFAULT '0',
+  `user1` tinyint(1) NOT NULL DEFAULT '1'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used for per-user tracking new announcements';");
 query("
 CREATE TABLE `new_posts` (
   `id` int(32) NOT NULL,
@@ -333,7 +451,7 @@ query("
 INSERT INTO `themes` (`id`, `name`, `file`) VALUES
 (1, 'Default', 'default.css'),
 (2, 'Night (Jul)', 'night.css'),
-(3, 'Hydra\'s Blue Thing (Alternate)', 'hbluealt.css');");
+(3, 'Hydra''s Blue Thing (Alternate)', 'hbluealt.css');");
 query("
 CREATE TABLE `threads` (
   `id` int(32) NOT NULL,
@@ -400,9 +518,9 @@ CREATE TABLE `users` (
   `gcoins` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
-INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `dateformat`, `timeformat`, `since`, `powerlevel`) VALUES
-('1', '$name','".password_hash($pass1, PASSWORD_DEFAULT)."','".$_SERVER['REMOTE_ADDR']."','".$config['default-date-format']."','".$config['default-time-format']."','".ctime()."', '5'),
-('".$config['deleted-user-id']."', 'Deleted user', 'rip','".$_SERVER['REMOTE_ADDR']."','".$config['default-date-format']."','".$config['default-time-format']."','".ctime()."', '-2');
+INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES
+('1', '$name','".password_hash($pass1, PASSWORD_DEFAULT)."','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '5'),
+('".$config['deleted-user-id']."', 'Deleted user', 'rip','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '-2');
 ");
 query("
 CREATE TABLE `users_rpg` (
@@ -430,6 +548,10 @@ CREATE TABLE `user_avatars` (
   `title` varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+ALTER TABLE `announcements`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `announcements_old`
+  ADD PRIMARY KEY (`id`);
 ALTER TABLE `categories`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `failed_logins`
@@ -443,6 +565,8 @@ ALTER TABLE `ipbans`
 ALTER TABLE `jstrap`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `hits`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `new_announcements`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `new_posts`
   ADD PRIMARY KEY (`id`);
@@ -474,6 +598,10 @@ ALTER TABLE `users_rpg`
   ADD PRIMARY KEY (`id`);
 ");
 query("
+ALTER TABLE `announcements`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `announcements_old`
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `categories`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 ALTER TABLE `failed_logins`
@@ -487,6 +615,8 @@ ALTER TABLE `hits`
 ALTER TABLE `ipbans`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `jstrap`
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `new_announcements`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `new_posts`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;

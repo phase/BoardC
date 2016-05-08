@@ -24,16 +24,16 @@ class mysql{
 				
 				default: $msg = "Unspecified reason";
 			}*/
-			die("An error occurred during MySQL connection.<br/><br/>".$durr->getMessage());
+			die("<body bgcolor=0 text=ffea><font face=arial color=white><br><center><b>Couldn't connect to the MySQL server</b><br/><br/><small>".$durr->getMessage());
 		}
 	}
 	public function selectdb($db, $is_install = false){
 		try{
-			$this->query("USE $db");
+			$this->db->query("USE $db");
 		}
-		catch (PDOException $durr){
+		catch(PDOException $x){
 			if ($is_install) return false;
-			else die("Couldn't select the database $db<br/><br/>".$durr->getMessage());
+			else die("<body bgcolor=0 text=ffea><font face=arial color=white><br><center><b>Couldn't select the database</b>");//die("Couldn't select the database $db");
 		}
 	}
 	
@@ -44,7 +44,7 @@ class mysql{
 			$result = $this->db->beginTransaction();
 		}
 		catch (PDOException $x){
-			trigger_error("Could not start transaction", E_USER_ERROR);
+			trigger_error("Could not start transaction", E_USER_WARNING);
 			$result = false;
 		}
 		$this->querytime += (microtime(true) - $start);
@@ -57,7 +57,7 @@ class mysql{
 			$result = $this->db->commit();
 		}
 		catch (PDOException $x){
-			trigger_error("Could not end transaction", E_USER_ERROR);
+			trigger_error("Could not end transaction", E_USER_WARNING);
 			$result = false;			
 		}
 		$this->querytime += (microtime(true) - $start);
@@ -80,7 +80,7 @@ class mysql{
 			$result = $this->db->rollBack(); //false on failure
 		}
 		catch (PDOException $x){
-			trigger_error("Could not undo transaction", E_USER_ERROR);
+			trigger_error("Could not undo transaction", E_USER_WARNING);
 			$result = false;
 		}		
 		$this->querytime += microtime(true) - $start;
@@ -94,7 +94,7 @@ class mysql{
 			return $result;
 		}
 		catch (PDOException $x){
-			trigger_error("RowCount failure", E_USER_ERROR);
+			trigger_error("RowCount failure", E_USER_WARNING);
 			return false;
 		}
 		}
@@ -110,7 +110,7 @@ class mysql{
 			$result = $this->num_rows($ref);
 		}
 		catch (PDOException $x){
-			trigger_error("Query failure: $query | ".str_replace("You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near", "Error near: ", $this->db->errorInfo()[2])."</small>", E_USER_ERROR);
+			trigger_error("Query failure: $query | ".str_replace("You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near", "Error near: ", $this->db->errorInfo()[2])."</small>", E_USER_WARNING);
 			$result = false;// true;					
 		}	
 		
@@ -128,7 +128,7 @@ class mysql{
 			$result = $this->db->exec($query);
 		}
 		catch (PDOException $x){
-			trigger_error("Query (Exec) failure: $query", E_USER_ERROR);
+			trigger_error("Query (Exec) failure: $query", E_USER_WARNING);
 			$result = false;			
 		}
 		$this->querytime += (microtime(true) - $start);
@@ -147,7 +147,7 @@ class mysql{
 			$res = $all ? $ref->fetchAll($style) : $ref->fetch($style);
 		}
 		catch (PDOException $x){
-			trigger_error("Fetch failure", E_USER_ERROR);
+			trigger_error("Fetch failure", E_USER_WARNING);
 			$res = false;			
 		}
 		$this->querytime += (microtime(true) - $start);
@@ -164,7 +164,7 @@ class mysql{
 			$res = $ref->fetchColumn($col);
 		}
 		catch (PDOException $x){
-			trigger_error("Result failure", E_USER_ERROR);		
+			trigger_error("Result failure", E_USER_WARNING);		
 			$res = false;
 		}
 		$this->querytime += (microtime(true) - $start);
@@ -192,7 +192,7 @@ class mysql{
 			$res = $this->db->prepare($query);
 		}
 		catch (PDOException $x){
-			trigger_error("Prepare failure", E_USER_ERROR);		
+			trigger_error("Prepare failure", E_USER_WARNING);		
 			$res = false;
 		}
 		$this->querytime += (microtime(true) - $start);
@@ -205,7 +205,7 @@ class mysql{
 			$status = $ref->execute($cmd_array);
 		}
 		catch (PDOException $x){
-			trigger_error("Execute failure |$x", E_USER_ERROR);		
+			trigger_error("Execute failure |$x", E_USER_WARNING);		
 			$status = false;
 		}
 		$this->querytime += (microtime(true) - $start);

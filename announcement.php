@@ -9,30 +9,35 @@
 	
 	$ismod = powlcheck(4) or ismod($id);
 	
-	errorpage("Under construction!");
-	
+	if ($id)
+		if (!canviewforum($id))
+			errorpage("This forum doesn't exist.");
+
 	$txt = "";
 	
-	if ($action == 'send'){
+	if ($action == 'new'){
 		
 		if (!$ismod) errorpage("You're not allowed to do this!");
-		
-		if ($id)
-			$sendto = $sql->resultq("SELECT name FROM users WHERE id = $id");
-		
+
 		$quote = filter_int($_GET['quote']);
 
 		pageheader("New announcement");
+		$name = filter_string($_POST['name']);
+		$title = filter_string($_POST['title']);
 		
 		if ($quote){
 			$quoted = $sql->fetchq("
 			SELECT a.text, u.name FROM announcements a
 			LEFT JOIN users u ON a.user=u.id
-			WHERE p.id=$quote");
+			WHERE a.id=$quote");
 			
-			$msg = "[quote=".$quoted['username']."]".$quoted['text']."[/quote]";
+			if ($quoted) $msg = "[quote=".$quoted['name']."]".$quoted['text']."[/quote]";
+			else $msg = "";
 		}
 		else $msg = isset($_POST['message']) ? $_POST['message'] : "";
+		
+
+		
 		
 	
 		if (isset($_POST['submit'])){
@@ -48,16 +53,19 @@
 			
 			$sql->start();
 			
-			$a = $sql->prepare("INSERT INTO pms (name, title, user, userto, time, text, nohtml, nosmilies, nolayout, avatar) VALUES (?,?,?,?,?,?,?,?,?,?)");
-			$go[] = $sql->execute($a, array($name, $title, $loguser['id'], $userto, ctime(), $msg, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar'])));
-			if ($sql->finish($go)) errorpage("PM Sent!", false);
-			else errorpage("Couldn't send the PM.", false);
+			$a = $sql->prepare("INSERT INTO announcements (name, title, user, time, text, nohtml, nosmilies, nolayout, avatar, forum) VALUES (?,?,?,?,?,?,?,?,?,?)");
+			$go[] = $sql->execute($a, array($name, $title, $loguser['id'], ctime(), $msg, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar']), $id));
+			if ($sql->finish($go)){
+				$sql->query("INSERT INTO new_announcements () VALUES ()");
+				errorpage("Announcement created!", false);
+			}
+			else errorpage("Couldn't create the announcement.", false);
 		}
 		
 		if (isset($_POST['preview'])){
 			
 			$data = array(
-				'id' => $sql->resultq("SELECT MAX(id) FROM pms")+1,
+				'id' => $sql->resultq("SELECT MAX(id) FROM announcements")+1,
 				'user' => $loguser['id'],
 				'ip' => $loguser['lastip'],
 				'deleted' => 0,
@@ -69,26 +77,24 @@
 				'nohtml' => filter_int($_POST['nohtml']),
 				'lastpost' => $sql->resultq("SELECT MAX(time) FROM posts WHERE user = ".$loguser['id']),
 				'avatar' => filter_int($_POST['avatar']),
-				
+				'new'	=> 0,
 			);
 			print "<table class='main w c'>
-			<tr><td class='head' style='border-bottom: none;'>PM Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true, false, true);
+			<tr><td class='head' style='border-bottom: none;'>Announcement Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true, false, true);
 		}
 		
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
 		$nohtmlc = isset($_POST['nohtml']) ? "checked" : "";
 		$nolayoutc = isset($_POST['nolayout']) ? "checked" : "";
+		
+		$fname = $id ? " <a href='forum.php?id=$id'>".$sql->resultq("SELECT name FROM forums WHERE id = $id")."</a> -" : "";
 		// used to be maxlength='100'
-		print "<a href='index.php'>".$config['board-name']."</a> - <a href='private.php'>Private messages</a> - Compose PM
-		<form action='private.php?act=send' method='POST'>
+		print "<a href='index.php'>".$config['board-name']."</a> -$fname <a href='announcement.php?id=$id'>Announcements</a> - New announcement
+		<form action='announcement.php?act=new&id=$id' method='POST'>
 			<table class='main w'>
 				<tr><td class='head' width='150'>&nbsp;</td><td class='head'>&nbsp;</td></tr>
 				<tr>
-					<td class='light c'><b>Send to:</b><br/><small>Enter the real handle</small></td>
-					<td class='dim'><input name='sendto' value=\"".htmlspecialchars($sendto)."\" size='30' maxlength='25' type='text'></td>
-				</tr>
-				<tr>
-					<td class='light c'><b>Subject:</b></td>
+					<td class='light c'><b>Name:</b></td>
 					<td class='dim'><input name='name' value=\"".htmlspecialchars($name)."\" size='60' type='text'></td>
 				</tr>
 				<tr>
@@ -102,8 +108,8 @@
 				<tr>
 					<td class='light'></td>
 					<td class='dim'>
-						<input type='submit' value='Send message' name='submit'>&nbsp;
-						<input type='submit' value='Preview message' name='preview'>&nbsp;
+						<input type='submit' value='Create announcement' name='submit'>&nbsp;
+						<input type='submit' value='Preview announcement' name='preview'>&nbsp;
 						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
 						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
 						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
@@ -115,113 +121,242 @@
 		
 		pagefooter();
 	}
-	else if ($action == 'view'){
+	else if ($action == 'edit'){
+
+		// Horray for recycling code
 		
-		if (!$id)
-			errorpage("No PM specified.");
+		if (!$ismod) errorpage("You're not allowed to do this!");
+		if (!$id)	 errorpage("No announcement ID specified.");
 		
-		//errorpage("Under construction!");
+
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		
+		pageheader("Edit announcement");
+		
+
 		$post = $sql->fetchq("
-		SELECT  p.id,p.name pmname,p.user,p.userto,p.time,p.text,p.nohtml,p.nosmilies,p.nolayout,p.avatar,p.new,
-				$userfields,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview
-		FROM pms p
-		LEFT JOIN users u ON p.user = u.id
-		WHERE p.id = $id 
+			SELECT p.id, p.text, p.name aname, p.title atitle, p.time, p.rev, p.user, p.forum, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
+			u.head, u.sign, u.lastip ip, $userfields uid, u.title, u.posts, u.since, u.location, u.lastview, 0 new
+			FROM announcements AS p
+			LEFT JOIN users AS u ON p.user = u.id
+			LEFT JOIN announcements_old AS o ON p.id = (SELECT MAX('o.id') FROM announcements_old o WHERE o.aid = p.id)
+			WHERE p.id = $id
 		");
 		
-		if (!$isadmin && (($post['userto'] != $loguser['id'] && $post['user'] != $loguser['id']) || !$post['id']))
-			errorpage("This private message isn't for you!");
+		if (!filter_int($post['id']))
+			errorpage("This announcement doesn't exist", false);
 		
-		if (!$post['id'])
-			errorpage("A private message with ID #$id doesn't exist.");
-		
-		if (($post['userto'] == 1 || $post['user'] == 1) && !in_array($loguser['id'],array($post['user'],$post['userto']) ))
-			errorpage("No.");
 
-		$s = "<a href='index.php'>".$config['board-name']."</a> - <a href='private.php'>Private messages</a> - ".htmlspecialchars($post['pmname']);
+		$name = isset($_POST['aname']) ? $_POST['aname'] : $post['aname'];
+		$title = isset($_POST['atitle']) ? $_POST['atitle'] : $post['atitle'];
+		$msg = isset($_POST['text']) ? $_POST['text'] : $post['text'];
 		
-		$data = array(
-			'ip' => $loguser['lastip'],
-			'deleted' => 0,
-			'rev' => 0,
-			'lastpost' => $sql->resultq("SELECT MAX(time) FROM posts WHERE user = ".$loguser['id']),
-		);
+
 		
-		if ($post['new'] && $post['userto'] == $loguser['id'])
-			$sql->query("UPDATE pms SET new = 0 WHERE id = $id");
+		if (isset($_POST['submit'])){
+			
+			if (!$msg) errorpage("You've edited the announcement to be blank!", false);
+			if (!$name) errorpage("You've edited the name to be blank!", false);
+			
+			
+			$msg = input_filters($msg);
+			$name = input_filters($name);
+			$title = input_filters($title);
+			
+			
+			
+			$sql->start();
+			
+			$bak = $sql->prepare("INSERT INTO `announcements_old` (`aid` ,`name`, `title`, `text`, `time`, `rev`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?,?,?)");
+			$go[] = $sql->execute($bak, array($post['id'], $post['name'], $post['title'], $post['text'], $post['time'], $post['rev'], $post['nohtml'], $post['nosmilies'], $post['nolayout'], $post['avatar']));
+			
+			
+			$a = $sql->prepare("
+			UPDATE announcements
+			SET name=?, title=?, text=? ,time=? ,rev=? ,nohtml=? ,nosmilies=? ,nolayout=?, lastedited=?, avatar=?
+			WHERE id = $id
+			");
+			
+			$_POST['nosmilies'] = filter_int($_POST['nosmilies']);
+			$_POST['nohtml'] = filter_int($_POST['nohtml']);
+			$_POST['nolayout'] = filter_int($_POST['nolayout']);
+			$_POST['avatar'] = filter_int($_POST['avatar']);
+			
+			$go[] = $sql->execute($a, array($name, $title, $msg, ctime(), $post['rev']+1, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $loguser['id'], $_POST['avatar']) );
+			
+			if ($sql->finish($go)) $msg = "The announcement has been edited successfully.";
+			else $msg = "Couldn't edit the announcement.";
+				
+			errorpage($msg, false);
+		}
 		
-		pageheader("Private Messages: ".htmlspecialchars($post['pmname']));
-		print $s.threadpost(array_merge($post,$data), false, false, false, false, true).$s;
+		
+		
+		if (isset($_POST['preview'])){
+			
+			$data = getpostcount($post['user'], true);
+			$postids = $data[0];
+			$lastpost = $data[1];
+			
+			$data = array(
+				'rev' => $post['rev']+1,
+				'text' => $msg,
+				'nolayout' => filter_int($_POST['nolayout']),
+				'nosmilies' => filter_int($_POST['nosmilies']),
+				'nohtml' => filter_int($_POST['nohtml']),
+				'postcur' => array_search($post['id'], $postids[$post['user']])+1,
+				'lastpost' => max($lastpost[$post['user']]),
+				'crev' => $post['rev']+1,
+				'time' => ctime(),
+				'rtime' => $post['time'],
+				'lastedited' => $loguser['id'],
+				'avatar'	=> filter_int($_POST['avatar']),
+			);
+			print "<table class='main w'>
+			<tr><td class='head c' style='border-bottom: none'>Announcement Preview</td></tr></table>".threadpost(array_merge($post, $data), false, false, true, false, false, true);
+			
+
+			$nsm = filter_int($_POST['nosmilies']);
+			$nht = filter_int($_POST['nohtml']);
+			$nly = filter_int($_POST['nolayout']);
+			$cha = filter_int($_POST['avatar']);
+			
+			
+		}
+		else {
+			$nsm = $post['nosmilies'];
+			$nht = $post['nohtml'];
+			$nly = $post['nolayout'];
+			$cha = $post['avatar'];
+			
+		}
+		
+		$nosmiliesc = $nsm ? "checked" : "";
+		$nohtmlc = $nht ? "checked" : "";
+		$nolayoutc = $nly ? "checked" : "";
+
+		$fname = $id ? " <a href='forum.php?id=$id'>".$sql->resultq("SELECT name FROM forums WHERE id = $id")."</a> -" : "";
+		// used to be maxlength='100'
+		print "<a href='index.php'>".$config['board-name']."</a> -$fname <a href='announcement.php?id=$id'>Announcements</a> - Edit announcement
+		<form action='announcement.php?act=edit&id=$id'  method='POST'>
+			<table class='main'>
+				<tr>
+					<td colspan=2 class='head c'>Edit announcement</td>
+				</tr>
+				<tr>
+					<td class='light c'><b>Name:</b></td>
+					<td class='dim'><input type='text' name='aname' value=\"".htmlspecialchars($name)."\" style='width: 300px'></td>
+				</tr>
+				<tr>
+					<td class='light c'><b>Title:</b></td>
+					<td class='dim'><input type='text' name='atitle' value=\"".htmlspecialchars($title)."\" style='width: 600px'></td>
+				</tr>
+				<tr>
+					<td class='light c'><b>Message:</b></td>
+					<td class='light' style='width: 806px; border-right: none'><textarea name='text' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'>".htmlspecialchars($msg)."</textarea></td>
+				</tr>
+				<tr>
+					<td class='dim' colspan=2>
+						<input type='submit' value='Submit' name='submit'>&nbsp;
+						<input type='submit' value='Preview' name='preview'>&nbsp;
+						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
+						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
+						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
+						".getavatars($post['user'], $cha)."
+					</td>
+				</tr>
+			</table>
+		</form>";
 		
 		pagefooter();
 	}
-	else if ($action == 'sent'){
-		$pmtype = "Outbox";
-		$from = "To";
-		$linkswitch = "<a href='private.php?$id_txt'>View received messages</a>";
-		$inorout = "p.user";
-		$userlink = "p.userto";
-	}
-	else{
-		$pmtype = "Inbox";
-		$from = "From";
-		$linkswitch = "<a href='private.php?act=sent$id_txt'>View sent messages</a>";
-		$inorout = "p.userto";
-		$userlink = "p.user";
-	}
 	
-	if ( (!$isadmin && $loguser['id'] != $id) || ($id == 1 && $loguser['id'] != 1) )
-		errorpage("No.");
 	
+	$page = filter_int($_GET['page']);
+	
+
 	$ann = $sql->query("
 	
-		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,
-				$userfields,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview
-		FROM pms p
+		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,a.lastedited,a.rev,o.time rtime,
+				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, GREATEST(p.time, 0) lastpost, n.user".$loguser['id']." new
+		FROM announcements a
 		LEFT JOIN users u ON a.user = u.id
-		WHERE a.forum = $id 
+		LEFT JOIN posts p ON p.user = u.id
+		LEFT JOIN announcements_old AS o ON o.time = (SELECT MIN(o.time) FROM announcements_old o WHERE o.aid = a.id)
+		LEFT JOIN new_announcements n ON a.id = n.id
+		WHERE a.forum = $id
+		GROUP BY a.id DESC
+		LIMIT ".($page*$loguser['ppp']).", ".$loguser['ppp']."
 		
 	");
 	
-	while ($pm = $sql->fetch($pms)){
+	if ($id){
+		$fname = $sql->resultq("SELECT name FROM forums WHERE id = $id");
+		$s  = " - <a href='forum.php?id=$id'>$fname</a>";
+	}
+	else $fname = $s = "";
+	
+	if ($ann){
+		
+		$count = $sql->resultq("SELECT COUNT(id) FROM announcements WHERE forum = $id");
+		$pagectrl = dopagelist($count, $loguser['ppp'], "announcement");
+		
+		while ($a = $sql->fetch($ann)){
+			if ($a['new']) $set[] = "id =".$a['id'];
+			
+			if ($ismod){
+				if (filter_int($_GET['del']) == $a['id']){
+					$sql->query("DELETE FROM announcements WHERE id = ".$a['id']);
+					continue;
+				}
+				
+				if (isset($_GET['rev']) && filter_int($_GET['pin'])==$a['id'])
+					$a = array_replace($a, $sql->fetchq("SELECT text,rev crev,time,nohtml,nosmilies,nolayout,avatar FROM announcements_old  WHERE aid = ".$a['id']." AND rev = ".filter_int($_GET['rev'])));
+			}
+			
+			$txt .= threadpost($a, false, false, $ismod ? false : true, false, false, true);
+		}
+		
+		if (isset($set))
+			$sql->query("UPDATE new_announcements SET user".$loguser['id']." = 0");//$sql->query("UPDATE new_announcements SET user".$loguser['id']." = 0 WHERE ".implode(" AND ", $set));
+	}
+
+	else{
 		$txt .= "
+	<table class='main w c'>
 		<tr>
-			<td class='light c'>".($pm['new'] && $pmtype == "Inbox" ? "<img src='images/status/new.gif'>" : "")."</td>
-			<td class='dim'><a href='private.php?act=view&id=".$pm['pid']."'>".htmlspecialchars($pm['pmname'])."</a>".($pm['pmtitle'] ? "<br/><small>".htmlspecialchars($pm['pmtitle'])."</small>" : "")."</td>
-			<td class='dim c'>".makeuserlink(false, $pm)."</td>
-			<td class='dim c'>".printdate($pm['time'])."</td>
-		</tr>";
-		
-		$pmcount++;
-		
+			<td class='light'>
+				There are no announcements under this section.".($ismod ? "<br/>To create a new one, click <a href='announcement.php?act=new&id=$id'>here</a>." : "")."
+			</td>
+		</tr>
+	</table>";
+	$pagectrl = "";
 	}
 	
+
+	$newann = $ismod ? "<table class='w'><tr><td style='text-align: right'><a href='announcement.php?act=new&id=$id'>New announcement</a></td></tr></table>" : "";
 	
-	pageheader("Private Messages");
+	pageheader("Announcements".($id ? " - $fname" : ""));
 	
 	print "
-	<table class='w'>
-		<tr>
-			<td>
-				<a href='index.php'>".$config['board-name']."</a> - Private messages ".($id_txt ? "for ".makeuserlink($id)." " : "")."- $pmtype: $pmcount
-			</td>
-			<td class='fonts' align='right'>
-				$linkswitch | <a href='private.php?act=send$id_txt'>Send new message".($id_txt ? " to this user" : "")."</a>
-			</td>
-		</tr>
-	</table>
-
-	<table class='main w'>
-		<tr class='c'>
-			<td class='head' style='width:50px'>&nbsp;</td>
-			<td class='head'>Subject</td>
-			<td class='head' style='width:15%'>$from</td>
-			<td class='head' style='width:180px'>Sent on</td>
-		</tr>
-		$txt
-	</table>
+	<table class='w'><tr>
+	<td><a href='index.php'>".$config['board-name']."</a>$s - Announcements</td>
+	<td style='text-align: right'>$newann</td></tr></table>
 	
+	$pagectrl
+	<table class='main w'>
+		<tr>
+			<td class='head c' style='width: 200px'>User</td>
+			<td class='head c'>Announcement</td>
+		</tr>
+	</table>
+	$txt
+	
+	<table class='w'><tr>
+	<td>$pagectrl</td>
+	<td style='text-align: right'>$newann</td></tr></table>
 	";
 	
 	pagefooter();
+
 ?>

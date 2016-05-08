@@ -1,13 +1,20 @@
 <?php
-
-	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = "", $pmmode = false){
+	
+	/*
+	replacing the wall of arguments with something different could (or not) be a better idea
+	as the arg list is getting ridiculous [as of $annmode]
+	
+	and on top of this the function itself is messy
+	*/
+	
+	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = "", $pmmode = false, $annmode = false){
 		global $ismod, $loguser, $config, $error_id;
 		
 		static $theme = false;
 		// Reverse post color scheme
 		$theme = ($theme == "light") ? "dim" : "light";
 		
-		if ((!isset($ismod) || isset($ismod_a)) && !$pmmode){
+		if ((!isset($ismod) || isset($ismod_a)) && !$pmmode && !$annmode){
 			static $ismod_a;
 			if (!isset($ismod_a[$post['thread']])) $ismod_a[$post['thread']] = ismod($post['thread']); //useful when printing posts from different threads (ie: list posts)
 		
@@ -17,7 +24,7 @@
 		$controls = "";
 		$uid = $post['user'];
 		
-		if ($pmmode){
+		if ($pmmode || $annmode){
 			// snip
 			if ($post['nohtml'])
 				$post['text'] = htmlspecialchars($post['text']);
@@ -44,7 +51,13 @@
 			if (isset($post['avatar']) && is_file("userpic/$uid/".$post['avatar'])) $avatar = "<img src='userpic/$uid/".$post['avatar']."'>";
 			else $avatar = "";
 			// end snip
-			$controls = "<a href='private.php?act=send&quote=".$post['id']."'>Reply</a>";
+			if ($pmmode)
+				$controls = "<a href='private.php?act=send&quote=".$post['id']."'>Reply</a>";
+			else if ($ismod)
+				$controls = "
+					<a href='announcement.php?act=new&id=".filter_int($_GET['id'])."&quote=".$post['id']."'>Reply</a> -
+					<a href='announcement.php?act=edit&id=".$post['id']."'>Edit</a>
+					";
 			
 			$sidebar = "<small>
 			".($post['title'] ? $post['title']."<br/>" : "")."
@@ -56,7 +69,7 @@
 			Since: ".printdate($post['since'], true, false)."<br/>
 			".($post['location'] ? "From: ".$post['location']."<br/>" : "")."
 			<br/>
-			Since last post: ".choosetime(ctime()-$post['lastpost'])."<br/>
+			Since last post: ".($post['lastpost'] ? choosetime(ctime()-$post['lastpost']) : "None")."<br/>
 			Last activity: ".choosetime(ctime()-$post['lastview'])."</small>";
 			
 			$post['text'] = nl2br($post['text']);
@@ -124,7 +137,7 @@
 				Since: ".printdate($post['since'], true, false)."<br/>
 				".($post['location'] ? "From: ".$post['location']."<br/>" : "")."
 				<br/>
-				Since last post: ".choosetime(ctime()-$post['lastpost'])."<br/>
+				Since last post: ".($post['lastpost'] ? choosetime(ctime()-$post['lastpost']) : "None")."<br/>
 				Last activity: ".choosetime(ctime()-$post['lastview'])."</small>";
 			else $sidebar = "";
 			
@@ -135,7 +148,9 @@
 		
 		
 		if (powlcheck(5) && !$pmmode)
-			$controls .= " | <a class='danger' href=\"thread.php?id=".$post['thread']."&del=".$post['id']."\">Erase post</a>";
+			$controls .= $annmode ? 
+				" - <a class='danger' href=\"announcement.php?id=".filter_int($_GET['id'])."&del=".$post['id']."\">Delete</a>" :
+				" | <a class='danger' href=\"thread.php?id=".$post['thread']."&del=".$post['id']."\">Erase post</a>";
 		
 		if (powlcheck(4))
 			$controls .= " | IP: <a href='admin-ipsearch.php?ip=".$post['ip']."'>".$post['ip']."</a>";
@@ -153,16 +168,23 @@
 		*/
 		
 		if (filter_int($post['rev'])){
-			
 			if (!isset($post['crev'])) $post['crev'] = $post['rev']; // imply max revision if it isn't set
 			
+			if ($annmode){
+				$script = "announcement";
+				$sdfgrklh = "&id=".filter_int($_GET['id']);
+			}
+			else{
+				$script = "thread";
+				$sdfgrklh = "";
+			}
 			// post revision jump
 			if ($ismod){
 				for($i=0, $revjump="Revision: ";$i<$post['rev'];$i++){
 					$a = ($post['crev'] == $i) ? "z" : "a"; 
-					$revjump .= "<$a href='thread.php?pid=".$post['id']."&pin=".$post['id']."&rev=$i#".$post['id']."'>".($i+1)."</$a> ";
+					$revjump .= "<$a href='$script.php?pid=".$post['id']."&pin=".$post['id']."$sdfgrklh&rev=$i#".$post['id']."'>".($i+1)."</$a> ";
 				}
-				$revjump .= "<a href='thread.php?pid=".$post['id']."#".$post['id']."'>".($i+1)."</a>";
+				$revjump .= "<a href='$script.php?pid=".$post['id']."$sdfgrklh#".$post['id']."'>".($i+1)."</a>";
 			}
 			else $revjump = "";
 			

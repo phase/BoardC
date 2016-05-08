@@ -576,7 +576,7 @@
 	
 	pageheader($thread['name'], true, $forum['id']);
 	
-	$newreply_txt = "<a href='new.php?act=newpoll&id=".$forum['id']."'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>";
+	$newreply_txt = $loguser['id'] && ($miscdata['noposts'] && !powlcheck(4)) ? "<a href='new.php?act=newpoll&id=".$forum['id']."'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>" : "";
 	
 	if ($thread['closed']){
 		$newreply = "<img src='images/text/threadclosed.png'>";

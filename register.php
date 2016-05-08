@@ -139,6 +139,13 @@
 			$sql->query("INSERT INTO users_rpg () VALUES ()");
 			$id = $sql->resultq("SELECT MAX(id) FROM users");
 			$sql->query("ALTER TABLE new_posts ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
+			$sql->query("ALTER TABLE new_announcements ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
+			
+			// Remove the "new" value from all past posts
+			$sql->query("UPDATE new_posts SET user$id = 0");
+			$sql->query("UPDATE new_announcements SET user$id = 0");
+			
+			
 			mkdir("userpic/$id");
 			trigger_error("New user: $user (".$config['board-url']."profile.php?id=$id)");
 			errorpage("You have been registered.<br/>Click <a href='login.php'>here</a> to log in.");
