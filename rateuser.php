@@ -43,7 +43,7 @@
 		$w = "style='width: 25%'";
 		print "<br/>
 		<table class='main w c'>
-			<tr><td class='head' colspan=2>Ratings for $username</td><td class='head' colspan=2>Ratings to $username</td></tr>
+			<tr><td class='head' colspan=2>Ratings to $username</td><td class='head' colspan=2>Ratings by $username</td></tr>
 			<tr><td class='dark' $w>From:</td><td class='dark' $w>Rating:</td><td class='dark' $w>To:</td><td class='dark' $w>Rating:</td></tr>";
 			
 		for ($i=0;isset($list[0][$i]) || isset($list[1][$i]); $i++)
