@@ -23,26 +23,33 @@
 		print adminlinkbar();
 		
 		$users = $sql->query("
-		SELECT u.id, u.name, u.displayname, u.powerlevel, u.namecolor, u.sex, r.rating, u.icon
-		FROM users u
-		LEFT JOIN ratings r
-		ON u.id = r.userfrom
-		WHERE r.userto = $id");
+			SELECT $userfields, r.rating, r.userfrom
+			FROM users u
+			LEFT JOIN ratings r	ON u.id = r.userfrom OR r.userto = u.id
+			WHERE r.userto = $id OR r.userfrom = $id
+			GROUP BY r.id
+		");
 		
 		if (!$users)
 			errorpage("This user doesn't exist.", false);
 		
-		$list = "";
-		while($x = $sql->fetch($users))
-			$list .= "<tr><td class='dim br'>".makeuserlink(false, $x, true)."</td><td class='light b'>".$x['rating']."</td></tr>";
+		$list[0] = $list[1] = array();
+		while($x = $sql->fetch($users)){
+			$i = ($x['userfrom'] == $id) ? 1 : 0;
+			$list[$i][] = ">".makeuserlink(false, $x, true)."</td><td class='light b'>".$x['rating'];
+		}
 		
+		$username = makeuserlink($id, false, true);
+		$w = "style='width: 25%'";
 		print "<br/>
-		<center><table class='main c nb'>
-			<tr><td class='head b' colspan=2>Ratings for ".makeuserlink($id)."</td></tr>
-			<tr><td class='dark br'>From:</td><td class='dark b'>Rating:</td></tr>
-			$list
-		</table></center>
-		";
+		<table class='main w c'>
+			<tr><td class='head' colspan=2>Ratings for $username</td><td class='head' colspan=2>Ratings to $username</td></tr>
+			<tr><td class='dark' $w>From:</td><td class='dark' $w>Rating:</td><td class='dark' $w>To:</td><td class='dark' $w>Rating:</td></tr>";
+			
+		for ($i=0;isset($list[0][$i]) || isset($list[1][$i]); $i++)
+			print "<tr><td class='dim'".(isset($list[0][$i]) ? $list[0][$i] : "colspan=2>&nbsp;")."</td><td class='dim'".(isset($list[1][$i]) ? $list[1][$i] : "colspan=2>&nbsp;")."</td></tr>";
+		
+		print "</table>";
 		
 		pagefooter();
 	}

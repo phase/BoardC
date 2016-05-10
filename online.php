@@ -33,7 +33,7 @@
 		WHERE h.time>".(ctime()-$time)."
 		".($ip && $isadmin ? "AND h.ip = '$ip'" : "")."
 		GROUP BY h.ip
-		ORDER BY h.time DESC
+		ORDER BY ".(isset($_GET['ipsort']) && $isadmin ? "h.ip" : "h.time DESC")."
 	");
 	
 	$txt = array("", "");
@@ -84,7 +84,7 @@
 				</tr>
 			</table></form></center>";
 		
-	print "<div class='fonts'>Show online users during the last: <a href='?time=60'>minute</a> | <a href='?time=300'>5 minutes</a> | <a href='?time=900'>15 minutes</a> | <a href='?time=3600'>hour</a> | <a href='?time=86400'>day</a></div>
+	print "<div class='fonts'>Show online users during the last: <a href='?time=60'>minute</a> | <a href='?time=300'>5 minutes</a> | <a href='?time=900'>15 minutes</a> | <a href='?time=3600'>hour</a> | <a href='?time=86400'>day</a>".($isadmin ? " | <a href='?ipsort'>Sort by IP</a>" : "")."</div>
 	Online users during the last ".choosetime($time).":
 	<table class='main w'>
 		<tr>
