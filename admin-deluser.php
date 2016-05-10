@@ -91,7 +91,7 @@
 	
 	
 	$users = $sql->query("
-	SELECT u.id, u.name, u.displayname, u.namecolor, u.powerlevel, u.sex, u.icon, u.powerlevel, u.ban_expire, u.posts, u.lastview,u.since, u.lastip, h.page
+	SELECT $userfields, u.ban_expire, u.posts, u.lastpost, u.lastview, u.since, u.lastip, h.page
 	FROM users u
 	LEFT JOIN hits h
 	ON h.id = (SELECT MAX(h.id) FROM hits h WHERE h.ip = u.lastip)
@@ -125,6 +125,7 @@
 			<td class='light'>".$powl_table[$user['powerlevel']]."</td>
 			<td class='dim'>".($user['powerlevel'] == '-1' && $user['ban_expire'] ? printdate($user['ban_expire']) : "-")."</td>
 			<td class='dim'>".$user['posts']."</td>
+			<td class='dim'>".($user['lastpost'] ? printdate($user['lastpost']) : "None")."</td>
 			<td class='light'>".printdate($user['since'])."</td>
 			<td class='light'>".$user['lastip']."</td>
 			<td class='light'>".printdate($user['lastview'])."</td>
@@ -136,13 +137,13 @@
 	
 	print "<form method='POST' action='admin-deluser.php'>
 	<center><table class='main w'>
-	<tr><td class='head c' colspan=9>Delete User</td></tr>
+	<tr><td class='head c' colspan=10>Delete User</td></tr>
 	
 	
 	<tr>
 		<td class='dim'></td>
 		<td class='light c' style='width: 200px'><b>Show:</b></td>
-		<td class='dim' colspan=7>
+		<td class='dim' colspan=8>
 			<select name='show'>
 				<option value='-2' ".filter_string($sel['-2']).">".$powl_table['-2']."</option>
 				<option value='-1' ".filter_string($sel['-1']).">".$powl_table['-1']."</option>
@@ -159,7 +160,7 @@
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Sort:</b></td>
-		<td class='dim' colspan=7>
+		<td class='dim' colspan=8>
 			<select name='sort'>
 				<option value='id' ".filter_string($ssel['id']).">ID</option>
 				<option value='name' ".filter_string($ssel['name']).">Name</option>
@@ -174,19 +175,19 @@
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Search IP:</b></td>
-		<td class='dim' colspan=7><input type='text' name='ips' value=\"$ips\"></td>
+		<td class='dim' colspan=8><input type='text' name='ips' value=\"$ips\"></td>
 	</tr>
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Search Name:</b></td>
-		<td class='dim' colspan=7><input type='text' name='sname' value=\"$sname\"></td>
+		<td class='dim' colspan=8><input type='text' name='sname' value=\"$sname\"></td>
 	</tr>
 	<tr>
 		<td class='dim'></td>
 		<td class='light c'><b>Custom WHERE:</b></td>
-		<td class='dim' colspan=7><input type='text' style='width: 500px' name='cwhere' value=\"$where\"></td>
+		<td class='dim' colspan=8><input type='text' style='width: 500px' name='cwhere' value=\"$where\"></td>
 	</tr>
-	<tr><td class='dark c' colspan=9><input type='submit' name='switch' value='Update query'></td></tr>
+	<tr><td class='dark c' colspan=10><input type='submit' name='switch' value='Update query'></td></tr>
 	<!-- deluser list starts here -->
 	<tr class='c'>
 		<td class='head'></td>
@@ -194,13 +195,14 @@
 		<td class='head'>Powerlevel</td>
 		<td class='head'>Banned until</td>
 		<td class='head'>Posts</td>
+		<td class='head'>Last post</td>
 		<td class='head'>Registered on</td>
 		<td class='head'>IP Address</td>
 		<td class='head'>Last Activity</td>
 		<td class='head'>Last View</td>
 	</tr>
 		$list
-	<tr><td class='dark c' colspan=9><input type='submit' name='rip' value='Delete User'></td></tr>
+	<tr><td class='dark c' colspan=10><input type='submit' name='rip' value='Delete User'></td></tr>
 	</table></center></form>
 	";
 	

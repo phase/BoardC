@@ -3,7 +3,7 @@
 	require "lib/function.php";
 	
 	if (!powlcheck(4))
-		errorpage("You wouldn't know how to fix threads.");
+		errorpage("You wouldn't know how to fix users.");
 	
 	if (filter_string($_POST['go'])){
 		print "<!doctype html><title>User Fix</title><body style='background: #008; color: #fff;'>
@@ -73,6 +73,39 @@
 		}
 		else print "\nNo problems found.\n";
 		
+		
+		print "\n\n=Last post time=\n";
+		
+			$time = $sql->query("
+				SELECT u.id, u.lastpost, MAX(p.time) preal
+				FROM users u
+				LEFT JOIN posts p ON p.user = u.id
+				GROUP BY u.id
+			");
+			
+			$fix = $sql->prepare("UPDATE users SET lastpost = ? WHERE id = ?");
+			$count = 0;
+			
+			$sql->start();
+
+			while ($data = $sql->fetch($time)){
+				
+				$lastpost = filter_int($data['lastpost']);
+				$real = filter_int($data['preal']);
+				
+				if ($lastpost != $real){
+					print "\nUser ID ".$data['id']." [Last Post: $lastpost; Expected: $real]";
+					$c[] = $sql->execute($fix, array($real, $data['id']));
+					$count++;
+				}
+				
+			}
+		
+		if ($count){
+			if ($sql->finish($c)) print "\n$count issues fixed.\n";
+			else print "\nCouldn't fix the issues.\n";
+		}
+		else print "\nNo problems found.\n";
 		
 		x_die("\n<a href='index.php' style='background: #fff;'>Click here to return</a>");
 		

@@ -185,7 +185,7 @@
 		print "<br/><table class='main c w'><tr><td class='light'>$err</td></tr></table><br/>";
 		pagefooter();
 	}
-	
+
 	function dialog($title, $head, $msg){
 		
 		x_die("
@@ -420,13 +420,14 @@
 		$select[$id] = "selected";
 		
 		$hidden = powlcheck(3) ? "" : "AND (f.hidden=0 OR f.id = $id)";
+		$querypowl = $loguser['powerlevel']<0 ? 0 : $loguser['powerlevel'];
 		
 		$forums = $sql->query("
 		SELECT f.id, f.name, f.category, c.name catname
 		FROM forums f
 		LEFT JOIN categories c
 		ON f.category = c.id
-		WHERE (f.powerlevel<=".$loguser['powerlevel']." AND c.powerlevel<=".$loguser['powerlevel']." $hidden)
+		WHERE (f.powerlevel<=$querypowl AND c.powerlevel<=$querypowl $hidden)
 		ORDER BY c.ord , f.ord, f.id
 		");
 		
@@ -547,5 +548,4 @@
 			$message
 		</object>";
 	}
-	
 ?>

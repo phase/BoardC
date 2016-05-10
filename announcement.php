@@ -75,7 +75,6 @@
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				'lastpost' => $sql->resultq("SELECT MAX(time) FROM posts WHERE user = ".$loguser['id']),
 				'avatar' => filter_int($_POST['avatar']),
 				'new'	=> 0,
 			);
@@ -196,7 +195,6 @@
 			
 			$data = getpostcount($post['user'], true);
 			$postids = $data[0];
-			$lastpost = $data[1];
 			
 			$data = array(
 				'rev' => $post['rev']+1,
@@ -205,7 +203,6 @@
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
 				'postcur' => array_search($post['id'], $postids[$post['user']])+1,
-				'lastpost' => max($lastpost[$post['user']]),
 				'crev' => $post['rev']+1,
 				'time' => ctime(),
 				'rtime' => $post['time'],
@@ -278,10 +275,9 @@
 	$ann = $sql->query("
 	
 		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,a.lastedited,a.rev,o.time rtime,
-				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, GREATEST(p.time, 0) lastpost, n.user".$loguser['id']." new
+				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, u.lastpost, n.user".$loguser['id']." new
 		FROM announcements a
 		LEFT JOIN users u ON a.user = u.id
-		LEFT JOIN posts p ON p.user = u.id
 		LEFT JOIN announcements_old AS o ON o.time = (SELECT MIN(o.time) FROM announcements_old o WHERE o.aid = a.id)
 		LEFT JOIN new_announcements n ON a.id = n.id
 		WHERE a.forum = $id

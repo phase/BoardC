@@ -94,8 +94,8 @@
 				'nolayout' => filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
 				'nohtml' => filter_int($_POST['nohtml']),
-				'lastpost' => $sql->resultq("SELECT MAX(time) FROM posts WHERE user = ".$loguser['id']),
 				'avatar' => filter_int($_POST['avatar']),
+				'new' => 0,
 				
 			);
 			print "<table class='main w c'>
@@ -150,7 +150,7 @@
 		//errorpage("Under construction!");
 		$post = $sql->fetchq("
 		SELECT  p.id,p.name pmname,p.user,p.userto,p.time,p.text,p.nohtml,p.nosmilies,p.nolayout,p.avatar,p.new,
-				$userfields,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview
+				$userfields,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastpost
 		FROM pms p
 		LEFT JOIN users u ON p.user = u.id
 		WHERE p.id = $id 
@@ -171,7 +171,6 @@
 			'ip' => $loguser['lastip'],
 			'deleted' => 0,
 			'rev' => 0,
-			'lastpost' => $sql->resultq("SELECT MAX(time) FROM posts WHERE user = ".$loguser['id']),
 		);
 		
 		if ($post['new'] && $post['userto'] == $loguser['id'])

@@ -75,7 +75,8 @@
 		if ($itemget['special'] == 1) $sql->query("UPDATE users SET sex = 1 WHERE id = ".$loguser['id']);
 		else if ($itemget['special'] == 2) $sql->query("UPDATE users SET title = 'Catgirl' WHERE id = ".$loguser['id']); // ?
 		else if ($itemget['special'] == 4) $sql->query("UPDATE users SET coins = 99999999, gcoins = 99999999 WHERE id = ".$loguser['id']);
-			
+		else if ($itemget['special'] == 1) $sql->query("UPDATE users SET sex = 0 WHERE id = ".$loguser['id']);
+		
 		$sql->end();
 		
 		errorpage("Item bought!");

@@ -14,9 +14,9 @@
 		errorpage("You're not an admin!");
 	
 	$user = $sql->fetchq("
-	SELECT id, name, displayname, namecolor, powerlevel, sex, icon
-	FROM users u
-	WHERE id = $id
+		SELECT $userfields
+		FROM users u
+		WHERE id = $id
 	");
 	
 	if (!$user)
@@ -50,18 +50,25 @@
 		$sql->queryp("INSERT INTO user_avatars (user, file, title) VALUES (?,?,?)", array($id, 0, "Default"));
 		header("Location: editavatars.php?id=$id");
 	}
+	else if (isset($_POST["change0"])){	// A common file upload function is simply not enough. these "else if" blocks are almost exactly the same
+		if (filter_int($_FILES["new0"]['size']))
+			$res = imageupload($_FILES["new0"], $config['max-avatar-size-bytes'], $config['max-avatar-size-x'], $config['max-avatar-size-y'], "userpic/$id/0");
+
+		header("Location: editavatars.php?id=$id");
+	}	
 
 	$mood = $sql->query("
 		SELECT id, file, title
 		FROM user_avatars
 		WHERE user = $id
 		AND file != 0
-		ORDER by file ASC");
+		ORDER by file ASC
+	");
 	
 
 	if (is_file("userpic/$id/0")){
-		$img = "<img src='userpic/$id/0'>";
-		$cmd = "<a href='?id=$id&del=0'>Delete</a>";
+		$img = "<img src='userpic/$id/0'><br/>Reupload: <input type='hidden' name='MAX_FILE_SIZE' value='".$config['max-avatar-size-bytes']."'><input name='new0' type='file'>";
+		$cmd = "<input type='submit' name='change0' value='Update'> - <a href='?id=$id&del=0'>Delete</a>";
 	}
 	else{
 		$img = "Upload: <input type='hidden' name='MAX_FILE_SIZE' value='".$config['max-avatar-size-bytes']."'><input name='default' type='file'><br/>
@@ -73,7 +80,7 @@
 	<table class='main w c'>
 		<tr><td class='head'>User avatars for ".makeuserlink(false, $user, true)."</td></tr>
 	</table>
-	<table class='w'><tr><td class='c'>
+	<table><tr><td class='c' valign='top'>
 			<table class='main c'>
 				<tr><td class='head'>Default Avatar</td></tr>
 				
@@ -81,7 +88,7 @@
 				
 				<tr><td class='dark'>$cmd</td></tr>
 			</table></td>";
-	
+			
 	if ($mood){
 		for ($i=1; $data = $sql->fetch($mood); ++$i){
 			
@@ -90,20 +97,41 @@
 				$txt .= "</tr><tr>";
 				$i=0;
 			}
+			
+			// [0.22a] The only way to update the avatar info is here, away from the other upload actions
+			if (isset($_POST["change".$data['file']])){
+				$title = filter_string($_POST["ren".$data['file']]);
+		
+				if (!$title)
+					errorpage("The avatar title cannot be blank.");
+				
+				if (filter_int($_FILES["new".$data['file']]['size']))
+					$res = imageupload($_FILES["new".$data['file']], $config['max-avatar-size-bytes'], $config['max-avatar-size-x'], $config['max-avatar-size-y'], "userpic/$id/".$data['file']);
+				
+				$sql->queryp("UPDATE user_avatars SET title = ? WHERE user = $id AND file = ".$data['file'], array(htmlspecialchars(input_filters($title))));
+				
+				//errorpage("IT WORKS");
+				header("Location: editavatars.php?id=$id");
+			}
+			
 			$txt .= "<td class='c'>
 				<table class='main c'>
 					<tr><td class='head'>".$data['title']."</td></tr>
 					
-					<tr><td class='light'><img src='userpic/$id/".$data['file']."'></td></tr>
+					<tr><td class='light'><img src='userpic/$id/".$data['file']."'><br/>
+					Rename: <input type='text' name='ren".$data['file']."' value=\"".$data['title']."\"><br/>
+					Reupload: <input type='hidden' name='MAX_FILE_SIZE' value='".$config['max-avatar-size-bytes']."'><input name='new".$data['file']."' type='file'>
+					</td></tr>
 					
-					<tr><td class='dark'><a href='?id=$id&del=".$data['file']."'>Delete</a></td></tr>
+					<tr><td class='dark c'><input type='submit' name='change".$data['file']."' value='Update'> - <a href='?id=$id&del=".$data['file']."'>Delete</a></td></tr>
+						
 				</table></td>
 			";
 		}
 	}
 	
-	$txt .= "</tr><tr><td>
-			<table class='main c'>
+	$txt .= "</tr></table>
+			<center><table class='main c'>
 				<tr><td class='head'>New Avatar</td></tr>
 				
 				<tr>
@@ -112,7 +140,7 @@
 						Upload: <input type='hidden' name='MAX_FILE_SIZE' value='".$config['max-avatar-size-bytes']."'><input name='newfile' type='file'><br/>
 						<small>Max size: ".$config['max-avatar-size-x']."x".$config['max-avatar-size-y']." | ".($config['max-avatar-size-bytes']/1000)." KB</small></td></tr>
 				<tr><td class='dark'><input type='submit' name='newav' value='Upload'></td></tr>
-			</table></td></tr></table></form>";
+			</td></tr></table></center></form>";
 
 	
 	pageheader("User Avatars");

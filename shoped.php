@@ -178,6 +178,7 @@
 		array('id' => 2, 'name' => "Forces catgirl status"),
 		array('id' => 3, 'name' => "Shows HTML comments"),
 		array('id' => 4, 'name' => "Maxes out coins"),
+		array('id' => 5, 'name' => "Forces male gender"),
 	);
 	
 	

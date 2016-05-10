@@ -31,16 +31,9 @@
 		// normal gethreadinfo doesn't work for this
 		// maybe this should have been put in its own file due to the extreme differences on how this is handled
 		$user = $sql->fetchq("
-			SELECT u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor,
-			u.sex, u.powerlevel, u.posts, u.since, u.location,
-			u.lastview, p.time lastpost
+			SELECT $userfields
 			FROM users u
-			
-			LEFT JOIN posts p
-			ON u.id = p.user
-			
 			WHERE u.id = $usermode
-			ORDER BY p.time DESC
 		");
 		
 		if (!$user)
@@ -49,16 +42,16 @@
 		pageheader("Posts by ".($user['displayname'] ? $user['displayname'] : $user['name']));
 
 		$posts = $sql->query("
-		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-		t.id tid, t.name tname, f.id fid, f.powerlevel fpowl
-		FROM posts AS p
-		LEFT JOIN threads AS t	ON p.thread = t.id
-		LEFT JOIN forums AS f ON t.forum = f.id
-		LEFT JOIN posts_old AS o
-		ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
-		WHERE p.user = $usermode
-		ORDER BY p.id ASC
-		LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
+			SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
+			t.id tid, t.name tname, f.id fid, f.powerlevel fpowl
+			FROM posts AS p
+			LEFT JOIN threads AS t	ON p.thread = t.id
+			LEFT JOIN forums AS f ON t.forum = f.id
+			LEFT JOIN posts_old AS o
+			ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+			WHERE p.user = $usermode
+			ORDER BY p.id ASC
+			LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
 		");
 		
 		if ($posts){
@@ -194,7 +187,7 @@
 		
 		
 		$votes = $sql->query("
-			SELECT p.vote, u.id, u.name, u.displayname, u.namecolor, u.powerlevel, u.sex, u.icon
+			SELECT p.vote, $userfields
 			FROM poll_votes p
 			LEFT JOIN users u ON p.user = u.id
 			WHERE p.thread = $lookup
@@ -576,7 +569,7 @@
 	
 	pageheader($thread['name'], true, $forum['id']);
 	
-	$newreply_txt = $loguser['id'] && ($miscdata['noposts'] && !powlcheck(4)) ? "<a href='new.php?act=newpoll&id=".$forum['id']."'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>" : "";
+	$newreply_txt = ($loguser['id'] && $loguser['powerlevel']>=0 && (!$miscdata['noposts'] || powlcheck(4))) ? "<a href='new.php?act=newpoll&id=".$forum['id']."'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=".$forum['id']."'><img src='images/text/newthread.png'></a> - <a href='new.php?act=newreply&id=$lookup'><img src='images/text/newreply.png'></a>" : "";
 	
 	if ($thread['closed']){
 		$newreply = "<img src='images/text/threadclosed.png'>";
@@ -618,7 +611,7 @@
 	$posts = $sql->query("
 	SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
 	n.user".$loguser['id']." new,
-	u.head, u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview
+	u.head, u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost
 	FROM posts AS p
 	LEFT JOIN users AS u ON p.user = u.id
 	LEFT JOIN posts_old AS o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
@@ -633,7 +626,6 @@
 		
 		$data = getpostcount($lookup);
 		$postids = $data[0];
-		$lastpost = $data[1];
 		unset ($data);
 			
 		// Page numbers
@@ -647,7 +639,6 @@
 		while ($post = $sql->fetch($posts)){
 
 			$post['postcur'] = array_search($post['id'], $postids[$post['user']])+1;
-			$post['lastpost'] = max($lastpost[$post['user']]);
 			
 			if ($ismod){
 				
@@ -708,6 +699,8 @@
 		if (isset($set))
 			$sql->query("UPDATE new_posts SET user".$loguser['id']." = 0 WHERE id IN (".implode(", ", $set).")");
 	}
+	// This "thread is empty" message doesn't display anymore due to the code considering threads with 0 posts invalid
+	// (and if the last post in a thread is deleted, the thread is erased automatically anyway)
 	else print "
 		<center><table class='main c'>
 			<tr><td class='light'>

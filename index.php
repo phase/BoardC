@@ -100,19 +100,23 @@
 	$hidden = powlcheck(3) ? "" : "AND hidden=0";
 	$catsel = isset($_GET['cat']) ? "AND c.id=".filter_int($_GET['cat']) : "";
 
+	// Without this banned users wouldn't be able to browse the board
+	// As their powerlevel is either -1 or -2, which is below the "normal forum" powerlevel (0)
+	$querypowl = $loguser['powerlevel']<0 ? 0 : $loguser['powerlevel'];
+	
 	// subquery replaced by a wall of LEFT JOINs, number of new posts returned
 	$forums = $sql->query("
-	SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime, c.name catname, SUM(n.user".$loguser['id'].") new, $userfields
-	FROM forums f
-	LEFT JOIN categories c ON f.category = c.id
-	LEFT JOIN users u ON f.lastpostuser = u.id
-	LEFT JOIN threads t ON f.id = t.forum
-	LEFT JOIN posts p ON p.thread = t.id
-	LEFT JOIN new_posts n ON n.id = p.id
+		SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime, c.name catname, SUM(n.user".$loguser['id'].") new, $userfields
+		FROM forums f
+		LEFT JOIN categories c ON f.category = c.id
+		LEFT JOIN users u ON f.lastpostuser = u.id
+		LEFT JOIN threads t ON f.id = t.forum
+		LEFT JOIN posts p ON p.thread = t.id
+		LEFT JOIN new_posts n ON n.id = p.id
 
-	WHERE (f.powerlevel<=".$loguser['powerlevel']." AND c.powerlevel <=".$loguser['powerlevel']." $hidden $catsel)
-	GROUP BY f.id ASC
-	ORDER BY c.ord , f.ord, f.id
+		WHERE (f.powerlevel<=$querypowl AND c.powerlevel <=$querypowl $hidden $catsel)
+		GROUP BY f.id ASC
+		ORDER BY c.ord , f.ord, f.id
 	");
 	
 	if (!$forums)

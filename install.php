@@ -176,7 +176,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.21",
+		dialog(	"This will setup BoardC Pre-Release v0.22a",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -191,14 +191,19 @@
 				"<input type='submit' name='start' value='Continue'><input type='hidden' name='step' value=1>");
 	}				
 	else if ($step == 1){
-		
-		dialog(	"Enter User ID #1 Login info",
+		$width = "style='width: 200px'";
+		dialog(	"Login information and setup options",
 		"This will be used to login to the board.<br/><br/>
 
 			<table class='special head'>
-			<tr><td class='light'>Username:</td><td class='light'><input type='text' name='username'></td></tr>
-			<tr><td class='light'>Password:</td><td class='light'><input type='text' name='pass1'></td></tr>
-			<tr><td class='light'>Retype Password:</td><td class='light'><input type='text' name='pass2'></td></tr>
+			<tr><td class='dark c' colspan='2'><b>User ID #1 Login info</b></td></tr>
+			<tr><td class='light'>Username:</td><td class='light'><input type='text' name='username' $width></td></tr>
+			<tr><td class='light'>Password:</td><td class='light'><input type='text' name='pass1' $width></td></tr>
+			<tr><td class='light'>Retype Password:</td><td class='light'><input type='text' name='pass2' $width></td></tr>
+			<tr><td class='dark c' colspan='2'><b>Setup options</b></td></tr>
+			<tr><td class='light' colspan='2'><input type='checkbox' name='addforum' value=1 checked> Create sample forums/categories</td></tr>
+			<tr><td class='light' colspan='2'><input type='checkbox' name='additems' value=1 checked> Create sample item shop item(s)</td></tr>
+			<tr><td class='light' colspan='2'><input type='checkbox' name='autodel' value=1 > Delete install.php if the installation completes</td></tr>
 			</table><br/>
 			
 		Click Install to start executing the SQL commands. This may take more than 30 seconds.<br/>WARNING: This will drop the specified database!",
@@ -270,8 +275,6 @@ CREATE TABLE `categories` (
   `ord` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
-INSERT INTO `categories` (`id`, `name`, `powerlevel`, `ord`) VALUES (1, 'Main', 0, 1);");
-query("
 CREATE TABLE `failed_logins` (
   `id` int(32) NOT NULL,
   `ip` varchar(32) NOT NULL,
@@ -299,10 +302,6 @@ CREATE TABLE `forums` (
   `lastpostuser` int(32) DEFAULT NULL,
   `lastposttime` int(32) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `forums` (`id`, `name`, `title`, `powerlevel`, `hidden`, `threads`, `posts`, `category`, `ord`) VALUES
-(1, 'General forum', 'For everybody!', 0, 0, 0, 0, 1, 1),
-(2, 'General staff forum', 'Not for everybody!', 2, 0, 0, 0, 1, 0);");
 query("
 CREATE TABLE `ipbans` (
   `id` int(32) NOT NULL,
@@ -416,9 +415,6 @@ CREATE TABLE `shop_categories` (
   `ord` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
-INSERT INTO `shop_categories` (`id`, `name`, `title`, `ord`) VALUES
-(1, 'Sample category', 'This is a sample description', 0);");
-query("
 CREATE TABLE `shop_items` (
   `id` int(11) NOT NULL,
   `name` varchar(64) NOT NULL,
@@ -438,9 +434,6 @@ CREATE TABLE `shop_items` (
   `special` int(32) NOT NULL DEFAULT '0',
   `ord` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `shop_items` (`id`, `name`, `title`, `cat`, `hp`, `mp`, `atk`, `def`, `intl`, `mdf`, `dex`, `lck`, `spd`, `coins`, `gcoins`, `special`, `ord`) VALUES
-(1, 'Test item?', 'It does not actually do anything! (or is it?)', 1, '+1000', '-10', 'x45', '/2', '+2', '+0', '+56', '+9999', '+1', '0', '0', 1, 0);");
 query("
 CREATE TABLE `themes` (
   `id` int(11) NOT NULL,
@@ -495,6 +488,7 @@ CREATE TABLE `users` (
   `sign` text,
   `dateformat` varchar(32) DEFAULT NULL,
   `timeformat` varchar(32) DEFAULT NULL,
+  `lastpost` int(32) NOT NULL DEFAULT '0',
   `lastview` int(32) NOT NULL DEFAULT '0',
   `lastforum` int(32) NOT NULL DEFAULT '0',
   `bio` text,
@@ -597,19 +591,71 @@ ALTER TABLE `shop_items`
 ALTER TABLE `users_rpg`
   ADD PRIMARY KEY (`id`);
 ");
+
+// Sample forums
+if (filter_int($_POST['addforum'])){
+	
+	query("
+	INSERT INTO `categories` (`id`, `name`, `powerlevel`, `ord`) VALUES
+	(1, 'Main', 0, 1),
+	(2, 'Game Over', 0, 100);");
+	query("
+	INSERT INTO `forums` (`id`, `name`, `title`, `powerlevel`, `hidden`, `threads`, `posts`, `category`, `ord`) VALUES
+	(1, 'General forum', 'For everybody!', 0, 0, 0, 0, 1, 1),
+	(2, 'General staff forum', 'Not for everybody!', 2, 0, 0, 0, 1, 0),
+	(3, 'The trash', 'Definitely not for everybody!', 2, 0, 0, 0, 2, 10);");
+	
+	query("
+	ALTER TABLE `categories`
+	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+	ALTER TABLE `forums`
+	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;");
+}
+else{
+	query("
+	ALTER TABLE `categories`
+	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+	ALTER TABLE `forums`
+	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;");
+}
+
+// Sample shop items
+if (filter_int($_POST['additems'])){
+	query("
+	INSERT INTO `shop_categories` (`id`, `name`, `title`, `ord`) VALUES
+	(1, 'Sample category', 'This is a sample description', 0);");
+	query("
+	INSERT INTO `shop_items` (`id`, `name`, `title`, `cat`, `hp`, `mp`, `atk`, `def`, `intl`, `mdf`, `dex`, `lck`, `spd`, `coins`, `gcoins`, `special`, `ord`) VALUES
+	(1, 'Test item?', 'It does not actually do anything! (or is it?)', 1, '+1000', '-10', 'x45', '/2', '+2', '+0', '+56', '+9999', '+1', '0', '0', 1, 0);");
+	
+	query("
+	ALTER TABLE `shop_categories`
+	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+	ALTER TABLE `shop_items`
+	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;");
+}
+else{
+	query("
+	ALTER TABLE `shop_categories`
+	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+	ALTER TABLE `shop_items`
+	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;");	
+}
+
+
+// Auto increments
+
 query("
 ALTER TABLE `announcements`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `announcements_old`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `categories`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
 ALTER TABLE `failed_logins`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT; 
 ALTER TABLE `forummods`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `forums`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
 ALTER TABLE `hits`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `ipbans`
@@ -630,10 +676,7 @@ ALTER TABLE `posts_old`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `ratings`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `shop_categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-ALTER TABLE `shop_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
 ALTER TABLE `themes`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 ALTER TABLE `threads`
@@ -655,7 +698,16 @@ ALTER TABLE `users_rpg`
 			if ($c !== false){
 				if (!file_exists("userpic")) mkdir("userpic");
 				if (!file_exists("userpic/1")) mkdir("userpic/1");
-				die("Operation completed successfully.\nYou can (and <i>should</i>) delete this file and login <a href='login.php' style='background: #fff'>here</a>.");
+				
+				if (filter_int($_POST['autodel'])){
+					$otheraction = "now";
+					unlink("install.php");
+				}
+				else{
+					$otheraction = "(and <i>should</i>) delete this file and";
+				}
+				
+				die("Operation completed successfully.\nYou can $otheraction login <a href='login.php' style='background: #fff'>here</a>.");
 			}
 			else die("An unknown error occurred while closing the transaction.");
 		}

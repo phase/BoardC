@@ -173,33 +173,33 @@
 	
 	function userban($id, $expire = false, $permanent = false, $reason = "", $ircreason = true){
 		global $sql;
-		
+
 		$expire_query = ($expire && !$permanent) ? ",`ban_expire` = '".(ctime()+3600*intval($expire))."'" /*counts by hours*/ : "";
 		$new_powl = $permanent ? "-2" : "-1";
 		$whatisthis = is_int($id) ? "id" : "name";
 				
-		$res = $sql->queryp("UPDATE `users` SET `powerlevel` = '?',`title` = '?'$expire_query WHERE $whatisthis = '?'", array($new_powl, $reason, $id));
+		$res = $sql->queryp("UPDATE `users` SET `powerlevel` = ?,`title` = ? $expire_query WHERE $whatisthis = ?", array($new_powl, $reason, $id));
 		
 		if (!$res)
 			trigger_error("Query failure: couldn't ban user $whatisthis $id", E_USER_ERROR);
 		
 		else if ($ircreason !== false && $reason){
 			if ($ircreason === true) $ircreason = $reason;
-			trigger_error($ircreason, E_USER_NOTICE);
+			trigger_error($ircreason, E_USER_WARNING);
 		}
 			
 		return $res;
 	}
 	
 	function ipban($reason = "", $ircreason = true, $ip = false){
-		global $sql;
+		global $sql, $loguser;
 		// Have to do it here to account for PHP being stupid
 		if (!$ip) $ip = $_SERVER['REMOTE_ADDR'];
 		
-		$res = $sql->query("INSERT INTO `ipbans` (`ip`, `time`, `reason`) VALUES ('$ip', '".ctime()."', '$reason')");
+		$res = $sql->query("INSERT INTO `ipbans` (`ip`, `time`, `reason`, `userfrom`) VALUES ('$ip', '".ctime()."', '$reason', '".$loguser['id']."')");
 		
 		if (!$res)
-			trigger_error("Query failure: couldn't IP Ban $id", E_USER_ERROR);
+			trigger_error("Query failure: couldn't IP Ban $id", E_USER_WARNING);
 		
 		else if ($ircreason !== false && $reason){
 			if ($ircreason === true) $ircreason = $reason;
@@ -235,7 +235,7 @@
 		
 		// Modeled after makeuserlink, so you can directly send an array of values to enter
 
-		global $sql;
+		global $sql, $loguser;
 		
 		if ($fmode){ 
 			if (!$newdata)
@@ -296,6 +296,8 @@
 						lastposttime = ".$newdata['time']."
 					WHERE id = ".$newdata['forum']."
 				");
+				
+				$sql->query("UPDATE users SET lastpost = ".$newdata['time']." WHERE id = ".$loguser['id']);
 			}
 		}
 	
@@ -304,21 +306,23 @@
 	
 	// Permissions
 	
-	function powlcheck($minpowl){
+	function powlcheck($minpowl, $test = NULL){
 		global $loguser, $config;
 		
-		if ($loguser['powerlevel']<$minpowl /*&& !$config['admin-board'] */)
+		if (isset($test)) return ($test<$minpowl) ? false : true;
+		else if ($loguser['powerlevel']<$minpowl /*&& !$config['admin-board'] */)
 			return false;
 		else return true;
 		
 	}
 	
 	function canviewforum($fid){
-		global $sql;
+		global $sql, $loguser;
 		
 		$minpower = $sql->resultq("SELECT powerlevel FROM forums WHERE id = ".filter_int($fid));
+		$powl = $loguser['powerlevel'] < 0 ? 0 : $loguser['powerlevel']; // Allow banned users to read normal forums
 		if ($minpower === false) return false;
-		else return powlcheck($minpower);
+		else return powlcheck($minpower, $powl);
 	}
 	
 	function ismod($forum = false){
@@ -420,19 +424,18 @@
 	function getpostcount($id, $single=false){
 		global $sql;
 		
-		// also get time for threadpost
 		$getusers = $sql->query("
-		SELECT id, user, time
+		SELECT id, user
 		FROM posts 
 		WHERE user ".($single ? "= $id" : "IN (SELECT user FROM posts WHERE thread = $id)")."
 		");
 		
 		if (!$getusers)
-			return array(0, 0);
+			return array(0 /*, 0*/);
 		
-		for($x=0; $x=$sql->fetch($getusers); $list[$x['user']][] = $x['id'], $time[$x['user']][] = $x['time']);
+		for($x=0; $x=$sql->fetch($getusers); $list[$x['user']][] = $x['id'] /*, $time[$x['user']][] = $x['time']*/);
 		
-		return array($list, $time);
+		return array($list /*, $time*/);
 	}
 	
 	/*

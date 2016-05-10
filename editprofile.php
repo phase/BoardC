@@ -56,6 +56,7 @@
 				if 		($item['special'] == 1) $_POST['sex'] = 1;
 				else if ($item['special'] == 2) $_POST['title'] = "Catgirl"; // ?
 				else if ($item['special'] == 4) $_POST['coins'] = $_POST['gcoins'] = 99999999;
+				else if ($item['special'] == 5) $_POST['sex'] = 0;
 			}
 		}
 		

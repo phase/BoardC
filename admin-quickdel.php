@@ -84,7 +84,7 @@
 			<tr><td class='light'>Posts:</td><td class='light'>".$user['posts']."</td></tr>
 			<tr><td class='light'>IP Address:</td><td class='light'>".$user['lastip']."</td></tr>
 			<tr><td class='light'>Registered:</td><td class='light'>".choosetime(ctime()-$user['since'])." ago</td></tr>
-			<tr><td class='light'>Last view:</td><td class='light'>$lazy, at ".choosetime(ctime()-$user['lastview'])." ago</td></tr>
+			<tr><td class='light'>Last view:</td><td class='light'>$lazy, ".choosetime(ctime()-$user['lastview'])." ago</td></tr>
 			</table></center><br/>
 			
 		</td>

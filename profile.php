@@ -13,10 +13,10 @@
 	SELECT  $userfields, u.title, u.lastip, u.ban_expire, u.since,
 			u.head, u.sign, u.lastview, u.bio, u.posts, u.threads, u.homepage, u.homepage_name, u.email, u.twitter, u.facebook, u.youtube,
 			u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins,
-			p.time, t.id tid, t.name tname, t.forum tforum, f.name fname,
+			u.lastpost, t.id tid, t.name tname, t.forum tforum, f.name fname,
 			r.*
 	FROM users AS u
-	LEFT JOIN posts AS p ON u.id=p.user
+	LEFT JOIN posts AS p ON p.user = u.id
 	LEFT JOIN threads AS t ON p.thread=t.id
 	LEFT JOIN forums AS f ON t.forum=f.id
 	LEFT JOIN user_avatars AS a ON u.id = a.user
@@ -53,7 +53,7 @@
 		"User rating"	=> $user['rating'] ? sprintf("%.02f",$user['rating'])." (".$ratings." vote".($ratings==1 ? "" : "s").")".($isadmin ? " <a href='rateuser.php?id=".$user['id']."&view'>View ratings</a>" : "") : "None",
 		"EXP"			=> calcexp($user['since'], $user['posts']),
 		"Registered on" => printdate($user['since'])." (".choosetime(ctime()-$user['since'])." ago)",
-		"Last post"		=> ($user['posts'] ? printdate($user['time']).", in ".(canviewforum($user['tforum']) ? "<a href='thread.php?id=".$user['tid']."'>".$user['tname']."</a> (<a href='forum.php?id=".$user['tforum']."'>".$user['fname']."</a>)" : "<i>(Restricted forum)</i>") : "None"),
+		"Last post"		=> ($user['posts'] ? printdate($user['lastpost']).", in ".(canviewforum($user['tforum']) ? "<a href='thread.php?id=".$user['tid']."'>".$user['tname']."</a> (<a href='forum.php?id=".$user['tforum']."'>".$user['fname']."</a>)" : "<i>(Restricted forum)</i>") : "None"),
 		"Last activity"	=> printdate($user['lastview']),
 		"Last IP"		=> ($isadmin ? $user['lastip'] : ""),
 		"Unban date"	=> ($user['powerlevel']<0 ? ($user['ban_expire'] ? printdate($user['ban_expire'])." (".sprintf("%d",($user['ban_expire']-ctime())/86400)." days remaining)" : "Never") : ""),
@@ -120,9 +120,8 @@
 	";
 	
 
-	$data = getpostcount($user['id'], true);
+	$data = getpostcount($id, true);
 	$postids = $data[0];
-	$lastpost = $data[1];
 
 	
 	$sample = array(
@@ -137,7 +136,6 @@
 		'nosmilies' => 0,
 		'nohtml' 	=> 0,
 		'thread' 	=> 0,
-		'lastpost' 	=> $user['posts'] ? max($lastpost[$user['id']]) : ctime(),
 		'trev' 		=> 0,
 		'lastedited'=> 0,
 		'avatar'	=> 0,

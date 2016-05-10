@@ -93,7 +93,7 @@
 				$sql->query("INSERT INTO new_posts () VALUES ()");
 			}
 			
-			$pid = $sql->query("SELECT MAX(id) FROM posts");
+			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
 			update_last_post($thread['id'], array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
 
 			if ($sql->finish($go)) errorpage("Successfully posted the reply.", false);
@@ -669,7 +669,7 @@
 		// A copy of a massive query to fetch almost everything threadpost needs
 		$post = $sql->fetchq("
 		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-		u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.since, u.location, u.lastview
+		u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.lastpost, u.since, u.location, u.lastview
 		FROM posts AS p
 		LEFT JOIN users AS u
 		ON p.user = u.id
@@ -729,7 +729,6 @@
 			
 			$data = getpostcount($post['user'], true);
 			$postids = $data[0];
-			$lastpost = $data[1];
 			
 			$data = array(
 				'deleted' => 0,
@@ -740,7 +739,6 @@
 				'nohtml' => filter_int($_POST['nohtml']),
 				'thread' => $thread['id'],
 				'postcur' => array_search($post['id'], $postids[$post['user']])+1,
-				'lastpost' => max($lastpost[$post['user']]),
 				'crev' => $post['rev']+1,
 				'rtime' => ctime(),
 				'lastedited' => $loguser['id'],

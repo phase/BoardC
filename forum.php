@@ -20,13 +20,7 @@
 		GROUP BY t.id DESC
 		";
 		
-		$userdata = $sql->fetchq("
-			SELECT u.name, u.displayname, u.threads
-			FROM users u
-			LEFT JOIN posts p ON u.id = p.user
-			WHERE u.id = $user
-			ORDER BY p.time DESC
-		");
+		$userdata = $sql->fetchq("SELECT name, displayname, threads, lastpost FROM users WHERE id = $user");
 		
 		if (!$userdata)
 			errorpage("This user doesn't exist!");
@@ -49,7 +43,9 @@
 	
 		$forum = $sql->fetchq("SELECT name, powerlevel, threads, theme FROM forums WHERE id = $id");
 		
-		if ((!$forum && !$isadmin) || $loguser['powerlevel']<$forum['powerlevel'])
+		$viewpowl = $loguser['powerlevel'] < 0 ? 0 : $loguser['powerlevel'];
+		
+		if ((!$forum && !$isadmin) || $viewpowl<$forum['powerlevel'])
 			errorpage("Couldn't enter this restricted forum.");
 		else if (!$forum){
 			errorpage("This forum ID doesn't exist.");
@@ -67,7 +63,7 @@
 	
 	$ismod = ismod($id);
 	
-	$newthread = (!$user && $loguser['id'] && (!$miscdata['noposts'] || powlcheck(4))) ? "<nobr>".($ismod ? "<a href='announcement.php?id=$id'>New announcement</a> - " : "")."<a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr>" : "";
+	$newthread = (!$user && $loguser['id'] && $loguser['powerlevel']>=0 && (!$miscdata['noposts'] || powlcheck(4))) ? "<nobr>".($ismod ? "<a href='announcement.php?act=new&id=$id'>New announcement</a> - " : "")."<a href='new.php?act=newpoll&id=$id'><img src='images/text/newpoll.png'></a> - <a href='new.php?act=newthread&id=$id'><img src='images/text/newthread.png'></a></nobr>" : "";
 	
 	print "<table class='main w fonts'><tr><td class='light c'>".onlineusers($id)."</td></tr></table>
 	<table class='w'>
