@@ -128,7 +128,7 @@
 		if (!$id)	 errorpage("No announcement ID specified.");
 		
 
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 		
 		pageheader("Edit announcement");
 		

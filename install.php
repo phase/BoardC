@@ -438,13 +438,16 @@ query("
 CREATE TABLE `themes` (
   `id` int(11) NOT NULL,
   `name` varchar(64) NOT NULL,
-  `file` varchar(64) NOT NULL
+  `file` varchar(64) NOT NULL,
+  `special` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
-INSERT INTO `themes` (`id`, `name`, `file`) VALUES
-(1, 'Default', 'default.css'),
-(2, 'Night (Jul)', 'night.css'),
-(3, 'Hydra''s Blue Thing (Alternate)', 'hbluealt.css');");
+INSERT INTO `themes` (`id`, `name`, `file`, `special`) VALUES
+(1, 'Default', 'default.css', '0'),
+(2, 'Night (Jul)', 'night.css', '0'),
+(3, 'Hydra''s Blue Thing (Alternate)', 'hbluealt.css', '0'),
+(4, 'The Zen', 'spec-zen.css', '1');");
+
 query("
 CREATE TABLE `threads` (
   `id` int(32) NOT NULL,

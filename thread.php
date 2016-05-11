@@ -157,7 +157,7 @@
 	$mergewhere="";
 	$showmergecheckbox = false;
 	
-	if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+	if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 	/*
 	Reminder: the only two error_ids that can get here are 3 and 4
 	*/

@@ -59,7 +59,7 @@
 		if ($thread['closed'] && !$ismod)
 			errorpage("You know, this thread is <i>probably</i> closed for a reason.");
 		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 		pageheader($thread['name']." - New Reply");
 		
 		$msg = isset($_POST['message']) ? $_POST['message'] : "";
@@ -174,7 +174,7 @@
 		if (!powlcheck($forum['powerlevel']))
 			errorpage("You're not allowed to create threads in this restricted forum");
 		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 		pageheader($forum['name']." - New Thread");
 		
 		// Load previously sent or defaults		
@@ -353,7 +353,7 @@
 		if (!powlcheck($forum['powerlevel']))
 			errorpage("You're not allowed to create polls in this restricted forum");
 		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 		pageheader($forum['name']." - New Poll");
 		
 		// Load previously sent or defaults		
@@ -663,7 +663,7 @@
 		if ($thread['closed'] && !$ismod)
 			errorpage("Nyet.");
 		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 		pageheader($thread['name']." - Edit Post");
 		
 		// A copy of a massive query to fetch almost everything threadpost needs

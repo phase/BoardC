@@ -1,0 +1,94 @@
+/* META
+The Zen
+<img src="images/themes/zen/zentitle.png" title="no it's a test forum you idiot">
+*/
+
+body {
+	background: #010;
+	font-family: Verdana, Geneva, sans-serif;
+	font-size: 13px;
+}
+body, table {
+	color: #DDDDDD;
+	font:13px verdana;
+}
+
+.danger{
+	color: #FF0000 !important;
+}
+.selected{
+	color: #FFFF00 !important;
+}
+.disabled{
+	color: #888888 !important;
+}
+.notice{
+	color: #FFF !important;
+}
+.fonts {
+    font: 10px verdana;
+}
+.c{
+	text-align: center;
+}
+
+.w{
+	width: 100%;
+}
+
+
+.nmcol-20{color: #666666 !important;} .nmcol-21{color: #666666 !important;} .nmcol-22{color: #666666 !important;}
+.nmcol-10{color: #888888 !important;} .nmcol-11{color: #888888 !important;} .nmcol-12{color: #888888 !important;}
+.nmcol00{color: #97ACEF !important;} .nmcol01{color: #F185C9 !important;} .nmcol02{color: #7C60B0 !important;}
+.nmcol10{color: #D8E8FE !important;} .nmcol11{color: #FFB3F3 !important;} .nmcol12{color: #EEB9BA !important;}
+.nmcol20{color: #D8E8FE !important;} .nmcol21{color: #FFB3F3 !important;} .nmcol22{color: #EEB9BA !important;} 
+.nmcol30{color: #AFFABE !important;} .nmcol31{color: #C762F2 !important;} .nmcol32{color: #7C60B0 !important;}
+.nmcol40{color: #FFEA95 !important;} .nmcol41{color: #C53A9E !important;} .nmcol42{color: #F0C413 !important;}
+
+a:link,a:visited,a:active,a:hover{text-decoration:none;font-weight:bold;}
+a:link		{color: #BEFEBA}
+a:visited	{color: #99c090}
+a:active	{color: #CFFFBE}
+a:hover		{color: #CEFECA}
+
+table.main{
+	border-spacing: 0px;
+	border-top:	#001100 1px solid;
+	border-left: #001100 1px solid;
+}
+
+td.light,td.dim,td.head,td.dark{
+	border-right:	#001100 1px solid;
+	border-bottom:	#001100 1px solid;
+}
+
+.light{
+	background: #005028;
+	
+}
+.dim{
+	background: #104830;
+}
+.head{
+	background: #007c00 url('images/zen/header.png') repeat-x top center; text-shadow: 1px 1px 2px #000;
+	color: #AAFFCC;
+}
+.dark{
+	background: #005020 url('images/themes/zen/t1.png') repeat-x top center;
+	color: #AAFFCC;
+}
+
+textarea, input, select, button {
+	border: 1px solid #000000;
+	background-color: #000000;
+	font:	10pt verdana;
+	color: #FFF;
+}
+.submit {
+	border: 2px solid #000000;
+}
+input.radio {
+	border:	none;
+	background: none;
+	font:	10pt verdana;
+}

@@ -388,12 +388,12 @@
 		return $icons;
 	}
 	
-	function findthemes($mode = false){
+	function findthemes($mode = false, $all = false){
 		global $sql;
-		
-		static $themes;
-		if (!$themes)
-			$themes = $sql->fetchq("SELECT * FROM themes", true, PDO::FETCH_ASSOC);
+		// Due to editprofile limitations I won't change, all the special themes need to be last in the list
+		//static $themes;
+		//if (!$themes)
+			$themes = $sql->fetchq("SELECT * FROM themes".($all ? "" : " WHERE special = 0"), true, PDO::FETCH_ASSOC);
 
 		if ($mode) // editprofile mode
 			return implode("|", array_extract($themes, "name"));

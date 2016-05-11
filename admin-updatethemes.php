@@ -21,11 +21,11 @@
 		
 		$sql->start();
 		$sql->query("TRUNCATE themes");
-		$in = $sql->prepare("INSERT INTO themes (name, file) VALUES (?,?)");
+		$in = $sql->prepare("INSERT INTO themes (name, file, special) VALUES (?,?,?)");
 		
 		while(($x = fgetcsv($themes, 128, ";")) !== false){
 			print "$x[0] - $x[1]\n";
-			$sql->execute($in, array($x[0], $x[1]));
+			$sql->execute($in, array($x[0], $x[1], filter_int($x[2])));
 		}
 		
 		fclose($themes);

@@ -53,7 +53,7 @@
 		// online update, revised
 		update_hits($id);
 
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme']);
+		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 		pageheader($forum['name'], true, $id);
 		
 		$announce = doannbox($id);

@@ -3,9 +3,6 @@
 	function pageheader($title, $show = true, $forum = 0){
 		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta;
 		
-		if ($show)
-			$title .= " - ".$config['board-name'];
-		
 		$meta_txt = "";
 		
 		if (filter_bool($meta['noindex'])){
@@ -62,16 +59,30 @@
 		
 		if (isset($miscdata['theme'])) $loguser['theme'] = $miscdata['theme'];
 		
-		$css = file_get_contents("css/".findthemes()[$loguser['theme']]['file']);
+		$themes = findthemes(false, true);
+		$css = file_get_contents("css/".$themes[$loguser['theme']]['file']);
 		
 		if (!$css)
 			$css = "";
+		else if (strpos($css, "META")){
+			/*
+			Special META flags
+			Board name - 
+			Board title (image) - 
+			*/
+			$cssmeta = explode(PHP_EOL,$css, 4);
+			$config['board-name'] = $cssmeta[1];
+			$config['board-title'] = $cssmeta[2];
+		}
+		
+		if ($show)
+			$title .= " - ".$config['board-name'];
 		
 		$ctime = ctime();
 		
 		if ($hacks['replace-image-before-login'] && !$loguser['id'])
 			$config['board-title'] = "<h1>(?)</h1>";
-			
+
 		
 		print "
 		<!doctype html>

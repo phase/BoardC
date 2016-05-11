@@ -102,12 +102,18 @@
 		$powl[$forum['powerlevel']] = "selected";
 		$cat[$forum['category']] = "selected";
 		
-		$themes = findthemes();
+		$themes = findthemes(false, true);
 		if (isset($forum['theme'])) $theme[$forum['theme']] = "selected";
 		$input = "";
-		foreach($themes as $i => $x)
+		$sta = 1;
+		foreach($themes as $i => $x){
+			if ($sta != $x['special']){
+				$sta = $x['special'];
+				$input .= "</optgroup><optgroup label='".($sta ? "Special" : "Normal")." themes'>";
+			}
 			$input .= "<option value=".$x['id']." ".filter_string($theme[$x['id']]).">".$x['name']."</option>";
-		$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</select>";
+		}
+		$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</optgroup></select>";
 		
 		$catlist = "";
 		$categories = $sql->query("SELECT id, name FROM categories");
@@ -211,13 +217,19 @@
 			errorpage($message);
 		}
 		
-		$themes = findthemes();
+		$themes = findthemes(false, true);
 		if (isset($forum['theme'])) $theme[$forum['theme']] = "selected";
 		$input = "";
-		foreach($themes as $i => $x)
+		$sta = 1;
+		foreach($themes as $i => $x){
+			if ($sta != $x['special']){
+				$sta = $x['special'];
+				$input .= "</optgroup><optgroup label='".($sta ? "Special" : "Normal")." themes'>";
+			}
 			$input .= "<option value=".$x['id']." ".filter_string($theme[$x['id']]).">".$x['name']."</option>";
-		$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</select>";
-
+		}
+		
+		$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</optgroup></select>";
 		$catlist = "";
 		$categories = $sql->query("SELECT id, name FROM categories");
 		

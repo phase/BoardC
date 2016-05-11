@@ -33,13 +33,21 @@
 	
 	$opt = $sql->fetchq("SELECT * FROM misc", true)[0];
 	
-	$themes = findthemes();
+	$themes = findthemes(false, true);
+	
 	if (isset($opt['theme'])) $theme[$opt['theme']] = "selected";
 	$input = "";
-	foreach($themes as $i => $x)
+	$sta = 1;
+	foreach($themes as $i => $x){
+		if ($sta != $x['special']){
+			$sta = $x['special'];
+			$input .= "</optgroup><optgroup label='".($sta ? "Special" : "Normal")." themes'>";
+		}
 		$input .= "<option value=".$x['id']." ".filter_string($theme[$x['id']]).">".$x['name']."</option>";
-	$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</select>";
+	}
 	
+	$theme_txt = "<select name='theme'><option value='-1'>None</option>$input</optgroup></select>";
+		
 	print "<br/><form method='POST' action='admin.php'>
 	<table class='main w'>
 		<tr><td class='head c' colspan=2>Dip Switches</td></tr>
