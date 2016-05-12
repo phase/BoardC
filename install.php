@@ -206,7 +206,7 @@
 			<tr><td class='light' colspan='2'><input type='checkbox' name='autodel' value=1 > Delete install.php if the installation completes</td></tr>
 			</table><br/>
 			
-		Click Install to start executing the SQL commands. This may take more than 30 seconds.<br/>WARNING: This will drop the specified database!",
+		Click Install to start executing the SQL commands. This may take more than a minute.<br/>WARNING: This will drop the specified database!",
 		"<input type='submit' name='start' value='Install'><input type='hidden' name='step' value=2>");
 	}
 	else if ($step == 2){
@@ -401,6 +401,12 @@ CREATE TABLE `posts_old` (
   `avatar` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `radar` (
+  `id` int(11) NOT NULL,
+  `user` int(32) NOT NULL,
+  `sel` int(32) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
 CREATE TABLE `ratings` (
   `id` int(32) NOT NULL,
   `userfrom` int(32) NOT NULL,
@@ -512,7 +518,8 @@ CREATE TABLE `users` (
   `signsep` int(3) NOT NULL DEFAULT '1',
   `icon` text,
   `coins` int(32) NOT NULL DEFAULT '0',
-  `gcoins` int(32) NOT NULL DEFAULT '0'
+  `gcoins` int(32) NOT NULL DEFAULT '0',
+  `radar_mode` int(4) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES
@@ -574,6 +581,8 @@ ALTER TABLE `poll_votes`
 ALTER TABLE `posts`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `posts_old`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `radar`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `ratings`
   ADD PRIMARY KEY (`id`);
@@ -674,16 +683,18 @@ ALTER TABLE `pms`
 ALTER TABLE `poll_votes`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `posts`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `posts_old`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `radar`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `ratings`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `themes`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 ALTER TABLE `threads`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `tor`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `users`

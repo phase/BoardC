@@ -60,6 +60,13 @@
 			}
 		}
 		
+		
+		$theme = filter_int($_POST['theme']);
+		$theme_list = findthemes();
+		if (!isset($theme_list[$theme]))
+			$theme = 1;
+		
+		
 		// build pquery based on checks
 		$query = "UPDATE users SET title=?,head=?,sign=?,sex=?,realname=?,location=?,birthday=?,bio=?,email=?,youtube=?,twitter=?,facebook=?,dateformat=?,timeformat=?,tzoff=?,showhead=?,signsep=?,theme=?";
 		$newdata = array();		
@@ -82,7 +89,7 @@
 			filter_int($_POST['tzoff']),
 			filter_int($_POST['showhead']),
 			filter_int($_POST['signsep']),
-			filter_int($_POST['theme'])
+			$theme
 		);
 		
 		// Prevent 0 posts per page/thread

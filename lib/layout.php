@@ -31,9 +31,16 @@
 		}*/
 		
 		if (!$loguser['id'])
-			$links .= "<a href='login.php'>Login</a> - <a href='register.php'>Register</a>";
+			$links .= "
+				<a href='login.php'>Login</a> - 
+				<a href='register.php'>Register</a>";
 		else
-			$links .= "<a href='login.php?logout'>Logout</a> - <a href='editprofile.php'>Edit profile</a> - <a href='editavatars.php'>Edit avatars</a> - <a href='shop.php'>Item shop</a>";
+			$links .= "
+				<a href='login.php?logout'>Logout</a> - 
+				<a href='editprofile.php'>Edit profile</a> - 
+				<a href='editavatars.php'>Edit avatars</a> - 
+				<a href='radar.php'>Post radar</a> - 
+				<a href='shop.php'>Item shop</a>";
 		
 		
 		if ($loguser['id']){
@@ -112,7 +119,7 @@
 					</td>
 					
 				</tr>			
-				<tr><td colspan=3 class='dim'></td></tr>
+				<tr><td colspan=3 class='dim'>".dopostradar()."</td></tr>
 			</table>";
 			
 		if ($loguser['id']) print dopmbox();
@@ -313,6 +320,76 @@
 			
 		return $txt;
 		
+	}
+	
+	function radar_comp($x){
+		global $loguser;
+		static $someflag;
+		$txt = "";
+		
+		if (isset($someflag)) $txt .= ", ";
+		else $someflag = true;
+
+		// text position
+		if 		($loguser['posts'] == $x['posts']) $txt .= "tied with ";
+		else if ($loguser['posts'] <  $x['posts']) $txt .= $x['diff']." posts behind ";
+		else if ($loguser['posts'] >  $x['posts']) $txt .= $x['diff']." posts ahead of ";
+		else errorpage("Something is broken ".var_dump($x), false);
+		
+		// user link + post count
+		$txt .= makeuserlink($x['uid'], $x, true)." (".$x['posts'].")";
+		
+		return $txt;
+	}
+	
+	function dopostradar(){
+		global $sql, $loguser, $userfields;
+		
+		if (!$loguser['id']) return "";
+		// radar: id, user, sel
+		
+		if (!$loguser['radar_mode'])
+			$radar_q = $sql->query("
+				SELECT $userfields uid, u.posts, ABS(".$loguser['posts']."-u.posts) diff
+				FROM radar r
+				LEFT JOIN users u ON r.sel = u.id
+				WHERE r.user = ".$loguser['id']."
+			");
+		else
+			$radar_q = $sql->fetchq("
+				SELECT $userfields uid, u.posts, ABS(".$loguser['posts']."-u.posts) diff
+				FROM users u
+				ORDER by diff
+				LIMIT 5
+			", true);
+		
+		
+		$radar = array();
+		$txt = "";
+		
+		if ($radar_q){
+
+			$txt = "You are ";
+			
+			if (!$loguser['radar_mode'])
+				while($x = $sql->fetch($radar_q))
+					$txt .= radar_comp($x);
+			
+			else{
+				// Sort by posts (desc)
+				uasort($radar_q, function($a,$b){return intval($a['posts'])-intval($b['posts']);});
+
+				foreach($radar_q as $x)
+					$txt .= radar_comp($x);
+			}
+			
+			
+			$txt .= ".";
+
+		}
+		
+		return $txt;
+
 	}
 	
 	function donamecolor($powl, $sex, $usercolor = false){
