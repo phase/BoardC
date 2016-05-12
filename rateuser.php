@@ -21,23 +21,38 @@
 		pageheader("View ratings");
 		
 		print adminlinkbar();
-		
+		/*
 		$users = $sql->query("
 			SELECT $userfields, r.rating, r.userfrom
 			FROM users u
 			LEFT JOIN ratings r	ON u.id = r.userfrom OR r.userto = u.id
 			WHERE r.userto = $id OR r.userfrom = $id
 			GROUP BY r.id
+		");*/
+		$votefrom = $sql->query("
+			SELECT $userfields, r.rating
+			FROM users u
+			LEFT JOIN ratings r	ON u.id = r.userfrom
+			WHERE r.userto = $id
 		");
 		
-		if (!$users)
+		$voteto = $sql->query("
+			SELECT $userfields, r.rating
+			FROM users u
+			LEFT JOIN ratings r	ON u.id = r.userto
+			WHERE r.userfrom = $id
+		");
+		
+		
+		if (!$votefrom)
 			errorpage("This user doesn't exist.", false);
 		
 		$list[0] = $list[1] = array();
-		while($x = $sql->fetch($users)){
-			$i = ($x['userfrom'] == $id) ? 1 : 0;
-			$list[$i][] = ">".makeuserlink(false, $x, true)."</td><td class='light b'>".$x['rating'];
-		}
+		while($x = $sql->fetch($votefrom))
+			$list[0][] = ">".makeuserlink(false, $x, true)."</td><td class='light b'>".$x['rating'];
+		while($x = $sql->fetch($voteto))
+			$list[1][] = ">".makeuserlink(false, $x, true)."</td><td class='light b'>".$x['rating'];
+		
 		
 		$username = makeuserlink($id, false, true);
 		$w = "style='width: 25%'";
