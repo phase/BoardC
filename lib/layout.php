@@ -64,7 +64,7 @@
 		<a href='latestposts.php'>Latest posts</a>
 		";
 		
-		if (isset($miscdata['theme'])) $loguser['theme'] = $miscdata['theme'];
+		if (isset($miscdata['theme'])) $loguser['theme'] = $miscdata['theme']-1;
 		
 		$themes = findthemes(false, true);
 		$css = file_get_contents("css/".$themes[$loguser['theme']]['file']);
