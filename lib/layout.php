@@ -53,6 +53,7 @@
 		$links2 = "
 		<a href='index.php'>Main</a> - 
 		<a href='memberlist.php'>Memberlist</a> -
+		<a href='activeusers.php'>Active users</a> -
 		<a href='calendar.php'>Calendar</a> -
 		<a href='online.php'>Online users</a>
 		";
