@@ -347,7 +347,7 @@
 		return strtr($string, $tags);
 	}
 	
-	function dosmilies($string){
+	function dosmilies($string, $return_array = NULL){
 		static $smilies = NULL;
 		
 		// as of now, this is intentionally not run on header and signature
@@ -369,7 +369,8 @@
 			
 		}
 		
-		return strtr($string, $smilies);
+		if (!isset($return_array)) return strtr($string, $smilies);
+		else return $smilies;
 	}
 	
 	function getthreadicons(){

@@ -11,7 +11,8 @@
 	// General
 	$page	= filter_int($_GET['page']);
 	$id		= filter_int($_GET['id']);
-	$time 	= filter_int($_GET['time']);
+	if (!isset($_GET['time'])) $time = 86400;
+	else $time = filter_int($_GET['time']);
 	// Posts by forum
 	$forum 	= filter_int($_GET['forum']);
 
@@ -50,6 +51,8 @@
 		$forums = $sql->fetchq("SELECT id, name, powerlevel FROM forums", true);
 		
 		foreach($forums as $forum){
+			if (!filter_int($pcount[$forum['id']])) continue;
+				
 			if ($loguser['powerlevel'] < $forum['powerlevel'])
 				$link = "<i>(Restricted forum)</i>";
 			else
@@ -186,7 +189,7 @@
 	<a href='listposts.php?$notime&time=86400'>During last day</a> |
 	<a href='listposts.php?$notime&time=604800'>During last week</a> |
 	<a href='listposts.php?$notime&time=2592000'>During last 30 days</a> |
-	<a href='listposts.php?$notime'>Total</a></div>
+	<a href='listposts.php?$notime&time=0'>Total</a></div>
 		
 	Posts by ".makeuserlink(false, $user)." on the board$forumtitle$when: ($realcount posts found)<br/>
 	$pagectrl<table class='main w c fonts'>

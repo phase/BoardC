@@ -62,7 +62,8 @@
 			$links2 .= " - <a href='announcement.php'>Announcements</a>";
 		
 		$links2 .= "<br/>
-		<a href='latestposts.php'>Latest posts</a>
+		<a href='latestposts.php'>Latest posts</a> - 
+		<a href='smilies.php' target='_blank'>Smilies</a>
 		";
 		
 		if (isset($miscdata['theme'])) $loguser['theme'] = $miscdata['theme']-1;
