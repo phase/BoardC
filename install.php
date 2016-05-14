@@ -176,7 +176,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.22a",
+		dialog(	"This will setup BoardC Pre-Release v0.23",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>

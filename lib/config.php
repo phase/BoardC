@@ -33,7 +33,7 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle2.png' title='Now in Badly-Drawn-Lego&trade; flavour!'>",
-		'board-version' =>			"Development Build 0.22a",
+		'board-version' =>			"Development Build 0.23",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		

@@ -62,6 +62,7 @@
 			$links2 .= " - <a href='announcement.php'>Announcements</a>";
 		
 		$links2 .= "<br/>
+		<a href='acs.php'>ACS</a> - 
 		<a href='latestposts.php'>Latest posts</a> - 
 		<a href='smilies.php' target='_blank'>Smilies</a>
 		";
@@ -160,15 +161,19 @@
 			if (!isset($_GET['debug']) && !$config['force-sql-debug-on'])
 				$querylist = "<br/><small><a href='".$_SERVER['PHP_SELF']."?".$_SERVER['QUERY_STRING']."&debug'>SQL debugging or something</a></small>";
 			else{
-				foreach($sql->querylist as $i => $query) //querylist[1] = 1 if pquery 
+				foreach($sql->querylist as $i => $query){ //querylist[1] = 1 if pquery, [2] query time, [3] error
+				
+					if ($query[3])	$class = "dim danger' style='font-weight: bold; background: #fff";
+					else 			$class = $query[1] ? "dark" : "light";
+					
 					$querylist .= "
 								<tr>
-									<td class='".($query[1] ? "dark" : "light")."'>
-										".htmlspecialchars($query[0])."
-									</td>
+									<td class='$class'>".htmlspecialchars($query[0])."</td>
+									<td class='$class'>".sprintf("%.08f", $query[2])."</td>
 								</tr>";
+				}
 								
-				$querylist = "<br/><table class='main'><tr><td class='head c'>SQL Query Debugging</td></tr>$querylist</table>";
+				$querylist = "<br/><table class='main'><tr><td class='head c' colspan='2'>SQL Query Debugging</td></tr>$querylist</table>";
 			}
 		}
 		
@@ -417,7 +422,7 @@
 		
 		if ($uid) $u['id'] = $uid; // hack for compatibility, allows to remove useless code
 
-		$icon = isset($u['icon']) && $showicon ? "<img src='".$u['icon']."'>" : "";
+		$icon = isset($u['icon']) && $showicon ? "<img src='".$u['icon']."'> " : "";
 		
 		if (!$u) return "<a class='danger'>(Invalid Userlink)</a>";
 		
@@ -433,7 +438,7 @@
 		
 		$linkcolor = donamecolor($u['powerlevel'], $u['sex'], $u['namecolor']);
 		
-		return "<a href='profile.php?id=".$u['id']."' $linkcolor $title>$icon $name</a>";
+		return "<a href='profile.php?id=".$u['id']."' $linkcolor $title>$icon$name</a>";
 	}
 
 	function onlineusers($forum = false){

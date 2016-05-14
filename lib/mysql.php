@@ -111,12 +111,14 @@ class mysql{
 		}
 		catch (PDOException $x){
 			trigger_error("Query failure: $query | ".str_replace("You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near", "Error near: ", $this->db->errorInfo()[2])."</small>", E_USER_WARNING);
-			$result = false;// true;					
+			$result = false;// true;
+			$q_error = true;
 		}	
 		
-		$this->querytime += (microtime(true) - $start);
+		$timetaken = microtime(true) - $start;
+		$this->querytime += $timetaken;
 		$this->queries++;
-		$this->querylist[] = array($query, 0);
+		$this->querylist[] = array($query, 0, $timetaken, isset($q_error));
 		
 		if ($result != false) return $ref;
 		else return false;
@@ -129,11 +131,13 @@ class mysql{
 		}
 		catch (PDOException $x){
 			trigger_error("Query (Exec) failure: $query", E_USER_WARNING);
-			$result = false;			
+			$result = false;
+			$q_error = true;			
 		}
-		$this->querytime += (microtime(true) - $start);
+		$timetaken = microtime(true) - $start;
+		$this->querytime += $timetaken;
 		$this->queries++;
-		$this->querylist[] = array($query, 0);
+		$this->querylist[] = array($query, 0, $timetaken, isset($q_error));
 		return $result;
 	}
 	
@@ -207,10 +211,12 @@ class mysql{
 		catch (PDOException $x){
 			trigger_error("Execute failure |$x", E_USER_WARNING);		
 			$status = false;
+			$q_error = true;
 		}
-		$this->querytime += (microtime(true) - $start);
+		$timetaken = microtime(true) - $start;
+		$this->querytime += $timetaken;
 		$this->pqueries++;
-		$this->querylist[] = array($ref->queryString." | Values:(".implode(", ", $cmd_array).")", 1);
+		$this->querylist[] = array($ref->queryString." | Values:(".implode(", ", $cmd_array).")", 1, $timetaken, isset($q_error));
 		return $status;
 	}
 	

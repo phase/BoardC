@@ -240,7 +240,7 @@
 	if (!stripos($_SERVER['PHP_SELF'], "forum.php") && !stripos($_SERVER['PHP_SELF'], "thread.php"))
 		update_hits();
 
-	
+	/*
 	if (isset($_GET['pupd'])){
 		
 		$i = $sql->query("SELECT id FROM posts");
@@ -256,7 +256,7 @@
 		x_die("Done.");
 		
 	}
-
+*/
 	
 	
 ?>

@@ -28,12 +28,15 @@
 		$result = $source;
 		
 		// Control Codes
-		$result = trim($result, "\x00..\x1F"); //always remove \x00 as it's internally used as a separator for other stuff (ie: poll data)
-		$result = trim($result, "\x7F");		
+		$result = str_replace("\x00", "", $result); //always remove \x00 as it's internally used as a separator for other stuff (ie: poll data)
+		$result = preg_replace("'[\x01-\x1F\x7F]'", "", $result); 
+		// why was trim used. also why does preg_replace trip on null chars
+		//$result = trim($result, "\x00..\x1F"); 
+		//$result = trim($result, "\x7F");		
 		
 		//Unicode Control Codes
 		$result = str_replace("\xC2\xA0","\x20", $result);
-		$result = trim_loop($result, "\xC2\x80..\xC2\x9F");
+		$result = preg_loop($result, "\xC2+[\x80-\x9F]");
 		
 		// Entities
 		$result = html_entity_decode($result, ENT_NOQUOTES, 'UTF-8'); //No standard HTML entities
@@ -227,6 +230,7 @@
 
 	function update_hits($forum = 0){
 		global $loguser, $sql;
+		// NOTE: This query doubles the query time. Possibly see what can be done
 		$sql->queryp("INSERT INTO hits (user, ip, time, page, useragent, forum, referer) VALUES (?,?,?,?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], ctime(), $_SERVER['REQUEST_URI'], $_SERVER['HTTP_USER_AGENT'], $forum, $_SERVER['HTTP_REFERER']));
 		if ($loguser['id'])	$sql->query("UPDATE users SET lastview = ".ctime()." WHERE id = ".$loguser['id']);
 	}
@@ -520,12 +524,12 @@
 		return $r;
 	}
 	
-	function trim_loop($before, $remove){
+	function preg_loop($before, $remove){
 		$after = NULL;
 		while ($before != $after){
 			if ($after === NULL) $after = $before;
 			else $before = $after;
-			$after = trim($after, $remove);
+			$after = preg_replace("'$remove'", "", $after);//trim($after, $remove);
 		}
 		return $after;
 	}
