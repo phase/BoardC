@@ -3,19 +3,18 @@
 	function pageheader($title, $show = true, $forum = 0){
 		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta;
 		
-		$meta_txt = "";
+		$meta_txt 	= "";
 		
 		if (filter_bool($meta['noindex'])){
 			$meta_txt = "<meta name='robots' content='noindex, nofollow, noarchive'>";
 			header('X-Robots-Tag: noindex, nofollow, noarchive', true);
 		}
 		
-		$links = "";
-		
 		$isadmin = powlcheck(4);
-		
 		if (!powlcheck(5))
 			$fw_error = "";
+		
+		$links = "";
 		
 		if (powlcheck(1))
 			$links .= "<a href='shoped.php'>Shop Editor</a> - ";		
@@ -60,20 +59,22 @@
 		
 		if ($isadmin)
 			$links2 .= " - <a href='announcement.php'>Announcements</a>";
-		
+		if ($config['enable-news'])
+			$links2 .= " - <a href='news.php'>News</a>";
 		$links2 .= "<br/>
 		<a href='acs.php'>ACS</a> - 
 		<a href='latestposts.php'>Latest posts</a> - 
 		<a href='smilies.php' target='_blank'>Smilies</a>
 		";
 		
-		if (isset($miscdata['theme'])) $loguser['theme'] = $miscdata['theme']-1;
+		if ( isset($miscdata['theme']) ) $loguser['theme'] = $miscdata['theme']-1;
 		
-		$themes = findthemes(false, true);
-		$css = file_get_contents("css/".$themes[$loguser['theme']]['file']);
+		$themes 	= findthemes(false, true);
+		$css 		= file_get_contents("css/".$themes[$loguser['theme']]['file']);
 		
-		if (!$css)
-			$css = "";
+		if (!$css) $css = "";
+		
+		
 		else if (strpos($css, "META")){
 			/*
 			Special META flags
@@ -81,14 +82,14 @@
 			Board title (image) - 
 			*/
 			$cssmeta = explode(PHP_EOL,$css, 4);
-			$config['board-name'] = $cssmeta[1];
-			$config['board-title'] = $cssmeta[2];
+			$config['board-name'] 	= $cssmeta[1];
+			$config['board-title'] 	= $cssmeta[2];
 		}
 		
 		if ($show)
 			$title .= " - ".$config['board-name'];
 		
-		$ctime = ctime();
+		$ctime 	= ctime();
 		
 		if ($hacks['replace-image-before-login'] && !$loguser['id'])
 			$config['board-title'] = "<h1>(?)</h1>";

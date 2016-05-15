@@ -1,7 +1,7 @@
 <?php
 
 	require "lib/config.php";
-	error_reporting(0);
+//	error_reporting(0);
 	
 	function filter_bool(&$bool){
 		if (!isset($bool)) return false;
@@ -17,7 +17,25 @@
 		if (!isset($string)) return "";
 		else return (string) $string;
 	}
-	
+	function sgfilter(&$source){
+		$result = $source;
+		$result = str_replace("\x00", "", $result);
+		$result = preg_replace("'[\x01-\x09\x0B-\x1F\x7F]'", "", $result);
+		$result = str_replace("\xC2\xA0","\x20", $result);
+		$result = preg_loop($result, "\xC2+[\x80-\x9F]");
+		$result = html_entity_decode($result, ENT_NOQUOTES, 'UTF-8');
+		$result = preg_replace("'(&#x?([0-9]|[a-f])+[;>])'si", "<img src='images/coin.gif'>", $result);
+		return $result;
+	}
+	function preg_loop($before, $remove){
+		$after = NULL;
+		while ($before != $after){
+			if ($after === NULL) $after = $before;
+			else $before = $after;
+			$after = preg_replace("'$remove'", "", $after);
+		}
+		return $after;
+	}
 	function ctime(){return time()+$GLOBALS['config']['default-time-zone'];}
 	function printdate($t){return date($GLOBALS['config']['default-date-format']." ".$GLOBALS['config']['default-time-format'], $t+$GLOBALS['config']['default-time-zone']);}
 	
@@ -176,7 +194,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.23",
+		dialog(	"This will setup BoardC Pre-Release v0.24",
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -339,6 +357,18 @@ CREATE TABLE `hits` (
   `forum` int(32) NOT NULL DEFAULT '0',
   `referer` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `news` (
+  `id` int(11) NOT NULL,
+  `name` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `text` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user` int(32) NOT NULL,
+  `time` int(32) NOT NULL,
+  `cat` text COLLATE utf8mb4_unicode_ci,
+  `hide` tinyint(1) NOT NULL DEFAULT '0',
+  `lastedituser` int(32) NOT NULL DEFAULT '0',
+  `lastedittime` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used by the external \"plugin\" news.php';");
 query("
 CREATE TABLE `new_announcements` (
   `id` int(32) NOT NULL,
@@ -523,7 +553,7 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES
-('1', '$name','".password_hash($pass1, PASSWORD_DEFAULT)."','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '5'),
+('1', '$name','".password_hash(sgfilter($pass1), PASSWORD_DEFAULT)."','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '5'),
 ('".$config['deleted-user-id']."', 'Deleted user', 'rip','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '-2');
 ");
 query("
@@ -569,6 +599,8 @@ ALTER TABLE `ipbans`
 ALTER TABLE `jstrap`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `hits`
+  ADD PRIMARY KEY (`id`);
+ALTER TABLE `news`
   ADD PRIMARY KEY (`id`);
 ALTER TABLE `new_announcements`
   ADD PRIMARY KEY (`id`);
@@ -674,6 +706,8 @@ ALTER TABLE `ipbans`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `jstrap`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `news`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `new_announcements`
   MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `new_posts`

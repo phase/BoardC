@@ -33,7 +33,7 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle2.png' title='Now in Badly-Drawn-Lego&trade; flavour!'>",
-		'board-version' =>			"Development Build 0.23",
+		'board-version' =>			"Development Build 0.24",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		
@@ -65,6 +65,15 @@
 		'default-time-zone' => 		3600,//GMT+1
 		'default-date-format' => 	"d/m/y",
 		'default-time-format' =>	"H:i:s",
+		
+		// News 'plugin'
+		'enable-news' =>			true,
+		'news-name'	=>				"News",
+		'news-title' =>				"<font size=3>I 'see' News</font>",
+		'max-preview-length' =>		500, // Max characters before text is shrunk
+		'news-write-perm' =>		1, // Powerlevel required to add news
+		'news-admin-perm' =>		4, // Powerlevel required to erase news
+		
 		
 		// Development stuff
 		

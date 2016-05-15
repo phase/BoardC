@@ -42,7 +42,7 @@
 	else if ($mode == "isban"){
 		$id = filter_int($_GET['id']);
 		$b = $sql->fetchq("SELECT powerlevel p, ban_expire b FROM users WHERE id = $id");
-		print "{\"banned\":".(int)($b['p']<0).",\"expire\",:".(int)$b['b']."}";
+		print "{\"banned\":".(int)($b['p']<0).",\"expire\":".(int)$b['b']."}";
 	}
 	
 	else errorpage("Invalid arguments given.");

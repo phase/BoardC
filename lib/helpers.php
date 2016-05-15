@@ -29,11 +29,8 @@
 		
 		// Control Codes
 		$result = str_replace("\x00", "", $result); //always remove \x00 as it's internally used as a separator for other stuff (ie: poll data)
-		$result = preg_replace("'[\x01-\x1F\x7F]'", "", $result); 
-		// why was trim used. also why does preg_replace trip on null chars
-		//$result = trim($result, "\x00..\x1F"); 
-		//$result = trim($result, "\x7F");		
-		
+		$result = preg_replace("'[\x01-\x09\x0B-\x1F\x7F]'", "", $result); // Don't think about adding \x0A (the newline character)
+
 		//Unicode Control Codes
 		$result = str_replace("\xC2\xA0","\x20", $result);
 		$result = preg_loop($result, "\xC2+[\x80-\x9F]");
