@@ -2,14 +2,39 @@
 
 	require "lib/function.php";
 
-	$action = filter_string($_POST['action']);
+	$action 	= filter_string($_POST['action']);
+	$isadmin 	= powlcheck(4);
 	
 	if (!$action){
 		
-		if ($loguser['id'] && !powlcheck(4))
+		if ($loguser['id'] && !$isadmin)
 			header("Location: index.php");
 		
 		pageheader("Register");
+		
+		if (!$isadmin){
+			// Allow admins to rereggie as much as they want
+			if ($miscdata['regmode'] == 1)
+				errorpage("
+				To register an account, you need to send a request to an administrator.<br/>
+				<a href='memberlist.php?pow=4'>This</a> is the list of the current administrative team.
+				", false);
+			if ($miscdata['regmode'] == 3)
+				errorpage("Registrations are currently disabled.", false);
+			if ($miscdata['regmode'] == 2 && $miscdata['regkey'])
+				$regkey = "	<tr>
+								<td class='light'>
+									<b>Registration key</b><br/>
+									<small>
+									Contact an admin to request this key.<br/>
+									It's <b>NOT</b> a guarantee that you'll receive it.
+									</small>
+								</td>
+								<td class='dim'>
+									<input type='text' style='width:230px' name='regkey' autocomplete=off>
+								</td>
+							</tr>";
+		}
 		
 		print "
 		<form method='POST' action='register.php' autocomplete='OFF'>
@@ -21,10 +46,10 @@
 			<tr>
 				<td class='light' style='width: 400px'>
 					Username:<br/>
-					<small>Maximum length: 25 Characters. Can contain only alphanumeric characters.</small>
+					<small>Maximum length: 32 Characters. Can contain only alphanumeric characters.</small>
 				</td>
 				<td class='dim'>
-					<input type='text' style='width:230px' name='user' maxlength=25 autocomplete=off>
+					<input type='text' style='width:230px' name='user' maxlength=32 autocomplete=off>
 				</td>
 			</tr>
 			<tr>
@@ -46,6 +71,7 @@
 					<input type='password' style='width:230px' name='pass2' autocomplete=off>
 				</td>
 			</tr>
+			$regkey
 			<!--
 			These are the standard special fields. <b>Do <div class='danger'>NOT</div> fill in these - you'll be IP Banned!</b>
 			<tr>
@@ -82,14 +108,15 @@
 	}
 	else if ($action == "Register"){
 		
-		$isadmin = powlcheck(4);
-		
 		if (filter_string($_POST['notreally']) || filter_string($_POST['akafield']) || filter_string($_POST['sinkfield'])){
 			if ($isadmin) errorpage("<h1>It works!</h1>");
 			ipban("", "Auto IP Banned ".$_SERVER['REMOTE_ADDR']." for filling in dummy registration fields.");
 			errorpage("I don't think you know what a warning is.");
 		}
 		
+		if ($miscdata['regmode'] == 1 || $miscdata['regmode'] == 3 && !$isadmin) // Enforce admin-only registration
+			errorpage("Nice try, but only admin can register you.");
+			
 		$user = addslashes(filter_string($_POST['user']));
 		$pass = filter_string($_POST['pass']);
 		
@@ -99,8 +126,8 @@
 		if ($pass != filter_string($_POST['pass2']))
 			errorpage("The password and the retype don't match.");
 		
-		if (strlen($user)>25) // Just to make sure
-			errorpage("No (the actual limit in the database is 32, but still).");
+		if (strlen($user)>32)
+			errorpage("If you want to know, the 'name' field is varchar(32). Name too long.");
 			
 		$check = preg_replace('/[^\da-z]/i', '', $user);
 		if ($check !== $user)
@@ -108,6 +135,9 @@
 		
 		if (strlen($pass)<8)
 			errorpage("The password should be at least 8 characters long.");
+		// 'password' is 8 characters
+		if (stripos($pass, "password") !== false)
+			errorpage("... (type a different password)");
 		
 		$rereggie = $sql->fetchq("SELECT id, name FROM users WHERE lastip = '".$_SERVER['REMOTE_ADDR']."'");
 		if (filter_int($rereggie['id']) && !$config['allow-rereggie'] && !$isadmin){
@@ -129,6 +159,39 @@
 		
 		// Other firewall checks here 
 		
+		/*
+		this code is down here to prevent a loophole caused by sharing the regkey counter and failed logins in the same table
+		(if you know the regkey and register again with the correct one, you would be blocked but the failed_logins counter would reset)
+		
+		to prevent the loophole also when $config['allow-rereggie'] is enabled, $rereggie is checked before erasing failed_logins
+		
+		basically, at this point the user registration is an almost guaranteed success
+		*/
+		if ($miscdata['regmode'] == 2 && $miscdata['regkey'] && !$isadmin){
+			$regkey = filter_string($_POST['regkey']);
+			if ($regkey != $miscdata['regkey']){
+				// table recycling
+				$attempts = $sql->resultq("SELECT attempt FROM failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'");
+				
+				if (!$attempts){
+					$sql->query("INSERT INTO failed_logins (ip, attempt) VALUES ('".$_SERVER['REMOTE_ADDR']."', 1)");
+					trigger_error("Failed registration attempt #1 for IP ".$_SERVER['REMOTE_ADDR'], E_USER_NOTICE);
+				}
+				else if ($attempts<4){
+					$sql->query("UPDATE failed_logins SET attempt=".($attempts+1)." WHERE ip = '".$_SERVER['REMOTE_ADDR']."'");
+					trigger_error("Failed registration attempt #".($attempts+1)." for IP ".$_SERVER['REMOTE_ADDR'], E_USER_NOTICE);
+				}
+				else{
+					ipban("Regkey", "Auto IP-Banned ".$_SERVER['REMOTE_ADDR']." for 5 failed registration attempts (Incorrect regkey).");
+					errorpage("You have <i><u>not<u></i> been registered.<br/>Click <a href='?'>here</a> to know why.");
+				}
+				
+				errorpage("Wrong registration key.");
+			}
+			else if (!$rereggie) $sql->query("DELETE from failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'"); // prevent a loophole
+			//else errorpage("No, don't think this will delete the failed_logins counter.");
+		}
+	
 		// OK
 		$sql->start();
 		
@@ -147,7 +210,7 @@
 			
 			
 			mkdir("userpic/$id");
-			trigger_error("New user: $user (".$config['board-url']."profile.php?id=$id)");
+			trigger_error("New user: $user (".$config['board-url']."profile.php?id=$id)", E_USER_NOTICE);
 			errorpage("You have been registered.<br/>Click <a href='login.php'>here</a> to log in.");
 		}
 		else errorpage("An unknown error occurred during registration.");

@@ -33,7 +33,7 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle2.png' title='Now in Badly-Drawn-Lego&trade; flavour!'>",
-		'board-version' =>			"Development Build 0.24",
+		'board-version' =>			"Development Build 0.25",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		
@@ -62,7 +62,7 @@
 		'pageview-limit-bot' =>		10, //1 each 10 seconds
 		
 		// Defaults
-		'default-time-zone' => 		3600,//GMT+1
+		'default-time-zone' => 		0,// Hours (also, this was always set wrong since the beginning)
 		'default-date-format' => 	"d/m/y",
 		'default-time-format' =>	"H:i:s",
 		
@@ -79,7 +79,7 @@
 		
 		'dummy-name' =>				"Dummy variable",	
 		'force-userid' =>			false,
-		'force-sql-debug-on' =>		false,		
+		'force-sql-debug-on' =>		true,		
 
 	
 	);

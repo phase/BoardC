@@ -194,7 +194,7 @@
 		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
 	}
 	if (!$step){
-		dialog(	"This will setup BoardC Pre-Release v0.24",
+		dialog(	"This will setup BoardC ".$config['board-version'],
 				"BoardC will be configured under these settings:<br/><br/>
 
 					<table class='special head'>
@@ -337,15 +337,15 @@ CREATE TABLE `jstrap` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `misc` (
-  `disable` tinyint(1) NOT NULL,
-  `views` int(32) NOT NULL,
+  `disable` tinyint(1) NOT NULL DEFAULT '0',
+  `views` int(32) NOT NULL DEFAULT '0',
   `theme` int(32) DEFAULT NULL,
   `threads` int(32) NOT NULL DEFAULT '0',
   `posts` int(32) NOT NULL DEFAULT '0',
-  `noposts` tinyint(1) NOT NULL DEFAULT '0'
+  `noposts` tinyint(1) NOT NULL DEFAULT '0',
+  `regmode` int(1) NOT NULL DEFAULT '0',
+  `regkey` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `misc` (`disable`, `views`, `theme`, `threads`, `posts`, `noposts`) VALUES ('0', '0', NULL, '0', '0', '0');");
 query("
 CREATE TABLE `hits` (
   `id` int(32) NOT NULL,

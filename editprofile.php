@@ -121,7 +121,9 @@
 			$newdata[] = filter_int($_POST['powerlevel']);
 			$newdata[] = filter_int($_POST['coins']);
 			$newdata[] = filter_int($_POST['gcoins']);
-			$query .= ",name=?,powerlevel=?,coins=?,gcoins=?";
+			//$newdata[] = (filter_int($_POST['banmonth']) && filter_int($_POST['banday']) && filter_int($_POST['banyear'])) ? mktime(0,0,0,filter_int($_POST['banmonth']),filter_int($_POST['banday']),filter_int($_POST['banyear'])) : 0;
+			$newdata[] = ($_POST['powerlevel'] == "-1") ? filter_int($_POST['ban_hours'])*3600+ctime() : 0;
+			$query .= ",name=?,powerlevel=?,coins=?,gcoins=?,ban_expire=?";
 		}
 		if (powlcheck(1)){
 			$newdata[] = input_filters($_POST['displayname']);
@@ -206,6 +208,8 @@
 		
 		$fields["Login information"]["User name"]	= array(0, "name", "Change the real handle by entering one here.");
 		$fields["Login information"]["Powerlevel"]	= array(4, "powerlevel", "");
+		//$fields["Login information"]["Banned until"]= array(4, "ban_expire", "");
+		$fields["Login information"]["Banned for"]	= array(4, "ban_hours", "");
 		$fields["Options"]["Coins"]					= array(0, "coins", "Change the normal coin value.");
 		$fields["Options"]["Green coins"]			= array(0, "gcoins", "Admin only coins, increment those whenever you feel like.");
 		
@@ -222,8 +226,8 @@
 	$powl[$user['powerlevel']] = "selected";
 	
 	$powerlevel = "	<select name='powerlevel'>
-						<option value='-2' ".filter_string($powl[0]).">Permabanned</option>
-						<option value='-1' ".filter_string($powl[0]).">Banned</option>
+						<option value='-2' ".filter_string($powl["-2"]).">Permabanned</option>
+						<option value='-1' ".filter_string($powl["-1"]).">Banned</option>
 						<option value=0 ".filter_string($powl[0]).">Normal User</option>
 						<option value=1 ".filter_string($powl[1]).">Privileged</option>
 						<option value=2 ".filter_string($powl[2]).">Local Moderator</option>
@@ -249,6 +253,21 @@
 	Day: <input name='birthday' type='text' maxlength='2' size='2' value='$birthval[1]'>
 	Year: <input name='birthyear' type='text' maxlength='4' size='4' value='$birthval[2]'>
 	";
+	
+	/*
+	Uncomment if you like setting the manual date for bans
+	if ($user['ban_expire'])
+		$banval = explode("|", date("n|j|Y", $user['ban_expire']));
+	else $banval = array("", "", "");
+	
+	$ban_expire = "
+	Month: <input name='banmonth' type='text' maxlength='2' size='2' value='$banval[0]'>
+	Day: <input name='banday' type='text' maxlength='2' size='2' value='$banval[1]'>
+	Year: <input name='banyear' type='text' maxlength='4' size='4' value='$banval[2]'>
+	";
+	*/
+	$ban_val = ($user['powerlevel'] == "-1") ? floor(($user['ban_expire']-ctime())/3600) : 0;
+	$ban_hours = "<input name='ban_hours' type='text' style='width: 50px' value='$ban_val'> hours";
 
 	// build table
 	$t = "";

@@ -1,15 +1,15 @@
 <?php
 
 	/*
-		News Engine v0.00 -- 15/05/16
+		News Engine v0.01 -- 17/05/16
 		
 		DESCRIPTION:
 		A news engine (read: alternate announcements page) that everybody can read, but only privileged or up can write.
-		The permission settings are stored in news_config.php
+		The permission settings are stored in config.php
 		(this is a test for forum integration)
 		
 		TODO: 
-		- Sorting options and possibly a search box
+		- A search box
 	*/
 	
 	require "lib/function.php";
@@ -17,20 +17,27 @@
 	
 	$id			= filter_int($_GET['id']);
 	$page		= filter_int($_GET['page']);
+	$usersort	= filter_int($_GET['user']);
+	$ord		= filter_int($_GET['ord']);
 	$filter		= filter_string($_GET['cat']);
 	
-
+	
+	$q_filter = "";
 	if ($id)
 		$q_filter = "AND n.id = $id";
-	else if ($filter){
-		// As only alphanumeric characters (and space) are allowed in tag names, never accept anything which also contains other special characters
-		// If it does, redirect to the "Suspicious request detected" page (or maybe actually edit $fw->banflags() here to force log the attempt)
-		if (alphanumeric($filter) !== $filter)
-			header("Location: ../index.php?sec=1");
-		$q_filter = "AND n.cat REGEXP ';?$filter'";
+	else{
+		if ($filter){
+			// As only alphanumeric characters (and space) are allowed in tag names, never accept anything which also contains other special characters
+			// If it does, redirect to the "Suspicious request detected" page (or maybe actually edit $fw->banflags() here to force log the attempt)
+			if (alphanumeric($filter) !== $filter)
+				header("Location: index.php?sec=1");
+			$q_filter = "AND n.cat REGEXP '(;|^)$filter(;|$)'"; // Changed to check first and last characters
+		}
+		if ($usersort){
+			// Sort by user ID
+			$q_filter .= " AND n.user = $usersort";
+		}
 	}
-	else $q_filter = "";
-
 
 	
 	/* 	Table name 	: news
@@ -52,7 +59,7 @@
 		FROM news n
 		LEFT JOIN users u ON n.user = u.id
 		$q_where
-		ORDER BY n.time DESC
+		ORDER BY n.time ".($ord ? "ASC" : "DESC")."
 		LIMIT ".$page*$loguser['ppp'].", ".$loguser['ppp']."
 	");
 	
@@ -61,13 +68,12 @@
 		errorpage("There are no news to show.<br/>Click <a href='index.php'>here</a> to return to the forums...", false);
 	
 	
-	if ($canwrite)
-		print "<br/><table class='main w fonts'><tr><td class='dark'>News options: <a href='editnews.php?new'>New post</a></td></tr></table>";
+	$newpost = $canwrite ? "News options: <a href='editnews.php?new'>New post</a> |" : "";
+	print "<br/><table class='main w fonts'><tr><td class='dark'>$newpost Sorting: <a href='?ord=0&cat=$filter&user=$usersort'>From newest to oldest</a> - <a href='?ord=1&cat=$filter&user=$usersort'>From oldest to newest</a> </td></tr></table>";
 	
 	$news_count	= $sql->resultq("SELECT COUNT(n.id) FROM news n $q_where");
-	$pagectrl	= dopagelist($news_count, $loguser['ppp'], "news");
+	$pagectrl	= dopagelist($news_count, $loguser['ppp'], "news", "&cat=$filter&user=$usersort");
 	
-
 	print $pagectrl;
 	while ($post = $sql->fetch($news)){
 		print news_format($post, (!$id)); // Don't show the preview if you're viewing a specific post ID

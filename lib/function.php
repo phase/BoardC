@@ -73,15 +73,23 @@
 	if (filter_int($ipbanned['id'])){
 		
 		$reason = filter_string($ipbanned['reason']);
-		
-		if ($reason == "Password")
-			errorpage("It seems you have failed 5 login attempts.<br/><br/>If you have lost your password, send an email at ".$config['admin-email']." for password recovery.");
+
+		if ($reason == "Password"){
+			dialog(	"Board message",
+					"Password recovery",
+					"<center>It seems you have failed 5 login attempts.<br/><br/>If you have lost your password, send an email at ".$config['admin-email']." for password recovery.");
+		}
+		else if ($reason == "Regkey"){
+			dialog(	"Board message",
+					"Registration",
+					"<center>You have tried to register an account using an incorrect registration key 5 times.<br/>If you have forgotten it, send an email at ".$config['admin-email']." to request it again.<small><br/>(and if you actually tried to guess it, well, you can go <a href='http://www.google.com'>here</a>)");
+		}
 		else if (!$reason)
 			$reason = "Unspecified reason";
 		
-		$views = $sql->resultq("SELECT views FROM misc");
+		//$views = $sql->resultq("SELECT views FROM misc");
 		
-		errorpage("You have been banned from the board for the following reason:<br/>$reason");
+		dialog("Board message","You are banned.","<center>You have been banned from the board for the following reason:<br/>$reason");
 	}
 
 	$tor = $proxy = $bot = 0;

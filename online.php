@@ -20,7 +20,7 @@
 		}
 		else if (filter_string($_GET['ipban'])){
 			$ip = base64_decode($_GET['ipban']);
-			ipban("online.php ban", "IP Banned $ip (online.php ban)", $ip); 
+			ipban("online.php ban", "IP Banned $ip (online.php ban)", $ip, true); 
 			header("Location: online.php?time=$time");
 		}
 	}

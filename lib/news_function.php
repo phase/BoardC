@@ -49,6 +49,8 @@
 			? " (Last edited by ".makeuserlink($data['lastedituser'])." at ".printdate($data['lastedittime']).")" 
 			: "";
 		
+		$usersort = "<a href='news.php?user=".$data['uid']."'>View all news by this user</a>";
+		
 		return "
 		<table class='main w'>
 			<tr>
@@ -61,7 +63,7 @@
 			
 			<tr><td class='dim'>".nl2br($data['text'])."</td></tr>
 			$viewfull
-			<tr><td class='fonts dark'>Tags: ".tag_format($data['cat'])."</td></tr>
+			<tr><td class='fonts dark'>$usersort | Tags: ".tag_format($data['cat'])."</td></tr>
 		</table>
 		";
 		

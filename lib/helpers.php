@@ -191,12 +191,12 @@
 		return $res;
 	}
 	
-	function ipban($reason = "", $ircreason = true, $ip = false){
+	function ipban($reason = "", $ircreason = true, $ip = false, $manual = false){
 		global $sql, $loguser;
 		// Have to do it here to account for PHP being stupid
 		if (!$ip) $ip = $_SERVER['REMOTE_ADDR'];
 		
-		$res = $sql->query("INSERT INTO `ipbans` (`ip`, `time`, `reason`, `userfrom`) VALUES ('$ip', '".ctime()."', '$reason', '".$loguser['id']."')");
+		$res = $sql->query("INSERT INTO `ipbans` (`ip`, `time`, `reason`, `userfrom`) VALUES ('$ip', '".ctime()."', '$reason', '".($manual ? $loguser['id'] : 0)."')");
 		
 		if (!$res)
 			trigger_error("Query failure: couldn't IP Ban $id", E_USER_WARNING);
@@ -227,7 +227,6 @@
 
 	function update_hits($forum = 0){
 		global $loguser, $sql;
-		// NOTE: This query doubles the query time. Possibly see what can be done
 		$sql->queryp("INSERT INTO hits (user, ip, time, page, useragent, forum, referer) VALUES (?,?,?,?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], ctime(), $_SERVER['REQUEST_URI'], $_SERVER['HTTP_USER_AGENT'], $forum, $_SERVER['HTTP_REFERER']));
 		if ($loguser['id'])	$sql->query("UPDATE users SET lastview = ".ctime()." WHERE id = ".$loguser['id']);
 	}

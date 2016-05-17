@@ -62,6 +62,7 @@
 		if ($config['enable-news'])
 			$links2 .= " - <a href='news.php'>News</a>";
 		$links2 .= "<br/>
+		<a href='faq.php'>Rules/FAQ</a> - 
 		<a href='acs.php'>ACS</a> - 
 		<a href='latestposts.php'>Latest posts</a> - 
 		<a href='smilies.php' target='_blank'>Smilies</a>
@@ -215,7 +216,7 @@
 	function dialog($title, $head, $msg){
 		
 		x_die("
-		<!doctype html>
+		<!nodoctype html>
 		<head>
 			<title>$title</title>
 			<style type='text/css'>
@@ -254,16 +255,20 @@
 			}
 			</style>
 			<body>
-			<center><div style='height: 32vh'></div><table class='special'>
-				<tr>
-					<td class='head'><center><b>$head</b></center></td>
-				</tr>
-				<tr>
-					<td class='dim'>
-					$msg
-					</td>
-				</tr>
-			</table></center>
+			<center>
+				<table height=100% valign=middle><tr><td>
+					<table class='special'>
+						<tr>
+							<td class='head'><center><b>$head</b></center></td>
+						</tr>
+						<tr>
+							<td class='dim'>
+							$msg
+							</td>
+						</tr>
+					</table>
+				</td></tr></table>
+			</center>
 			</body>
 		</head>");
 		
@@ -601,6 +606,7 @@
 			"admin-editforums.php" 	=> "Edit Forums",
 			"admin-editmods.php" 	=> "Edit Mods",
 			"admin-ipsearch.php" 	=> "IP Search",
+			"admin-ipbans.php" 		=> "IP Bans",
 			"admin-quickdel.php" 	=> "The (Ban) Button&trade;",
 		);
 		if (powlcheck(5)) $adminpages["admin-deluser.php"] = "Delete User";
@@ -620,7 +626,7 @@
 				$txt .= "</tr><tr>";
 			}
 			
-			$txt .= ($link == $page ? "<td class='dark'><a class='notice' href='$link'>$title</a>" : "<td class='light'><a href='$link'>$title</a>");
+			$txt .= ($link == $page ? "<td class='dark' style='width: 25%'><a class='notice' href='$link'>$title</a>" : "<td class='light' style='width: 25%'><a href='$link'>$title</a>");
 			$i++;
 		}
 		

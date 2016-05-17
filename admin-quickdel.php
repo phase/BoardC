@@ -42,7 +42,7 @@
 		$c[] = $sql->query("ALTER TABLE new_announcements DROP COLUMN user$id");
 		
 		
-		if (filter_int($_POST['ipban'])) ipban("", false, $data['lastip']);
+		if (filter_int($_POST['ipban'])) ipban("", false, $data['lastip'], true);
 		
 		foreach(glob("userpic/$id/*") as $f)
 			unlink("$f");
@@ -52,9 +52,8 @@
 		
 	}
 	
-	
 	$user = $sql->fetchq("
-	SELECT id, name, displayname, namecolor, powerlevel, sex, icon, powerlevel, posts, since, lastip, lastview
+	SELECT id, name, displayname, namecolor, powerlevel, sex, icon, powerlevel, since, lastip, lastview
 	FROM users
 	WHERE powerlevel < 1
 	AND id != ".$config['deleted-user-id']."
@@ -65,8 +64,77 @@
 	if (!$user || $user['id'] != $sql->resultq("SELECT MAX(id) FROM users"))
 		errorpage("There are no more users that can be deleted! You can go <a href='index.php'>home</a> now.", false);
 	
+	/*
+	DO NOT UNCOMMENT; TEST QUERY
+	$user = $sql->fetchq("
+	SELECT id, name, displayname, namecolor, powerlevel, sex, icon, powerlevel, posts, since, lastip, lastview
+	FROM users
+	WHERE id = 1
+	");
+	*/
 	$list = "";
 	$lazy = htmlspecialchars(input_filters($sql->resultq("SELECT page FROM hits WHERE user=".$user['id']." ORDER BY id DESC")));
+	
+	// [0.25] Add links to posts and threads
+	$postlist = $sql->query("
+		SELECT p.id, p.time, t.id tid, t.name tname, f.id fid, f.name fname
+		FROM posts p
+		LEFT JOIN threads t ON p.thread = t.id
+		LEFT JOIN forums f ON t.forum = f.id
+		WHERE p.user = ".$user['id']."
+		ORDER BY p.id DESC
+	");
+	
+	for($p = 0, $post_txt = ""; $post = $sql->fetch($postlist); $p++){
+		
+		if (!$post['fid']) $post['fname'] = "<b class='danger'>[INVALID FORUM]</b>";
+		if (!$post['tid']) $post['tname'] = "<b class='danger'>[INVALID THREAD]</b>";
+		
+		$post_txt .= "
+			<tr>
+				<td class='light fonts' style='border-right: none'>
+					<a href='thread.php?pid=".$post['id']."'>#".$post['id']."</a> 
+				</td>
+				<td class='light fonts' style='border-right: none'>
+					in <a href='thread.php?id=".$post['tid']."'>".$post['tname']."</a> 
+				</td>
+				<td class='light fonts' style='border-right: none'>
+					(<a href='forum.php?id=".$post['fid']."'>".$post['fname']."</a>) 
+				</td>
+				<td class='light fonts'>
+					at ".printdate($post['time'])."
+				</td>
+			</tr>";
+	}
+
+	$threadlist = $sql->query("
+		SELECT t.id, t.name, t.time, f.id fid, f.name fname
+		FROM threads t
+		LEFT JOIN forums f ON t.forum = f.id
+		WHERE t.user = ".$user['id']."
+		ORDER BY t.id DESC
+	");
+	
+	for($t = 0, $thread_txt = ""; $thread = $sql->fetch($threadlist); $t++){
+		
+		if (!$thread['fid']) $thread['fname'] = "<b class='danger'>[INVALID FORUM]</b>";
+		
+		$thread_txt .= "
+			<tr>
+				<td class='light fonts' style='border-right: none'>
+					<a href='thread.php?id=".$thread['id']."'>#".$thread['id']."</a>
+				</td>
+				<td class='light fonts' style='border-right: none'>
+					 - <a href='thread.php?id=".$thread['id']."'>".$thread['name']."</a> 
+				</td>
+				<td class='light fonts' style='border-right: none'>
+					(<a href='forum.php?id=".$thread['fid']."'>".$thread['fname']."</a>) 
+				</td>
+				<td class='light fonts'>
+					at ".printdate($thread['time'])."
+				</td>
+			</tr>";
+	}
 	
 	print "
 	<form method='POST' action='admin-quickdel.php'>
@@ -78,15 +146,33 @@
 		</td></tr>
 		<tr>
 		<td class='dim'>
-			<br/><center>
-			<table class='main c'>
-			<tr><td class='light'>User:</td><td class='light'>".makeuserlink(false, $user, true)."</td></tr>
-			<tr><td class='light'>Posts:</td><td class='light'>".$user['posts']."</td></tr>
-			<tr><td class='light'>IP Address:</td><td class='light'>".$user['lastip']."</td></tr>
-			<tr><td class='light'>Registered:</td><td class='light'>".choosetime(ctime()-$user['since'])." ago</td></tr>
-			<tr><td class='light'>Last view:</td><td class='light'>$lazy, ".choosetime(ctime()-$user['lastview'])." ago</td></tr>
-			</table></center><br/>
+			<center><br/>
 			
+				<table class='main c'>
+					<tr><td class='head' colspan='2'>User Info</td></tr>
+					<tr><td class='light' style='width: 100px'><b>User</b></td><td class='light'>".makeuserlink(false, $user, true)."</td></tr>
+					<tr><td class='light'><b>IP Address</b></td><td class='light'><a href='admin-ipsearch.php?ip=".$user['lastip']."'>".$user['lastip']."</a></td></tr>
+					<tr><td class='light'><b>Registered</b></td><td class='light'>".choosetime(ctime()-$user['since'])." ago</td></tr>
+					<tr><td class='light'><b>Last view</b></td><td class='light'>$lazy, ".choosetime(ctime()-$user['lastview'])." ago</td></tr>
+				</table>
+				<br/>
+				<table>
+					<tr>
+						<td valign='top'>
+							<table class='main'>
+								<tr><td class='head c' colspan='4'>We have $p posts by this user:</td></tr>
+								$post_txt
+							</table>
+						</td>
+						<td valign='top'>
+							<table class='main'>
+								<tr><td class='head c' colspan='4'>We have $t threads by this user:</td></tr>
+								$thread_txt
+							</table>
+						</td>
+					</tr>
+				</table>
+			<br/>
 		</td>
 		<tr><td class='dark'><input type='submit' name='rip' value='DELETE'><input type='checkbox' name='ipban' value=1 checked>IP Ban<input type='hidden' name='del' value='".$user['id']."'></td></tr>
 		</table></center>
