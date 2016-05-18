@@ -7,6 +7,7 @@
 	else if ($bot || $proxy || $tor)			errorpage("Fuck off.");
 	else if (!$loguser['id'])					errorpage("You need to be logged in to do that.");
 	else if ($loguser['powerlevel']<0)			errorpage("Banned users aren't allowed to do this.");
+	else if ($loguser['editing_locked']==2)		errorpage("You aren't allowed to post.");
 	else if (filter_bool($miscdata['noposts']))	errorpage("Posting has been disabled temporarily.");
 	
 	$id = filter_int($_GET['id']);
@@ -620,6 +621,9 @@
 
 	else if ($_GET['act'] == 'editpost'){
 
+		if ($loguser['editing_locked']==1)
+			errorpage("Sorry, but you're not allowed to edit posts.");
+		
 		if (!$id)
 			errorpage("No post ID specified");
 		

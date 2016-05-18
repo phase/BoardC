@@ -175,6 +175,7 @@
 		
 		if ($post['new'] && $post['userto'] == $loguser['id'])
 			$sql->query("UPDATE pms SET new = 0 WHERE id = $id");
+		else $post['new'] = 0; // Don't show 'NEW' marker if you're not the user who received the PM
 		
 		pageheader("Private Messages: ".htmlspecialchars($post['pmname']));
 		print $s.threadpost(array_merge($post,$data), false, false, false, false, true).$s;

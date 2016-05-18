@@ -549,7 +549,10 @@ CREATE TABLE `users` (
   `icon` text,
   `coins` int(32) NOT NULL DEFAULT '0',
   `gcoins` int(32) NOT NULL DEFAULT '0',
-  `radar_mode` int(4) NOT NULL DEFAULT '0'
+  `radar_mode` int(4) NOT NULL DEFAULT '0',
+  `profile_locked` tinyint(1) NOT NULL DEFAULT '0',
+  `editing_locked` int(1) NOT NULL DEFAULT '0',
+  `title_status` int(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES

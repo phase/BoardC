@@ -12,6 +12,7 @@
 		
 		pageheader("Register");
 		
+		$regkey = "";
 		if (!$isadmin){
 			// Allow admins to rereggie as much as they want
 			if ($miscdata['regmode'] == 1)

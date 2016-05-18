@@ -28,10 +28,13 @@
 		$pagetitle = "Edit User";
 	}
 	else{
+		// Profile lock
+		if ($loguser['profile_locked'])	errorpage("Access denied.");
 		// Edit your own profile
 		$edituser = false;
 		$id = $loguser['id'];
 		$pagetitle = "Edit Profile";
+
 	}
 	
 	// Do common $_POST here
@@ -68,11 +71,14 @@
 		
 		
 		// build pquery based on checks
-		$query = "UPDATE users SET title=?,head=?,sign=?,sex=?,realname=?,location=?,birthday=?,bio=?,email=?,youtube=?,twitter=?,facebook=?,dateformat=?,timeformat=?,tzoff=?,showhead=?,signsep=?,theme=?";
-		$newdata = array();		
+		$query = "
+		UPDATE users SET
+		head=?, sign=?, sex=?, realname=?, location=?, birthday=?, bio=?, email=?, youtube=?, twitter=?, facebook=?,
+		dateformat=?, timeformat=?, tzoff=?, showhead=?, signsep=?, theme=?";
 
+
+			
 		$newdata = array(
-			input_filters(filter_string($_POST['title'])),
 			input_filters(filter_string($_POST['head'])),
 			input_filters(filter_string($_POST['sign'])),
 			filter_int($_POST['sex']),
@@ -92,6 +98,14 @@
 			$theme
 		);
 		
+		// Variable recycling!
+		if ($edituser) $loguser['title_status'] = $sql->resultq("SELECT title_status FROM users WHERE id = $id");
+		if (!$loguser['title_status']){
+			$newdata[] = input_filters(filter_string($_POST['title']));
+			$query .= ",title=?";
+		}
+
+					
 		// Prevent 0 posts per page/thread
 		if (filter_int($_POST['ppp'])){
 			$newdata[] = filter_int($_POST['ppp']);
@@ -123,7 +137,10 @@
 			$newdata[] = filter_int($_POST['gcoins']);
 			//$newdata[] = (filter_int($_POST['banmonth']) && filter_int($_POST['banday']) && filter_int($_POST['banyear'])) ? mktime(0,0,0,filter_int($_POST['banmonth']),filter_int($_POST['banday']),filter_int($_POST['banyear'])) : 0;
 			$newdata[] = ($_POST['powerlevel'] == "-1") ? filter_int($_POST['ban_hours'])*3600+ctime() : 0;
-			$query .= ",name=?,powerlevel=?,coins=?,gcoins=?,ban_expire=?";
+			$newdata[] = filter_int($_POST['profile_locked']);
+			$newdata[] = filter_int($_POST['editing_locked']);
+			$newdata[] = filter_int($_POST['title_status']);
+			$query .= ",name=?,powerlevel=?,coins=?,gcoins=?,ban_expire=?,profile_locked=?,editing_locked=?,title_status=?";
 		}
 		if (powlcheck(1)){
 			$newdata[] = input_filters($_POST['displayname']);
@@ -163,12 +180,15 @@
 		"Password" 	=> array(4, "password", "You can change your password by entering a new one here."), // password field
 	);
 	
-	$fields["Appareance"] = array(
-		"Custom title" 	=> array(0, "title", "This title will be shown below your rank."),
+	if (!$user['title_status'])
+		$fields["Appareance"]["Custom title"] = array(0, "title", "This title will be shown below your rank.");
+	else $fields["Appareance"] = array();
+
+	$fields["Appareance"] = array_merge($fields["Appareance"], array(
 		"Post header" 	=> array(1, "head", "This will get added before the start of each post you make. This can be used to give a default font color and face to your posts (by putting a &lt;font&gt; tag). This should preferably be kept small, and not contain too much text or images."),
 		"Signature" 	=> array(1, "sign", "This will get added at the end of each post you make, below an horizontal line. This should preferably be kept to a small enough size."),
 		"Icon"			=> array(4, "icon", "This will appear next to your username. Select a PNG image to upload."),
-	);
+	));
 	
 	$fields["Personal information"] = array(
 		"Sex" 		=> array(2, "sex", "Male or female. (or N/A if you don't want to tell it).", "Male|Female|N/A"),
@@ -206,12 +226,18 @@
 	}
 	if ($isadmin){
 		
-		$fields["Login information"]["User name"]	= array(0, "name", "Change the real handle by entering one here.");
-		$fields["Login information"]["Powerlevel"]	= array(4, "powerlevel", "");
+		$fields["Login information"]["User name"]		= array(0, "name", "Change the real handle by entering one here.");
+		$fields["Login information"]["Powerlevel"]		= array(4, "powerlevel", "");
 		//$fields["Login information"]["Banned until"]= array(4, "ban_expire", "");
-		$fields["Login information"]["Banned for"]	= array(4, "ban_hours", "");
-		$fields["Options"]["Coins"]					= array(0, "coins", "Change the normal coin value.");
-		$fields["Options"]["Green coins"]			= array(0, "gcoins", "Admin only coins, increment those whenever you feel like.");
+		$fields["Login information"]["Banned for"]		= array(4, "ban_hours", "");
+		
+		$fields["Login information"]["Profile lock"]	= array(2, "profile_locked", "", "Disabled|Enabled");
+		$fields["Login information"]["Lock posts"]		= array(2, "editing_locked", "", "Disabled|Lock editing|Lock all");
+		$fields["Login information"]["Title status"]	= array(2, "title_status", "", "Enabled|Disabled");
+		
+		
+		$fields["Options"]["Coins"]						= array(0, "coins", "Change the normal coin value.");
+		$fields["Options"]["Green coins"]				= array(0, "gcoins", "Admin only coins, increment those whenever you feel like.");
 		
 	}
 	
