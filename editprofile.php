@@ -14,10 +14,10 @@
 	if (!powlcheck(0))
 		errorpage("Banned users aren't allowed to edit their profile.");
 	
-	$isadmin = powlcheck(4);
-	$sysadmin = powlcheck(5);
+	$isadmin	= powlcheck(4);
+	$sysadmin	= powlcheck(5);
+	$privileged = powlcheck(1);
 	
-		
 	if (isset($_GET['id'])){
 		// Edit another user
 		if (!$isadmin)
@@ -99,8 +99,18 @@
 		);
 		
 		// Variable recycling!
-		if ($edituser) $loguser['title_status'] = $sql->resultq("SELECT title_status FROM users WHERE id = $id");
-		if (!$loguser['title_status']){
+		if ($edituser){
+			$fwewehfgs = $sql->fetchq("SELECT title_status, posts FROM users WHERE id = $id");
+			$loguser['title_status'] = $fwewehfgs['title_status'];
+			$loguser['posts'] = $fwewehfgs['posts'];
+		}
+		/*
+		In short:
+		- If you're an admin or have title_status set to "Enabled" (1) you can always change it
+		- If you're a mod or have the necessary posts requirements you can change it, unless title_status is set to Disabled (2)
+		*/
+		if ($isadmin || $loguser['title_status'] == 1 || ($loguser['title_status'] != 2 && ($privileged || $loguser['posts']>=$config['posts-to-get-title'])))
+		{
 			$newdata[] = input_filters(filter_string($_POST['title']));
 			$query .= ",title=?";
 		}
@@ -142,7 +152,7 @@
 			$newdata[] = filter_int($_POST['title_status']);
 			$query .= ",name=?,powerlevel=?,coins=?,gcoins=?,ban_expire=?,profile_locked=?,editing_locked=?,title_status=?";
 		}
-		if (powlcheck(1)){
+		if ($privileged){
 			$newdata[] = input_filters($_POST['displayname']);
 			$newdata[] = input_filters($_POST['namecolor']);
 			$query .= ",displayname=?,namecolor=?";
@@ -180,7 +190,7 @@
 		"Password" 	=> array(4, "password", "You can change your password by entering a new one here."), // password field
 	);
 	
-	if (!$user['title_status'])
+	if ($isadmin || $user['title_status'] == 1 || ($user['title_status'] != 2 && ($privileged || $loguser['posts']>=$config['posts-to-get-title'])))
 		$fields["Appareance"]["Custom title"] = array(0, "title", "This title will be shown below your rank.");
 	else $fields["Appareance"] = array();
 
@@ -232,8 +242,8 @@
 		$fields["Login information"]["Banned for"]		= array(4, "ban_hours", "");
 		
 		$fields["Login information"]["Profile lock"]	= array(2, "profile_locked", "", "Disabled|Enabled");
-		$fields["Login information"]["Lock posts"]		= array(2, "editing_locked", "", "Disabled|Lock editing|Lock all");
-		$fields["Login information"]["Title status"]	= array(2, "title_status", "", "Enabled|Disabled");
+		$fields["Login information"]["Lock posts"]		= array(2, "editing_locked", "", "Disabled|Lock editing|Lock editing and posting");
+		$fields["Login information"]["Allow title"]		= array(2, "title_status", "", "Require ".$config['posts-to-get-title']." posts (Default)|Always|Restrict");
 		
 		
 		$fields["Options"]["Coins"]						= array(0, "coins", "Change the normal coin value.");

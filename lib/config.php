@@ -28,6 +28,10 @@
 		'trash-id' 		  => 		3,
 		'show-comments'		=>		false,
 		
+		// Max allowed
+		'post-limit' =>				0,
+		'posts-to-get-title' =>		100,
+		
 
 		// Layout
 		

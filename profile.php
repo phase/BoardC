@@ -48,7 +48,7 @@
 	$fields["General information"] = array(
 		"Also known as" => ($user['displayname'] ? $user['name'] : ""),
 		"Powerlevel" 	=> $power_txt[$user['powerlevel']],
-		"Total posts" 	=> ($user['posts'] ? $user['posts'].sprintf(" (%.02f posts per day)", $user['posts']/$totaldays) : "None"),
+		"Total posts" 	=> ($user['posts'] ? $user['posts'].sprintf(" (%.02f posts per day)", $user['posts']/$totaldays)." -- Projected date for 5000 posts: ".printdate(ctime()+5000/($user['posts']/($totaldays*86400))) : "None"),
 		"Total threads" => ($user['threads'] ? $user['threads'].sprintf(" (%.02f threads per day)", $user['threads']/$totaldays) : "None"),
 		"User rating"	=> $user['rating'] ? sprintf("%.02f",$user['rating'])." (".$ratings." vote".($ratings==1 ? "" : "s").")".($isadmin ? " <a href='rateuser.php?id=".$user['id']."&view'>View ratings</a>" : "") : "None",
 		"EXP"			=> calcexp($user['since'], $user['posts']),
