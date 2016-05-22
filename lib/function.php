@@ -5,15 +5,20 @@
 	ini_set("default_charset", "UTF-8");
 
 	
-	$startingtime = microtime(true);
-	$errors = array();
-	$userfields = "u.name, u.displayname, u.sex, u.powerlevel, u.namecolor, u.icon, u.id"; // consistency is god
+	$startingtime 	= microtime(true);
+	$errors 		= array();
+	$userfields 	= "u.name, u.displayname, u.sex, u.powerlevel, u.namecolor, u.icon, u.id"; // consistency is god
 	
 	require "lib/config.php";
 	require "lib/mysql.php";
 	require "lib/helpers.php";
 	require "lib/rpg.php";
 	require "lib/layout.php";
+	
+	/* Do not uncomment yet
+	if ((int) date('Gi')<5)
+		dialog("BoardC", "Midnight backup time", "<center>A backup of the board is in progress.<br><br>Please wait for five minutes.");	
+	*/
 	require "lib/threadpost.php";
 	
 	
@@ -56,11 +61,6 @@
 		'theme'		 => 1,
 	);
 	
-	/* Do not uncomment yet
-	if ((int) date('Gi')<5)
-		errorpage("Backup in progress...");	
-	*/
-	
 	//update timed bans
 	$sql->query("
 	UPDATE users
@@ -77,19 +77,19 @@
 		if ($reason == "Password"){
 			dialog(	"Board message",
 					"Password recovery",
-					"<center>It seems you have failed 5 login attempts.<br/><br/>If you have lost your password, send an email at ".$config['admin-email']." for password recovery.");
+					"<center>It seems you have failed 5 login attempts.<br><br>If you have lost your password, send an email at ".$config['admin-email']." for password recovery.");
 		}
 		else if ($reason == "Regkey"){
 			dialog(	"Board message",
 					"Registration",
-					"<center>You have tried to register an account using an incorrect registration key 5 times.<br/>If you have forgotten it, send an email at ".$config['admin-email']." to request it again.<small><br/>(and if you actually tried to guess it, well, you can go <a href='http://www.google.com'>here</a>)");
+					"<center>You have tried to register an account using an incorrect registration key 5 times.<br>If you have forgotten it, send an email at ".$config['admin-email']." to request it again.<small><br>(and if you actually tried to guess it, well, you can go <a href='http://www.google.com'>here</a>)");
 		}
 		else if (!$reason)
 			$reason = "Unspecified reason";
 		
 		//$views = $sql->resultq("SELECT views FROM misc");
 		
-		dialog("Board message","You are banned.","<center>You have been banned from the board for the following reason:<br/>$reason");
+		dialog("Board message","You are banned.","<center>You have been banned from the board for the following reason:<br>$reason");
 	}
 
 	$tor = $proxy = $bot = 0;
@@ -245,7 +245,7 @@
 
 	
 	// First character is always /
-	if (!stripos($_SERVER['PHP_SELF'], "forum.php") && !stripos($_SERVER['PHP_SELF'], "thread.php"))
+	if (!stripos($_SERVER['PHP_SELF'], "forum.php") && !stripos($_SERVER['PHP_SELF'], "thread.php") && !stripos($_SERVER['PHP_SELF'], "admin-showlogs.php"))
 		update_hits();
 
 	/*

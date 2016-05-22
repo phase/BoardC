@@ -77,9 +77,10 @@
 		print "\n\n=Last post time=\n";
 		
 			$time = $sql->query("
-				SELECT u.id, u.lastpost, MAX(p.time) preal
+				SELECT u.id, u.lastpost, MAX(p.time) preal, MIN(o.time) rtime
 				FROM users u
 				LEFT JOIN posts p ON p.user = u.id
+				LEFT JOIN posts_old o ON p.id = o.pid
 				GROUP BY u.id
 			");
 			
@@ -89,9 +90,9 @@
 			$sql->start();
 
 			while ($data = $sql->fetch($time)){
-				
+
 				$lastpost = filter_int($data['lastpost']);
-				$real = filter_int($data['preal']);
+				$real = $data['rtime'] ? filter_int($data['rtime']) : filter_int($data['preal']);
 				
 				if ($lastpost != $real){
 					print "\nUser ID ".$data['id']." [Last Post: $lastpost; Expected: $real]";

@@ -3,118 +3,40 @@
 	require "lib/function.php";
 	
 
-	$pid = filter_int($_GET['pid']);
-	$usermode = filter_int($_GET['user']);
+	$pid 		= filter_int($_GET['pid']);
+	$usermode 	= filter_int($_GET['user']); // Leave this for now
 	
 	if (filter_int($_GET['id']))
 		$lookup = intval($_GET['id']);
+	
 	else if ($pid){
 		$lookup = getthreadfrompost($pid);
-		// Get post page, but prevent any error if the post doesn't exist
 		if ($lookup){
-			$i = $_GET['page'] = 0;
-			
-			$posts = $sql->query("SELECT id FROM posts WHERE thread=$lookup");
-			
-			while($getpost = $sql->fetch($posts)){
-				if ($pid == $getpost['id']) break;
-				$i++;
-			}
-			for($i; $i>=$loguser['ppp']; $i-=$loguser['ppp'])
+			/*
+				Query changed to count the post position in the thread directly in the query
+				rather than using a separate for loop
+			*/
+			$i 	= $sql->resultq("SELECT COUNT(id) FROM posts WHERE thread=$lookup AND id < $pid");
+			for($i, $_GET['page'] = 0; $i>=$loguser['ppp']; $i-=$loguser['ppp'])
 				$_GET['page']++;
-			unset($i, $posts, $getpost);
 		}
 	}
 	else if ($usermode){
-		update_hits();
-		
-		// normal gethreadinfo doesn't work for this
-		// maybe this should have been put in its own file due to the extreme differences on how this is handled
-		$user = $sql->fetchq("
-			SELECT $userfields
-			FROM users u
-			WHERE u.id = $usermode
-		");
-		
-		if (!$user)
-			errorpage("This user doesn't exist!");
-		
-		pageheader("Posts by ".($user['displayname'] ? $user['displayname'] : $user['name']));
-
-		$posts = $sql->query("
-			SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-			t.id tid, t.name tname, f.id fid, f.powerlevel fpowl
-			FROM posts AS p
-			LEFT JOIN threads AS t	ON p.thread = t.id
-			LEFT JOIN forums AS f ON t.forum = f.id
-			LEFT JOIN posts_old AS o
-			ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
-			WHERE p.user = $usermode
-			ORDER BY p.id ASC
-			LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
-		");
-		
-		if ($posts){
-			
-			$pagectrl = dopagelist($user['posts'], $loguser['ppp'], "thread", "&user=$usermode");
-			print "<a href='index.php'>".$config['board-name']."</a> - Posts by ".makeuserlink($usermode)."<br/>$pagectrl";
-
-			
-			$isadmin = powlcheck(4);
-			
-			$startingpost = $_GET['page']*$loguser['ppp']+1;
-			$c = 0;
-			
-			foreach ($posts as $post){
-				
-				if 		($post['tid'] && !$post['fid'])				$error_id = 4; # Thread in bad forum
-				else if (!$post['tid'] && $post['id'])				$error_id = 3; # post in bad thread
-				else if (!$post['tid'])								$error_id = 2; # Thread doesn't exist
-				else if ($post['fid'] && !powlcheck($post['fpowl']))$error_id = 1; # minpower check
-				else $error_id = 0;
-				
-				$post['postcur'] = $startingpost + $c;
-				$c++;
-				
-				if ($error_id && !$isadmin){
-					$txt .= "<tr><td class='light c' colspan=2><i>(Restricted forum)</i></td></tr>";
-					continue;
-				}
-				/*
-				if ($error_id)
-					print "This is a bad post.";
-				*/
-				// Silences post errors, as only admins can see those anyway
-				if (!$isadmin){
-					if (!isset($moddb[$post['fid']]))
-						$moddb[$post['fid']] = ismod($post['fid']);
-					$ismod = $moddb[$post['fid']];
-				}
-				else $ismod = true;
-				
-				$post['crev'] = $post['rev'];
-				if (!$post['tname']) $post['tname'] = "[Invalid thread ID #".$post['thread']."]";
-				
-				print threadpost($post+$user, false, false, false, ", in <a href='thread.php?pid=".$post['id']."'>".$post['tname']."</a> ");
-			
-			}
-			print $pagectrl;
-			pagefooter();
-		}
-		else errorpage("No posts to show.", false);
-		
-		
-		
+		trigger_error("Accessed thread.php with ?user=$usermode arg.", E_USER_DEPRECATED);
+		errorpage("This page was accessed with a deprecated ?user argument.<br>Click <a href='showposts.php?id=$usermode'>here</a> to access the proper page.");
 	}
 	else errorpage("No thread selected.");
 
+	/*
+		Thread data loading
+	*/
 	$tdata = getthreadinfo($lookup, $_GET['pid']);
 	
-	$thread = $tdata[0];
-	$forum = $tdata[1];
-	$error_id = $tdata[2];
+	$thread 	= $tdata[0];
+	$forum 		= $tdata[1];
+	$error_id 	= $tdata[2];
 	if (!$pid)
-		$pid = $tdata[3];
+		$pid	= $tdata[3];
 	
 	if ($thread['rthread'])
 		$lookup = $_GET['id'] = $thread['rthread'];
@@ -147,15 +69,16 @@
 		else if ($threadbug[$error_id][2])
 			errorpage($threadbug[$error_id][0]);
 		
-		print "<div style='text-align: center; color: yellow; padding: 3px; border: 5px dotted yellow; background: #000;'><b>Thread error: ".$threadbug[$error_id][0]."</b></div>";
+		$threadbug_txt = "<div style='text-align: center; color: yellow; padding: 3px; border: 5px dotted yellow; background: #000;'><b>Thread error: ".$threadbug[$error_id][0]."</b></div>";
 	}
 	else{
+		$threadbug_txt = "";
 		if (!($bot || $proxy || $tor))
 			$sql->query("UPDATE threads SET views=".($thread['views']+1)." WHERE id = $lookup");
 	}
 	
-	$mergewhere="";
-	$showmergecheckbox = false;
+	$mergewhere			= "";
+	$showmergecheckbox 	= false;
 	
 	if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
 	/*
@@ -193,14 +116,14 @@
 			WHERE p.thread = $lookup
 		");
 		
-		$txt = "";
-		$total = 0;
+		$txt 	= "";
+		$total 	= 0;
 		$votedb = array(0);
-		$txtdb = array("");
+		$txtdb 	= array("");
 		
 		
 		while ($vote = $sql->fetch($votes)){
-			$votedb[$vote['vote']] = filter_int($votedb[$vote['vote']]) + 1;
+			$votedb[$vote['vote']] 	= filter_int($votedb[$vote['vote']]) + 1;
 			$txtdb[$vote['vote']][] = makeuserlink(false, $vote, true);
 			$total++;
 		}
@@ -217,7 +140,7 @@
 		
 		pageheader($thread['title']." - Poll votes");
 		
-		print "<br/><center><table class='main'>
+		print "<br><center><table class='main'>
 		
 		<tr><td class='head c' colspan=3>Poll votes for <b>".$thread['title']."</b></td></tr>
 		
@@ -248,14 +171,16 @@
 	
 		else if (isset($_POST['dokill'])){
 			$sql->start();
-								$diff = $sql->exec("DELETE FROM posts WHERE thread = $lookup");
-			if ($error_id != 3)	$c[] = $sql->query("DELETE FROM threads WHERE id = $lookup");
-			//print $diff;
-			if (!$error_id)		$c[]  = $sql->query("UPDATE forums SET posts=(posts-$diff),threads=(threads-1) WHERE id=".$thread['forum']);
-								$c[]  = $sql->query("UPDATE misc SET posts=(posts-$diff),threads=(threads-1)");
+								$diff	= $sql->exec ("DELETE FROM posts WHERE thread = $lookup");
+			if ($error_id != 3)	$c[]	= $sql->query("DELETE FROM threads WHERE id = $lookup");
+			//d($diff);
+			if (!$error_id)		$c[]	= $sql->query("UPDATE forums SET posts=(posts-$diff),threads=(threads-1) WHERE id=".$thread['forum']);
+								$c[]	= $sql->query("UPDATE misc SET posts=(posts-$diff),threads=(threads-1)");
 			update_last_post($forum['id'], false, true);
-			if ($sql->finish($c)) errorpage("Erased thread from the database!");
-			else errorpage("Couldn't delete the thread.");
+			if ($diff)
+				if ($sql->finish($c))
+					header("Location: forum.php?id=".$forum['id']);//errorpage("Erased thread from the database!");
+			errorpage("Couldn't delete the thread.");
 		}
 		
 		pageheader($thread['name']." - Delete Thread");
@@ -264,7 +189,7 @@
 			<center><form method='POST' action='thread.php?id=$lookup&tkill'><table class='main c'>
 				<tr><td class='head'>Delete Thread</td></tr>
 				
-				<tr><td class='light'>Are you sure you want to delete this thread?<br/><small>This action is irreversable!</small></td></tr>
+				<tr><td class='light'>Are you sure you want to delete this thread?<br><small>This action is irreversable!</small></td></tr>
 				<tr><td class='dim'><input type='submit' name='dokill' value='Yes'> <input type='submit' name='return' value='No'></td></tr>
 			
 			</table></form></center>";
@@ -278,15 +203,13 @@
 		if ($error_id == 3)
 			errorpage("Renaming invalid threads wouldn't work anyway");
 		
-		pageheader($thread['name']." - Rename Thread");
-		
-		$rname = isset($_POST['newname']) ? $_POST['newname'] : $thread['name'];
+		$rname 	= isset($_POST['newname']) 	? $_POST['newname']  : $thread['name'];
 		$rtitle = isset($_POST['newtitle']) ? $_POST['newtitle'] : $thread['title'];
 		
 		if (isset($_POST['dorename'])){
 			
 			if (!filter_string($_POST['newname']))
-				errorpage("You have left the thread name empty! (only the thread title is optional)", false);
+				errorpage("You have left the thread name empty! (only the thread title is optional)");
 			
 			if ($thread['ispoll']){
 				/*if (!filter_string($_POST['newtitle']))
@@ -298,31 +221,33 @@
 				$sql->queryp("UPDATE threads SET name = ? WHERE id = ".$lookup, array(input_filters($_POST['newname'])));
 			}
 
-			else $sql->queryp("UPDATE threads SET name = ?, title = ? WHERE id = ".$lookup, array(input_filters($_POST['newname']), $_POST['newtitle']));
-			errorpage("The thread has been renamed.", false);
+			else $sql->queryp("UPDATE threads SET name = ?, title = ? WHERE id = ".$lookup, array(input_filters($_POST['newname']), input_filters($_POST['newtitle'])));
+			
+			header("Location: thread.php?id=$lookup");//errorpage("The thread has been renamed.", false);
 			
 		}
 		
-		else print "
-			<center>
-				<form action='thread.php?id=$lookup&tren' method='POST'>
-					<table class='main'>
-						<tr><td colspan=2 class='head c'>Rename Thread</td></tr>
-						
-						<tr>
-							<td class='light' style='width: 100px;'>Name:</td>
-							<td class='dim'><input style='width: 400px;' type='text' name='newname' value=\"".htmlspecialchars($rname)."\"></td>
-						</tr>
-						".($thread['ispoll'] ? "" : "
-						<tr>
-							<td class='light'>Title:</td>
-							<td class='dim'><input style='width: 400px;' type='text' name='newtitle' value=\"".htmlspecialchars($rtitle)."\"></td>
-						</tr>"
-						)."
-						<tr><td class='dim' colspan=2><input type='submit' name='dorename' value='Rename'></td></tr>
-					</table>
-				</form>
-			</center>";
+		pageheader($thread['name']." - Rename Thread");
+		print "
+		<center>
+			<form action='thread.php?id=$lookup&tren' method='POST'>
+				<table class='main'>
+					<tr><td colspan=2 class='head c'>Rename Thread</td></tr>
+					
+					<tr>
+						<td class='light' style='width: 100px;'>Name:</td>
+						<td class='dim'><input style='width: 400px;' type='text' name='newname' value=\"".htmlspecialchars($rname)."\"></td>
+					</tr>
+					".($thread['ispoll'] ? "" : "
+					<tr>
+						<td class='light'>Title:</td>
+						<td class='dim'><input style='width: 400px;' type='text' name='newtitle' value=\"".htmlspecialchars($rtitle)."\"></td>
+					</tr>"
+					)."
+					<tr><td class='dim' colspan=2><input type='submit' name='dorename' value='Rename'></td></tr>
+				</table>
+			</form>
+		</center>";
 		
 		pagefooter();
 	}
@@ -332,15 +257,14 @@
 		if ($error_id == 3)
 			errorpage("You should move or erase the posts associated with this thread - don't move something that doesn't exist.");
 		
-		pageheader($thread['name']." - Move Thread");
-		
 		if (isset($_POST['domove'])){
 			
 			$newforum = filter_int($_POST['forumjump2']);
-			$sql->start();
 			
 			if (!$sql->resultq("SELECT 1 FROM forums WHERE id = $newforum"))
-				errorpage("uh no, that forum doesn't exist", false);
+				errorpage("uh no, that forum doesn't exist");
+			
+			$sql->start();
 			
 			$c[] = $sql->query("UPDATE threads SET forum = $newforum WHERE id = $lookup");
 			
@@ -349,60 +273,66 @@
 				$c[] = $sql->query("UPDATE forums SET threads=threads-1,posts=posts-".($thread['replies']+1)." WHERE id = ".$forum['id']);
 			
 			$c[] = $sql->query("UPDATE forums SET threads=threads+1,posts=posts+".($thread['replies']+1)." WHERE id = $newforum");
-			update_last_post($forum['id'], false, true);
-			update_last_post($newforum, false, true);
-			if ($sql->finish($c)) errorpage("The thread has been moved.", false);
-			else errorpage("Couldn't move the thread.", false);
+			
+			update_last_post($forum['id'],	false, true);
+			update_last_post($newforum,		false, true);
+			
+			if ($sql->finish($c)) header("Location: thread.php?id=$lookup");//errorpage("The thread has been moved.", false);
+			else errorpage("Couldn't move the thread.");
 		}
 		
-		else print "
-			<center>
-				<form action='thread.php?id=$lookup&tmove' method='POST'>
-					<table class='main'>
-						<tr><td colspan=2 class='head c'>Move Thread</td></tr>
-						<tr>
-							<td class='light' style='width: 100px;'>Current forum:</td>
-							<td class='dim'>".htmlspecialchars($forum['name'])."</td>
-						</tr>
-						<tr>
-							<td class='light'>New Forum:</td>
-							<td class='dim'>".doforumjump($thread['forum'], true)."</td>
-						</tr>
-						<tr><td class='dim' colspan=2><input type='submit' name='domove' value='Move'></td></tr>
-					</table>
-				</form>
-			</center>";
+		pageheader($thread['name']." - Move Thread");
+		
+		print "
+		<center>
+			<form action='thread.php?id=$lookup&tmove' method='POST'>
+				<table class='main'>
+					<tr><td colspan=2 class='head c'>Move Thread</td></tr>
+					<tr>
+						<td class='light' style='width: 100px;'>Current forum:</td>
+						<td class='dim'>".htmlspecialchars($forum['name'])."</td>
+					</tr>
+					<tr>
+						<td class='light'>New Forum:</td>
+						<td class='dim'>".doforumjump($thread['forum'], true)."</td>
+					</tr>
+					<tr><td class='dim' colspan=2><input type='submit' name='domove' value='Move'></td></tr>
+				</table>
+			</form>
+		</center>";
 		
 		pagefooter();
 	}
 	else if (isset($_GET['tstick'])){
 		
-		if (!$ismod)
-			errorpage("You're not a moderator.");
-		
-		if ($error_id == 3)
-			errorpage("Doesn't work in bad threads.");
+		if (!$ismod)		errorpage("You're not a moderator.");
+		if ($error_id == 3)	errorpage("Doesn't work in bad threads.");
 		
 		$sql->query("UPDATE threads SET sticky = NOT sticky WHERE id = $lookup");
-		errorpage("Thread ".($thread['sticky'] ? "un" : "")."sticked!");
+		header("Location: thread.php?id=$lookup");//errorpage("Thread ".($thread['sticky'] ? "un" : "")."sticked!");
 	}
 	else if (isset($_GET['tclose'])){
 		
-		if (!$ismod)
-			errorpage("No.");
-		
-		if ($error_id == 3)
-			errorpage("Also doesn't work in bad threads.");
+		if (!$ismod)		errorpage("No.");
+		if ($error_id == 3)	errorpage("Also doesn't work in bad threads.");
 		
 		$sql->query("UPDATE threads SET closed = NOT closed WHERE id = $lookup");
-		errorpage("Thread ".($thread['closed'] ? "opened" : "closed")."!");
+		header("Location: thread.php?id=$lookup");//errorpage("Thread ".($thread['closed'] ? "opened" : "closed")."!");
+	}
+	else if (isset($_GET['tnoob'])){
+		if (!$ismod){
+			$sql->query("UPDATE posts SET noob = 1 WHERE user = ".$loguser['id']);
+			errorpage("Hello World!");
+		}
+		if ($error_id == 3)	errorpage("Not a good thread to do this.");
+		
+		$sql->query("UPDATE threads SET noob = NOT noob WHERE id = $lookup");
+		header("Location: thread.php?id=$lookup");
 	}
 	else if (isset($_GET['ttrash'])){
-		if (!$ismod)
-			errorpage("You have no permission to do this!");
 		
-		if ($error_id == 3)
-			errorpage("Nope, this doesn't work either.");
+		if (!$ismod)		errorpage("You have no permission to do this!");
+		if ($error_id == 3)	errorpage("Nope, this doesn't work either.");
 		
 		if (!$sql->resultq("SELECT 1 FROM forums WHERE id = ".$config['trash-id']))
 			errorpage("The trash forum id (config.php - \$config['trash-id']) is not configured properly. The forum id referenced doesn't exist.");
@@ -417,7 +347,7 @@
 		$c[] = $sql->query("UPDATE forums SET threads=threads+1,posts=posts+".($thread['replies']+1)." WHERE id = ".$config['trash-id']);
 		
 		if ($sql->finish($c)) header("Location: thread.php?id=$lookup");//errorpage("The thread has been trashed.", false);
-		else errorpage("Couldn't trash the thread.", false);
+		else errorpage("Couldn't trash the thread.");
 		
 	}
 	else if (isset($_GET['ticon'])){
@@ -434,7 +364,7 @@
 		
 		if (isset($_POST['doicon'])){
 			$sql->queryp("UPDATE threads SET icon=? WHERE id = $lookup", array(input_filters($icon)));
-			errorpage("Icon changed!");
+			header("Location: thread.php?id=$lookup");
 		}
 		
 		$icons = getthreadicons();
@@ -446,17 +376,17 @@
 		foreach($icons as $link){
 			if ($i == 10){
 				$i = 0;
-				$icon_txt .= "<br/>";
+				$icon_txt .= "<br>";
 			}
 			$link = trim($link);
 			$icon_txt .= "<nobr><input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
 			$i++;
 		}
-		$icon_txt .= "<br/>
+		$icon_txt .= "<br>
 		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value=\"".filter_string($_POST['icon_c'])."\"></nobr>";
 		
 		pageheader("Change thread icon");
-		print "<br/><form method='POST' action='thread.php?id=$lookup&ticon'>
+		print "<br><form method='POST' action='thread.php?id=$lookup&ticon'>
 		<center><table class='main'>
 			<tr><td class='head c'><b>Thread icons</b></td></tr>
 			<tr><td class='light'>$icon_txt</td></tr>
@@ -496,10 +426,20 @@
 					array_map('intval', $_POST['c_merge']);
 					$x = "id IN (".implode(", ", $_POST['c_merge']).") AND";
 				}
-				$c[] = $sql->query("UPDATE posts SET thread=".filter_int($_POST['moveto'])." WHERE $x thread=$lookup");
+				
+				$destination = intval($_POST['moveto']);
+				$c[] = $sql->query("UPDATE posts SET thread=$destination WHERE $x thread=$lookup");
+				
 				update_last_post($lookup);
-				update_last_post(filter_int($_POST['moveto']));
-				errorpage($sql->finish($c) ? "Posts moved!<br/><small>(Now run Thread Fix)</small>": "Couldn't move the posts.");
+				update_last_post($destination);
+				
+				// Update the correct reply count here, as while local mods can merge posts, thread-fix is an admin tool
+				$c[] = $sql->query("UPDATE threads SET replies = (SELECT COUNT(id) FROM posts WHERE thread = $lookup)-1 WHERE id = $lookup");
+				$c[] = $sql->query("UPDATE threads SET replies = (SELECT COUNT(id) FROM posts WHERE thread = $destination)-1 WHERE id = $destination");
+				
+				if ($sql->finish($c)) header("Location: thread.php?id=$destination");
+				else errorpage("The posts could not be moved.");
+				//errorpage($sql->finish($c) ? "Posts moved!<br><small>(Now run Thread Fix)</small>": "Couldn't move the posts.");
 				
 			}
 			
@@ -514,19 +454,33 @@
 			else {
 				$whatposts = "these posts";
 				foreach ($_POST['c_merge'] as $onevar){
-					//if (!is_int($onevar)) x_die("No.");
-					$phide .= "<input type='hidden' name='c_merge[]' value=".filter_int($onevar).">";
-				}
-				// copied from minipostlist, slightly different query	
-					$posts = $sql->query("
-					SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, o.time rtime,
-					NULL title, $userfields welpwelp, n.user".$loguser['id']." new
-					FROM posts p
-					LEFT JOIN users u ON p.user = u.id
-					LEFT JOIN new_posts ON p.id = n.id
-					WHERE p.id IN (".implode(", ", $_POST['c_merge']).") AND thread=$lookup");
 					
-					$txt_mini = "<br/><table class='main w'><tr><td colspan=2 class='dark'>Posts to move:</td></tr>";
+					if (!is_numeric($onevar)){
+						// What are you trying to do
+						trigger_error("Thread merge -- Post ID from user #".$loguser['id']." (".$loguser['name'].") contained non int $onevar", E_USER_NOTICE);
+						userban($loguser['id'], false , false, "", "The user was banned.");
+						errorpage("Uh, nope");
+					}
+					$phide .= "<input type='hidden' name='c_merge[]' value='$onevar'>";
+					$filteredstuff[] = $onevar;
+					
+				}
+				
+				// copied from minipostlist, slightly different query
+					$posts = $sql->query("
+						SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, o.time rtime,
+						NULL title, $userfields welpwelp, n.user".$loguser['id']." new
+						FROM posts p
+						LEFT JOIN users u ON p.user = u.id
+						LEFT JOIN new_posts n ON p.id = n.id
+						LEFT JOIN posts_old o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+						WHERE p.id IN (".implode(", ", $filteredstuff).") AND thread=$lookup
+					");
+					
+					if (!$posts) // Assume someone has edited the checkboxes to point to posts IDs not in the thread
+						errorpage("No.");
+					
+					$txt_mini = "<br><table class='main w'><tr><td colspan=2 class='dark'>Posts to move:</td></tr>";
 					
 					
 					while($post = $sql->fetch($posts))
@@ -542,7 +496,7 @@
 				<center><form method='POST' action='thread.php?id=$lookup&tmerge'><table class='main'>
 					<tr><td class='head c'>Move Posts</td></tr>
 					
-					<tr><td class='light c'>Are you sure you want to move $whatposts to the thread with ID #".$_POST['moveto']."?<br/>Thread Name: ".$sql->resultq("SELECT name FROM threads WHERE id = ".filter_int($_POST['moveto']))."</td></tr>
+					<tr><td class='light c'>Are you sure you want to move $whatposts to the thread with ID #".$_POST['moveto']."?<br>Thread Name: ".$sql->resultq("SELECT name FROM threads WHERE id = ".filter_int($_POST['moveto']))."</td></tr>
 					<tr><td class='dim c'><input type='hidden' name='domerge'><input type='hidden' name='moveto' value=".$_POST['moveto'].">$phide<input type='submit' name='domerge2' value='Yes'> <input type='submit' name='return' value='No'></td></tr>
 				
 				</table></form></center>$txt_mini";
@@ -588,19 +542,25 @@
 	// better prevent from clicking than fool moderators
 	$w = $error_id == 3 ? "s" : "a";
 	if ($ismod)
-		print "<br/><table class='main w fonts'><tr><td class='dark'>
-				Moderating options:
-				<$w href='thread.php?id=$lookup&tren'>Rename</$w> |
-				<$w href='thread.php?id=$lookup&ticon'>Change icon</$w> |
-				<$w href='thread.php?id=$lookup&tmove'>Move</$w> |
-				<$w href='thread.php?id=$lookup&tstick'>".($thread['sticky'] ? "Uns" : "S")."tick</$w> |
-				<$w href='thread.php?id=$lookup&tclose'>".($thread['closed'] ? "Open" : "Close")."</$w> |
-				".($forum['id']==$config['trash-id'] ? "" : "<$w href='thread.php?id=$lookup&ttrash'>Trash</$w> |")."
-				<a href='thread.php?id=$lookup&tmerge'>Merge</a>
-				$killthread</td></tr></table>$mergewhere
+		print "<br><table class='main w fonts'>
+					<tr>
+						<td class='dark'>
+							Moderating options:
+							<$w href='thread.php?id=$lookup&tren'>Rename</$w> |
+							<$w href='thread.php?id=$lookup&ticon'>Change icon</$w> |
+							<$w href='thread.php?id=$lookup&tmove'>Move</$w> |
+							<$w href='thread.php?id=$lookup&tstick'>".($thread['sticky'] ? "Uns" : "S")."tick</$w> |
+							<$w href='thread.php?id=$lookup&tclose'>".($thread['closed'] ? "Open" : "Close")."</$w> |
+							<$w href='thread.php?id=$lookup&tnoob'>". ($thread['noob'] ? "Un" : "N")."00b</$w> |
+							".($forum['id']==$config['trash-id'] ? "" : "<$w href='thread.php?id=$lookup&ttrash'>Trash</$w> |")."
+							<a href='thread.php?id=$lookup&tmerge'>Merge</a>
+							$killthread
+						</td>
+					</tr>
+				</table>$mergewhere
 				";
 	else if ($loguser['id'] == $thread['user'])
-		print "<br/><table class='main w fonts'><tr><td class='dark'>
+		print "<br><table class='main w fonts'><tr><td class='dark'>
 				Thread options:
 				<a href='thread.php?id=$lookup&tren'>Rename</a> |
 				<a href='thread.php?id=$lookup&ticon'>Change icon</a>
@@ -608,25 +568,23 @@
 				";
 	
 	// Massive query to fetch almost everything threadpost needs
+	// TODO: make it so this doesn't fetch useless fields (ie. u.head and u.sign if they are disabled)
 	$posts = $sql->query("
-	SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-	n.user".$loguser['id']." new,
-	u.head, u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost
-	FROM posts AS p
-	LEFT JOIN users AS u ON p.user = u.id
-	LEFT JOIN posts_old AS o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
-	LEFT JOIN new_posts n ON p.id = n.id
-	WHERE p.thread = $lookup
-	ORDER BY p.id ASC
-	LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
+		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, ".($thread['noob'] ? "1 " : "p.")."noob,
+		n.user".$loguser['id']." new, u.head, u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost
+		FROM posts AS p
+		LEFT JOIN users     u ON p.user = u.id
+		LEFT JOIN posts_old o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+		LEFT JOIN new_posts n ON p.id   = n.id
+		WHERE p.thread = $lookup
+		ORDER BY p.id ASC
+		LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
 	");// offset, limit
 	
 
 	if ($posts){
 		
-		$data = getpostcount($lookup);
-		$postids = $data[0];
-		unset ($data);
+		$postids = getpostcount($lookup);
 			
 		// Page numbers
 		$pagectrl = dopagelist($thread['replies']+1, $loguser['ppp'], "thread", $showmergecheckbox ? "&tmerge" : "");
@@ -641,14 +599,14 @@
 			$post['postcur'] = array_search($post['id'], $postids[$post['user']])+1;
 			
 			if ($ismod){
-				
-				if (filter_int($_GET['hide']) == $post['id']){
-					$sql->query("UPDATE posts SET deleted=1 WHERE id = ".$post['id']);
-					$post['deleted'] = true;
-				}
-				else if (filter_int($_GET['unhide']) == $post['id']){
-					$sql->query("UPDATE posts SET deleted=0 WHERE id = ".$post['id']);
-					$post['deleted'] = false;
+				// TODO: Make a redirect so these doesn't change stuff after refreshing.
+				if (filter_int($_GET['noob']) == $post['id'] && !$thread['noob']){ // If the thread is forced in noob mode, don't do anything
+					$sql->query("UPDATE posts SET noob = NOT noob WHERE id = ".$post['id']);
+					$post['noob'] = $post['noob'] ? false : true;
+				}				
+				else if (filter_int($_GET['hide']) == $post['id']){
+					$sql->query("UPDATE posts SET deleted = NOT deleted WHERE id = ".$post['id']);
+					$post['deleted'] = $post['deleted'] ? false : true;
 				}
 				
 				else if (powlcheck(5) && filter_int($_GET['del']) == $post['id']){
@@ -656,8 +614,13 @@
 					
 					$sql->query("DELETE FROM posts WHERE id = ".$post['id']);
 					$sql->query("DELETE FROM posts_old WHERE pid = ".$post['id']);
+					
+					/*
 					// Check for starting post by time, so we can't get into negative replies
+					// TODO: this part can break by moving the first post to a different thread
+					
 					if ($thread['time'] != $post['time'])
+						*/
 						$sql->query("UPDATE threads SET replies=replies-1 WHERE id=$lookup");
 					
 					if (!$error_id)
@@ -667,12 +630,16 @@
 					$sql->query("UPDATE users SET posts=posts-1 WHERE id=".$post['user']);
 					
 					if ($error_id != 3){
-						if ($thread['replies']==0 && !$error_id){// we're deleting the last post
+						// As deleting threads by accident is a BAD thing, actually count the real number of posts before doing anything fancy
+						$realposts = $sql->resultq("SELECT COUNT(id) FROM posts WHERE thread = $lookup");
+						if (!$realposts && !$error_id){// we're deleting the last post
 							$sql->query("DELETE FROM threads WHERE id = $lookup");
 							update_last_post($forum['id'], false, true);
+							header("Location: forum.php?id=".$forum['id']);
 						}						
 						else update_last_post($lookup);
 					}
+					update_last_post($lookup);
 					$sql->end();
 					continue;
 				}
@@ -704,7 +671,7 @@
 	else print "
 		<center><table class='main c'>
 			<tr><td class='light'>
-				The thread is empty. There are no posts to show.<br/>To create a new post, click New Reply.
+				The thread is empty. There are no posts to show.<br>To create a new post, click New Reply.
 			</td></tr>
 		</table></center></form>
 		";

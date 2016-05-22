@@ -4,34 +4,36 @@
 	
 	require "lib/function.php";
 	
-	$id = filter_int($_GET['id']); // Forum ID (0 for global)
+	$id 	= filter_int($_GET['id']); // Forum ID (0 for global)
 	$action = filter_string($_GET['act']);
-	
-	$ismod = powlcheck(4) or ismod($id);
+	$ismod 	= powlcheck(4) or ismod($id);
 	
 	if ($id)
 		if (!canviewforum($id))
 			errorpage("This forum doesn't exist.");
 
-	$txt = "";
+	$txt 	= "";
 	
 	if ($action == 'new'){
-		
+		/*
+			New announcement
+		*/
 		if (!$ismod) errorpage("You're not allowed to do this!");
-
-		$quote = filter_int($_GET['quote']);
-
-		pageheader("New announcement");
-		$name = filter_string($_POST['name']);
-		$title = filter_string($_POST['title']);
+		
+		$name 	= filter_string($_POST['name']);
+		$title 	= filter_string($_POST['title']);
+		$quote 	= filter_int($_GET['quote']);
 		
 		if ($quote){
 			$quoted = $sql->fetchq("
-			SELECT a.text, u.name FROM announcements a
-			LEFT JOIN users u ON a.user=u.id
-			WHERE a.id=$quote");
+				SELECT a.text, u.name, a.forum FROM announcements a
+				LEFT JOIN users u ON a.user=u.id
+				WHERE a.id = $quote
+			");
 			
-			if ($quoted) $msg = "[quote=".$quoted['name']."]".$quoted['text']."[/quote]";
+			if ($quoted)
+				if (canviewforum($quoted['forum']))
+					$msg = "[quote=".$quoted['name']."]".$quoted['text']."[/quote]";
 			else $msg = "";
 		}
 		else $msg = isset($_POST['message']) ? $_POST['message'] : "";
@@ -46,47 +48,49 @@
 			if (!$name)	errorpage("The announcement name can't be blank!", false);
 			
 			
-			$name = input_filters($name);
-			$title = input_filters($title);
-			$msg = input_filters($msg);
+			$name 	= input_filters($name);
+			$title 	= input_filters($title);
+			$msg 	= input_filters($msg);
 			
 			
 			$sql->start();
 			
-			$a = $sql->prepare("INSERT INTO announcements (name, title, user, time, text, nohtml, nosmilies, nolayout, avatar, forum) VALUES (?,?,?,?,?,?,?,?,?,?)");
+			$a 	  = $sql->prepare("INSERT INTO announcements (name, title, user, time, text, nohtml, nosmilies, nolayout, avatar, forum) VALUES (?,?,?,?,?,?,?,?,?,?)");
 			$go[] = $sql->execute($a, array($name, $title, $loguser['id'], ctime(), $msg, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar']), $id));
-			if ($sql->finish($go)){
-				$sql->query("INSERT INTO new_announcements () VALUES ()");
-				errorpage("Announcement created!", false);
-			}
-			else errorpage("Couldn't create the announcement.", false);
+			$sql->query("INSERT INTO new_announcements () VALUES ()");
+			if ($sql->finish($go)) header("Location: announcement.php?id=$id");
+			else errorpage("Couldn't create the announcement.");
 		}
+		
+		pageheader("New announcement");
 		
 		if (isset($_POST['preview'])){
 			
 			$data = array(
-				'id' => $sql->resultq("SELECT MAX(id) FROM announcements")+1,
-				'user' => $loguser['id'],
-				'ip' => $loguser['lastip'],
-				'deleted' => 0,
-				'text' => $msg,
-				'rev' => 0,
-				'time' => ctime(),
-				'nolayout' => filter_int($_POST['nolayout']),
+				'id' 		=> $sql->resultq("SELECT MAX(id) FROM announcements")+1,
+				'user' 		=> $loguser['id'],
+				'ip' 		=> $loguser['lastip'],
+				'deleted' 	=> 0,
+				'text' 		=> $msg,
+				'rev' 		=> 0,
+				'time' 		=> ctime(),
+				'nolayout' 	=> filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
-				'nohtml' => filter_int($_POST['nohtml']),
-				'avatar' => filter_int($_POST['avatar']),
-				'new'	=> 0,
+				'nohtml' 	=> filter_int($_POST['nohtml']),
+				'avatar' 	=> filter_int($_POST['avatar']),
+				'new'		=> 0,
+				'noob'		=> 0
 			);
 			print "<table class='main w c'>
 			<tr><td class='head' style='border-bottom: none;'>Announcement Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true, false, true);
 		}
 		
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
-		$nohtmlc = isset($_POST['nohtml']) ? "checked" : "";
-		$nolayoutc = isset($_POST['nolayout']) ? "checked" : "";
+		$nohtmlc 	= isset($_POST['nohtml']) 	 ? "checked" : "";
+		$nolayoutc 	= isset($_POST['nolayout'])  ? "checked" : "";
 		
 		$fname = $id ? " <a href='forum.php?id=$id'>".$sql->resultq("SELECT name FROM forums WHERE id = $id")."</a> -" : "";
+		
 		// used to be maxlength='100'
 		print "<a href='index.php'>".$config['board-name']."</a> -$fname <a href='announcement.php?id=$id'>Announcements</a> - New announcement
 		<form action='announcement.php?act=new&id=$id' method='POST'>
@@ -121,6 +125,9 @@
 		pagefooter();
 	}
 	else if ($action == 'edit'){
+		/*
+			Edit announcement
+		*/
 
 		// Horray for recycling code
 		
@@ -129,13 +136,10 @@
 		
 
 		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
-		
-		pageheader("Edit announcement");
-		
 
 		$post = $sql->fetchq("
 			SELECT p.id, p.text, p.name aname, p.title atitle, p.time, p.rev, p.user, p.forum, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-			u.head, u.sign, u.lastip ip, $userfields uid, u.title, u.posts, u.since, u.location, u.lastview, 0 new
+			u.head, u.sign, u.lastip ip, $userfields uid, u.title, u.posts, u.since, u.location, u.lastview, u.lastpost, 0 new
 			FROM announcements AS p
 			LEFT JOIN users AS u ON p.user = u.id
 			LEFT JOIN announcements_old AS o ON p.id = (SELECT MAX('o.id') FROM announcements_old o WHERE o.aid = p.id)
@@ -146,68 +150,66 @@
 			errorpage("This announcement doesn't exist", false);
 		
 
-		$name = isset($_POST['aname']) ? $_POST['aname'] : $post['aname'];
-		$title = isset($_POST['atitle']) ? $_POST['atitle'] : $post['atitle'];
-		$msg = isset($_POST['text']) ? $_POST['text'] : $post['text'];
+		$name 	= isset($_POST['aname']) 	? $_POST['aname'] 	: $post['aname'];
+		$title 	= isset($_POST['atitle']) 	? $_POST['atitle'] 	: $post['atitle'];
+		$msg 	= isset($_POST['text']) 	? $_POST['text'] 	: $post['text'];
 		
 
 		
 		if (isset($_POST['submit'])){
 			
-			if (!$msg) errorpage("You've edited the announcement to be blank!", false);
+			if (!$msg) 	errorpage("You've edited the announcement to be blank!", false);
 			if (!$name) errorpage("You've edited the name to be blank!", false);
 			
 			
-			$msg = input_filters($msg);
-			$name = input_filters($name);
-			$title = input_filters($title);
+			$msg 	= input_filters($msg);
+			$name 	= input_filters($name);
+			$title 	= input_filters($title);
 			
 			
 			
 			$sql->start();
 			
-			$bak = $sql->prepare("INSERT INTO `announcements_old` (`aid` ,`name`, `title`, `text`, `time`, `rev`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?,?,?)");
+			$bak  = $sql->prepare("INSERT INTO `announcements_old` (`aid` ,`name`, `title`, `text`, `time`, `rev`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?,?,?)");
 			$go[] = $sql->execute($bak, array($post['id'], $post['name'], $post['title'], $post['text'], $post['time'], $post['rev'], $post['nohtml'], $post['nosmilies'], $post['nolayout'], $post['avatar']));
 			
 			
 			$a = $sql->prepare("
-			UPDATE announcements
-			SET name=?, title=?, text=? ,time=? ,rev=? ,nohtml=? ,nosmilies=? ,nolayout=?, lastedited=?, avatar=?
-			WHERE id = $id
+				UPDATE announcements
+				SET name=?, title=?, text=? ,time=? ,rev=? ,nohtml=? ,nosmilies=? ,nolayout=?, lastedited=?, avatar=?
+				WHERE id = $id
 			");
 			
 			$_POST['nosmilies'] = filter_int($_POST['nosmilies']);
-			$_POST['nohtml'] = filter_int($_POST['nohtml']);
-			$_POST['nolayout'] = filter_int($_POST['nolayout']);
-			$_POST['avatar'] = filter_int($_POST['avatar']);
+			$_POST['nohtml'] 	= filter_int($_POST['nohtml']);
+			$_POST['nolayout'] 	= filter_int($_POST['nolayout']);
+			$_POST['avatar'] 	= filter_int($_POST['avatar']);
 			
 			$go[] = $sql->execute($a, array($name, $title, $msg, ctime(), $post['rev']+1, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $loguser['id'], $_POST['avatar']) );
 			
-			if ($sql->finish($go)) $msg = "The announcement has been edited successfully.";
-			else $msg = "Couldn't edit the announcement.";
-				
-			errorpage($msg, false);
+			if ($sql->finish($go)) header("Location: announcement.php?id=$id");//$msg = "The announcement has been edited successfully.";
+			else errorpage("Couldn't edit the announcement.");
 		}
 		
-		
+		pageheader("Edit announcement");
 		
 		if (isset($_POST['preview'])){
 			
-			$data = getpostcount($post['user'], true);
-			$postids = $data[0];
+			$postids = getpostcount($post['user'], true);
 			
 			$data = array(
-				'rev' => $post['rev']+1,
-				'text' => $msg,
-				'nolayout' => filter_int($_POST['nolayout']),
+				'rev' 		=> $post['rev']+1,
+				'text' 		=> $msg,
+				'nolayout' 	=> filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
-				'nohtml' => filter_int($_POST['nohtml']),
-				'postcur' => array_search($post['id'], $postids[$post['user']])+1,
-				'crev' => $post['rev']+1,
-				'time' => ctime(),
-				'rtime' => $post['time'],
-				'lastedited' => $loguser['id'],
+				'nohtml' 	=> filter_int($_POST['nohtml']),
+				'postcur' 	=> array_search($post['id'], $postids[$post['user']])+1,
+				'crev' 		=> $post['rev']+1,
+				'time' 		=> ctime(),
+				'rtime' 	=> $post['time'],
+				'lastedited'=> $loguser['id'],
 				'avatar'	=> filter_int($_POST['avatar']),
+				'noob'		=> 0
 			);
 			print "<table class='main w'>
 			<tr><td class='head c' style='border-bottom: none'>Announcement Preview</td></tr></table>".threadpost(array_merge($post, $data), false, false, true, false, false, true);
@@ -229,10 +231,11 @@
 		}
 		
 		$nosmiliesc = $nsm ? "checked" : "";
-		$nohtmlc = $nht ? "checked" : "";
-		$nolayoutc = $nly ? "checked" : "";
+		$nohtmlc 	= $nht ? "checked" : "";
+		$nolayoutc 	= $nly ? "checked" : "";
 
 		$fname = $id ? " <a href='forum.php?id=$id'>".$sql->resultq("SELECT name FROM forums WHERE id = $id")."</a> -" : "";
+		
 		// used to be maxlength='100'
 		print "<a href='index.php'>".$config['board-name']."</a> -$fname <a href='announcement.php?id=$id'>Announcements</a> - Edit announcement
 		<form action='announcement.php?act=edit&id=$id'  method='POST'>
@@ -274,7 +277,7 @@
 
 	$ann = $sql->query("
 	
-		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,a.lastedited,a.rev,o.time rtime,
+		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,a.lastedited,a.rev,0 noob,o.time rtime,
 				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, u.lastpost, n.user".$loguser['id']." new
 		FROM announcements a
 		LEFT JOIN users u ON a.user = u.id
@@ -287,21 +290,25 @@
 	");
 	
 	if ($id){
-		$fname = $sql->resultq("SELECT name FROM forums WHERE id = $id");
-		$s  = " - <a href='forum.php?id=$id'>$fname</a>";
+		$fname 	= $sql->resultq("SELECT name FROM forums WHERE id = $id");
+		$s  	= " - <a href='forum.php?id=$id'>$fname</a>";
 	}
 	else $fname = $s = "";
 	
+	/*
+		Display announcements
+	*/
 	if ($ann){
-		
-		$count = $sql->resultq("SELECT COUNT(id) FROM announcements WHERE forum = $id");
-		$pagectrl = dopagelist($count, $loguser['ppp'], "announcement");
+		// Page number stuff
+		$count 		= $sql->resultq("SELECT COUNT(id) FROM announcements WHERE forum = $id");
+		$pagectrl 	= dopagelist($count, $loguser['ppp'], "announcement");
 		
 		while ($a = $sql->fetch($ann)){
 			if ($a['new']) $set[] = "id =".$a['id'];
 			
 			if ($ismod){
 				if (filter_int($_GET['del']) == $a['id']){
+					// *INSTANT* delete (not consistent with thread controls)
 					$sql->query("DELETE FROM announcements WHERE id = ".$a['id']);
 					continue;
 				}

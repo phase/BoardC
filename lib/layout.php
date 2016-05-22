@@ -1,7 +1,7 @@
 <?php
 
 	function pageheader($title, $show = true, $forum = 0){
-		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta;
+		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta, $threadbug_txt;
 		
 		$meta_txt 	= "";
 		
@@ -106,6 +106,7 @@
 				$meta_txt
 			</head>
 			<body>
+			$threadbug_txt
 			$fw_error
 			".($hacks['test-ext'] ? audio_play("ext/sample.mp3") : "")."
 			<table class='main c w fonts'>
@@ -607,6 +608,7 @@
 			"admin-editmods.php" 	=> "Edit Mods",
 			"admin-ipsearch.php" 	=> "IP Search",
 			"admin-ipbans.php" 		=> "IP Bans",
+			"admin-showlogs.php" 	=> "Board logs/Exploit attempts",			
 			"admin-quickdel.php" 	=> "The (Ban) Button&trade;",
 		);
 		if (powlcheck(5)) $adminpages["admin-deluser.php"] = "Delete User";

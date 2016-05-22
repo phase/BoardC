@@ -117,7 +117,9 @@
 		$string = str_ireplace("FSCommand","FS<z>Command", $string);
 		$string = str_ireplace("execcommand","exec<z>command", $string);
 		
-			
+		$string = preg_replace("'<(.*?)script'","&lt;script", $string);
+		$string = str_ireplace("iframe", "i<z>frame", $string); 
+		$string = str_ireplace("meta", "me<z>ta", $string);			
 //		$string = str_ireplace("<script","&lt;scr<z>ipt", $string);
 //		$string = str_ireplace("<meta", "&lt;fail", $string);
 		
@@ -125,9 +127,8 @@
 			$sql->queryp("INSERT INTO jstrap (user, ip, source, filtered) VALUES (?,?,?,?)", array($loguser['id'], $_SERVER['REMOTE_ADDR'], $source, $string));
 
 		$string = str_ireplace("javascript", "javas<z>cript", $string);
-		$string = preg_replace("'(<|=|\'|\")(.*?)script(.*?)='si","<z>", $string);
-		$string = str_ireplace("iframe", "i<z>frame", $string); 
-		$string = str_ireplace("meta", "me<z>ta", $string);
+
+
 		
 		$string = str_ireplace("object", "obj<z>ect", $string);
 		$string = str_ireplace("data:image/svg", "data:image/png", $string);
@@ -174,11 +175,11 @@
 	function userban($id, $expire = false, $permanent = false, $reason = "", $ircreason = true){
 		global $sql;
 
-		$expire_query = ($expire && !$permanent) ? ",`ban_expire` = '".(ctime()+3600*intval($expire))."'" /*counts by hours*/ : "";
-		$new_powl = $permanent ? "-2" : "-1";
-		$whatisthis = is_int($id) ? "id" : "name";
+		$expire_query	= ($expire && !$permanent) ? ",`ban_expire` = '".(ctime()+3600*intval($expire))."'" /*counts by hours*/ : "";
+		$new_powl		= $permanent ? "-2" : "-1";
+		$whatisthis		= is_numeric($id) ? "id" : "name";
 				
-		$res = $sql->queryp("UPDATE `users` SET `powerlevel` = ?,`title` = ? $expire_query WHERE $whatisthis = ?", array($new_powl, $reason, $id));
+		$res = $sql->queryp("UPDATE users SET powerlevel = ?, title = ? $expire_query WHERE $whatisthis = ?", array($new_powl, $reason, $id));
 		
 		if (!$res)
 			trigger_error("Query failure: couldn't ban user $whatisthis $id", E_USER_ERROR);
@@ -426,17 +427,14 @@
 		global $sql;
 		
 		$getusers = $sql->query("
-		SELECT id, user
-		FROM posts 
-		WHERE user ".($single ? "= $id" : "IN (SELECT user FROM posts WHERE thread = $id)")."
+			SELECT id, user
+			FROM posts 
+			WHERE user ".($single ? "= $id" : "IN (SELECT user FROM posts WHERE thread = $id)")."
 		");
 		
-		if (!$getusers)
-			return array(0 /*, 0*/);
-		
-		for($x=0; $x=$sql->fetch($getusers); $list[$x['user']][] = $x['id'] /*, $time[$x['user']][] = $x['time']*/);
-		
-		return array($list /*, $time*/);
+		if (!$getusers) return array(0);
+		for($x=0; $x=$sql->fetch($getusers); $list[$x['user']][] = $x['id']);
+		return $list;
 	}
 	
 	/*

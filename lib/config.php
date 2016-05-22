@@ -36,8 +36,8 @@
 		// Layout
 		
 		'board-name' =>				"BoardC",	
-		'board-title' =>			"<img src='images/sampletitle2.png' title='Now in Badly-Drawn-Lego&trade; flavour!'>",
-		'board-version' =>			"Development Build 0.25",
+		'board-title' =>			"<img src='images/sampletitle3.png' title='Does this remind you of anything?'>",
+		'board-version' =>			"Development Build 0.26",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		
@@ -93,6 +93,7 @@
 		'replace-image-before-login' => true,
 		'correct-board-name'		 => false,
 		'test-ext'					 => false,
+		'failed-attempt-at-irc'		 => false,
 	);
 	
 

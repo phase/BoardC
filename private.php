@@ -21,10 +21,10 @@
 		else $id_txt = "&id=$id";
 	}
 	
-	$isadmin= powlcheck(4);
+	$isadmin	= powlcheck(4);
 	
-	$txt 	= "";
-	$pmcount= 0;
+	$txt 		= "";
+	$pmcount	= 0;
 	
 	if ($action == 'send'){
 		
@@ -33,78 +33,81 @@
 		
 		$quote = filter_int($_GET['quote']);
 
-		pageheader("Compose PM");
-		
 		if ($quote){
 			$quoted = $sql->fetchq("
 			SELECT p.text, p.title, p.name, u.name username
 			FROM pms p
-			LEFT JOIN users u
-			ON p.user=u.id
-			WHERE p.id=$quote");
+			LEFT JOIN users u ON p.user=u.id
+			WHERE p.id=$quote AND (p.userto = ".$loguser['id']." OR p.user = ".$loguser['id'].")");
+		}
+		else $quoted = NULL;
+		/*
+			Workaround for checking if $quoted is valid
+		*/
+		if ($quoted){
 			
 			$sendto = $quoted['username'];
-			$msg = "[quote=".$quoted['username']."]".$quoted['text']."[/quote]";
-			$name = "Re: ".$quoted['name'];
-			$title = $quoted['title'];
+			$msg 	= "[quote=".$quoted['username']."]".$quoted['text']."[/quote]";
+			$name 	= "Re: ".$quoted['name'];
+			$title 	= $quoted['title'];
 		}
 		else{
 			if (!$id)
-				$sendto = isset($_POST['sendto']) ? $_POST['sendto'] : "";
-			$msg = isset($_POST['message']) ? $_POST['message'] : "";
-			$name = isset($_POST['name']) ? $_POST['name'] : "";
-			$title = isset($_POST['title']) ? $_POST['title'] : "";
+				$sendto = isset($_POST['sendto']) 	? $_POST['sendto'] 	: "";
+			$msg 	= isset($_POST['message']) 		? $_POST['message'] : "";
+			$name 	= isset($_POST['name']) 		? $_POST['name'] 	: "";
+			$title 	= isset($_POST['title']) 		? $_POST['title'] 	: "";
 		}
 		
 		if (isset($_POST['submit'])){
 			
-			if (!$msg)
-				errorpage("You've written an empty message!", false);
-			if (!$name)
-				errorpage("You've written an empty title!", false);
+			if (!$msg)		errorpage("You've written an empty message!", false);
+			if (!$name)		errorpage("You've written an empty title!", false);
 			
 			$userto = $sql->resultp("SELECT id FROM users WHERE name = ?", array(filter_string($_POST['sendto'])));
-			if (!$userto)
-				errorpage("This user doesn't exist!", false);
+			if (!$userto)	errorpage("This user doesn't exist!", false);
 			
 			
-			$msg = input_filters($msg);
-			$name = input_filters($name);
-			$title = input_filters($title);
+			$msg 	= input_filters($msg);
+			$name 	= input_filters($name);
+			$title 	= input_filters($title);
 			
 			
 			$sql->start();
 			
-			$a = $sql->prepare("INSERT INTO pms (name, title, user, userto, time, text, nohtml, nosmilies, nolayout, avatar) VALUES (?,?,?,?,?,?,?,?,?,?)");
-			$go[] = $sql->execute($a, array($name, $title, $loguser['id'], $userto, ctime(), $msg, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar'])));
-			if ($sql->finish($go)) errorpage("PM Sent!", false);
-			else errorpage("Couldn't send the PM.", false);
-		}
+			$a 		= $sql->prepare("INSERT INTO pms (name, title, user, userto, time, text, nohtml, nosmilies, nolayout, avatar) VALUES (?,?,?,?,?,?,?,?,?,?)");
+			$go[] 	= $sql->execute($a, array($name, $title, $loguser['id'], $userto, ctime(), $msg, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar'])));
+			if ($sql->finish($go)) header("Location: private.php");//errorpage("PM Sent!", false);
+			else errorpage("Couldn't send the PM.");
+		}		
+		
+		pageheader("New PM");
 		
 		if (isset($_POST['preview'])){
 			
 			$data = array(
-				'id' => $sql->resultq("SELECT MAX(id) FROM pms")+1,
-				'user' => $loguser['id'],
-				'ip' => $loguser['lastip'],
-				'deleted' => 0,
-				'text' => $msg,
-				'rev' => 0,
-				'time' => ctime(),
-				'nolayout' => filter_int($_POST['nolayout']),
+				'id' 		=> $sql->resultq("SELECT MAX(id) FROM pms")+1,
+				'user' 		=> $loguser['id'],
+				'ip' 		=> $loguser['lastip'],
+				'deleted' 	=> 0,
+				'text' 		=> $msg,
+				'rev' 		=> 0,
+				'time' 		=> ctime(),
+				'nolayout' 	=> filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
-				'nohtml' => filter_int($_POST['nohtml']),
-				'avatar' => filter_int($_POST['avatar']),
-				'new' => 0,
-				
+				'nohtml' 	=> filter_int($_POST['nohtml']),
+				'avatar' 	=> filter_int($_POST['avatar']),
+				'new' 		=> 0,
+				'noob'		=> 0				
 			);
 			print "<table class='main w c'>
 			<tr><td class='head' style='border-bottom: none;'>PM Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true, false, true);
 		}
 		
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
-		$nohtmlc = isset($_POST['nohtml']) ? "checked" : "";
-		$nolayoutc = isset($_POST['nolayout']) ? "checked" : "";
+		$nohtmlc 	= isset($_POST['nohtml']) 	 ? "checked" : "";
+		$nolayoutc 	= isset($_POST['nolayout'])  ? "checked" : "";
+		
 		// used to be maxlength='100'
 		print "<a href='index.php'>".$config['board-name']."</a> - <a href='private.php'>Private messages</a> - Compose PM
 		<form action='private.php?act=send' method='POST'>
@@ -168,9 +171,10 @@
 		$s = "<a href='index.php'>".$config['board-name']."</a> - <a href='private.php'>Private messages</a> - ".htmlspecialchars($post['pmname']);
 		
 		$data = array(
-			'ip' => $loguser['lastip'],
-			'deleted' => 0,
-			'rev' => 0,
+			'ip' 		=> $loguser['lastip'],
+			'deleted' 	=> 0,
+			'rev' 		=> 0,
+			'noob'		=> 0
 		);
 		
 		if ($post['new'] && $post['userto'] == $loguser['id'])
@@ -183,32 +187,30 @@
 		pagefooter();
 	}
 	else if ($action == 'sent'){
-		$pmtype = "Outbox";
-		$from = "To";
+		$pmtype 	= "Outbox";
+		$from 		= "To";
 		$linkswitch = "<a href='private.php?$id_txt'>View received messages</a>";
-		$inorout = "p.user";
-		$userlink = "p.userto";
+		$inorout 	= "p.user";
+		$userlink 	= "p.userto";
 	}
 	else{
-		$pmtype = "Inbox";
-		$from = "From";
+		$pmtype 	= "Inbox";
+		$from 		= "From";
 		$linkswitch = "<a href='private.php?act=sent$id_txt'>View sent messages</a>";
-		$inorout = "p.userto";
-		$userlink = "p.user";
+		$inorout 	= "p.userto";
+		$userlink 	= "p.user";
 	}
 	
 	if ( (!$isadmin && $loguser['id'] != $id) || ($id == 1 && $loguser['id'] != 1) )
 		errorpage("No.");
 	
 	$pms = $sql->query("
-	
 		SELECT  p.id pid,p.name pmname,p.title pmtitle,p.user,p.userto,p.time,p.new,
 				u.id,u.name,u.displayname,u.title,u.sex,u.powerlevel,u.namecolor
 		FROM pms p
 		LEFT JOIN users u ON $userlink = u.id
 		WHERE $inorout = $id
 		ORDER by p.id DESC
-		
 	");
 	
 	while ($pm = $sql->fetch($pms)){

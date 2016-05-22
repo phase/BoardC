@@ -38,7 +38,6 @@
 	}
 	
 	print "
-	<!doctype html>
 	<html>
 		<head>
 			<title>Smilies - ".$config['board-name']."</title>

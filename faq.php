@@ -21,7 +21,9 @@
 		"DON'T BE AN IDIOT",
 		"YOU ARE ".strtoupper($powl_table[$loguser['powerlevel']]).", DEAL WITH IT",
 		"Keep F5ing to get them all!",
-		
+		"IE6 IS THE BEST BROWSER IN THE WORLD AND IT DOESN'T SUCK IN ANY WAY, SHAPE OR FORM",
+		"IF YOU'RE N00BED AND MAKE A DEAL OUT OF IT YOU'RE STILL A N00B",
+		"(you might want to read <a href='https://jul.rustedlogic.net/faq.php'>this</a> FAQ instead)",
 	);
 	
 	$onlyrule = rand(0, count($lolrule)-1);
@@ -48,11 +50,11 @@
 					$x
 				</td>
 			</tr>
-		</table><br/>
+		</table><br>
 		";
 		
 	pageheader("The Rules");
-	print "<br id='top'/>$txt";
+	print "<br id='top'>$txt";
 	pagefooter();
 	
 ?>

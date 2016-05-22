@@ -416,7 +416,8 @@ CREATE TABLE `posts` (
   `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
   `nolayout` tinyint(1) NOT NULL DEFAULT '0',
   `lastedited` int(32) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0'
+  `avatar` int(32) NOT NULL DEFAULT '0',
+  `noob` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts_old` (
@@ -500,7 +501,8 @@ CREATE TABLE `threads` (
   `ispoll` tinyint(1) NOT NULL DEFAULT '0',
   `lastpostid` int(32) DEFAULT NULL,
   `lastpostuser` int(32) DEFAULT NULL,
-  `lastposttime` int(32) DEFAULT NULL
+  `lastposttime` int(32) DEFAULT NULL,
+  `noob` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `tor` (

@@ -5,24 +5,25 @@
 	$id = filter_int($_GET['id']);
 	/*
 	if (isset($_GET['time'])){
-		print ctime()."<br/>".mktime(0,0,0,12,8,1997)."";
+		print ctime()."<br>".mktime(0,0,0,12,8,1997)."";
 		x_die();
 	}
 	*/
 	$user = $sql->fetchq("
-	SELECT  $userfields, u.title, u.lastip, u.ban_expire, u.since,
-			u.head, u.sign, u.lastview, u.bio, u.posts, u.threads, u.homepage, u.homepage_name, u.email, u.twitter, u.facebook, u.youtube,
-			u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins,
-			u.lastpost, t.id tid, t.name tname, t.forum tforum, f.name fname,
-			r.*
-	FROM users AS u
-	LEFT JOIN posts AS p ON p.user = u.id
-	LEFT JOIN threads AS t ON p.thread=t.id
-	LEFT JOIN forums AS f ON t.forum=f.id
-	LEFT JOIN user_avatars AS a ON u.id = a.user
-	LEFT JOIN users_rpg AS r ON u.id = r.id
-	WHERE u.id=$id
-	ORDER BY p.time DESC");
+		SELECT  $userfields, u.title, u.lastip, u.ban_expire, u.since,
+				u.head, u.sign, u.lastview, u.bio, u.posts, (SELECT COUNT(p.user) FROM posts p WHERE p.user = $id) rposts, u.threads, u.homepage, u.homepage_name, u.email,
+				u.twitter, u.facebook, u.youtube, u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins,
+				u.lastpost, t.id tid, t.name tname, t.forum tforum, f.name fname,
+				r.*
+		FROM users AS u
+		LEFT JOIN posts AS p ON p.user = u.id
+		LEFT JOIN threads AS t ON p.thread=t.id
+		LEFT JOIN forums AS f ON t.forum=f.id
+		LEFT JOIN user_avatars AS a ON u.id = a.user
+		LEFT JOIN users_rpg AS r ON u.id = r.id
+		WHERE u.id=$id
+		ORDER BY p.time DESC
+	");
 	
 	$ratings = $sql->resultq("SELECT COUNT(*) FROM ratings WHERE userto=$id");
 	if (!$user)
@@ -31,24 +32,25 @@
 	pageheader("Profile for ".($user['displayname'] ? $user['displayname'] : $user['name']));
 	
 	$power_txt = array(
-	'-2'=> "Permabanned",
-	'-1'=> "Banned",
-	0 	=> "Normal User",
-	1 	=> "Privileged",
-	2 	=> "Local Moderator",
-	3 	=> "Global Moderator",
-	4 	=> "Administrator",
-	5 	=> "Sysadmin",
+		'-2'=> "Permabanned",
+		'-1'=> "Banned",
+		0 	=> "Normal User",
+		1 	=> "Privileged",
+		2 	=> "Local Moderator",
+		3 	=> "Global Moderator",
+		4 	=> "Administrator",
+		5 	=> "Sysadmin",
 	);
 
-	$isadmin = powlcheck(4);
-	$totaldays = (ctime()-$user['since'])/86400;
+	$isadmin 		= powlcheck(4);
+	$totaldays 		= (ctime()-$user['since'])/86400;
 	$user['rating'] = $sql->resultq("SELECT AVG(rating) FROM ratings WHERE userto = $id"); 
 		
 	$fields["General information"] = array(
 		"Also known as" => ($user['displayname'] ? $user['name'] : ""),
 		"Powerlevel" 	=> $power_txt[$user['powerlevel']],
-		"Total posts" 	=> ($user['posts'] ? $user['posts'].sprintf(" (%.02f posts per day)", $user['posts']/$totaldays)." -- Projected date for 5000 posts: ".printdate(ctime()+5000/($user['posts']/($totaldays*86400))) : "None"),
+		"Title"			=> ($user['title'] ? $user['title'] : ""),
+		"Total posts" 	=> ($user['rposts'] ? $user['posts']." (".$user['rposts']." found, ".sprintf("%.02f posts per day)", $user['rposts']/$totaldays)." -- Projected date for 5000 posts: ".printdate(ctime()+5000/($user['rposts']/($totaldays*86400))) : "None"),
 		"Total threads" => ($user['threads'] ? $user['threads'].sprintf(" (%.02f threads per day)", $user['threads']/$totaldays) : "None"),
 		"User rating"	=> $user['rating'] ? sprintf("%.02f",$user['rating'])." (".$ratings." vote".($ratings==1 ? "" : "s").")".($isadmin ? " <a href='rateuser.php?id=".$user['id']."&view'>View ratings</a>" : "") : "None",
 		"EXP"			=> calcexp($user['since'], $user['posts']),
@@ -111,18 +113,13 @@
 		
 	$stats_txt = "<center>
 			".dorpgstatus($user)."
-	<br/>
+	<br>
 	
 	<table class='main w'>
 		<tr><td class='head c' colspan=2>Equipped items</td></tr>
 		$item_txt
 	</table></center>
 	";
-	
-
-	$data = getpostcount($id, true);
-	$postids = $data[0];
-
 	
 	$sample = array(
 		'id' 		=> 0,
@@ -140,19 +137,21 @@
 		'lastedited'=> 0,
 		'avatar'	=> 0,
 		'new'		=> 0,
+		'noob'		=> 0,
 	);
 
 	print "
 	Profile for ".makeuserlink(false, $user, true)."
 	<table><tr><td class='w'>$field_txt</td><td valign='top'>$stats_txt</td></tr></table>
-				
+	<br>
+	<table class='main w c'><td class='head'>Sample post</td></tr></table>
 	".threadpost($user+$sample, false, false, true, false, true)."
-	<br/>
+	<br>
 	<table class='main w'>
 		<tr><td class='head c'><small>User Controls</small></td></tr>
 		<tr>
 			<td class='dim c'><small>
-				<a href='thread.php?user=$id'>Show posts</a> |
+				<a href='showposts.php?id=$id'>Show posts</a> |
 				".($isadmin ? "<a href='editprofile.php?id=$id'>Edit user</a> | <a href='editavatars.php?id=$id'>Edit avatars</a> |" : "")."
 				<a href='forum.php?user=$id'>View threads by this user</a> |
 				<a href='private.php?act=send&id=$id'>Send private message</a> |
