@@ -1,23 +1,25 @@
 <?php
-
+	
+	// Workaround for forum jump with Javascript disabled
 	if (isset($_POST['fjumpgo']))
 		header("Location: forum.php?id=".$_POST['forumjump']);
 	
 	require "lib/function.php";
 	
-	$id = filter_int($_GET['id']);
-	$user = filter_int($_GET['user']);
+	$id 	 = filter_int($_GET['id']);
+	$user 	 = filter_int($_GET['user']);
 	$isadmin = powlcheck(4);
 	
 	if ($user){
 		update_hits();
-		$where = ",LEAST(n.id, 0) new, SUM(n.user".$loguser['id'].") ncount, t.forum , f.id fid, f.name fname, f.powerlevel
-		FROM threads t
-		LEFT JOIN forums f ON t.forum = f.id
-		LEFT JOIN posts p ON p.thread = t.id
-		LEFT JOIN new_posts n ON n.id = p.id AND n.user".$loguser['id']." = 1
-		WHERE t.user = $user
-		GROUP BY t.id DESC
+		$where = "
+			,LEAST(n.id, 0) new, SUM(n.user".$loguser['id'].") ncount, t.forum , f.id fid, f.name fname, f.powerlevel
+			FROM threads t
+			LEFT JOIN forums f    ON t.forum  = f.id
+			LEFT JOIN posts p     ON p.thread = t.id
+			LEFT JOIN new_posts n ON n.id     = p.id AND n.user".$loguser['id']." = 1
+			WHERE t.user = $user
+			GROUP BY t.id DESC
 		";
 		
 		$userdata = $sql->fetchq("SELECT name, displayname, threads, lastpost FROM users WHERE id = $user");
@@ -26,30 +28,29 @@
 			errorpage("This user doesn't exist!");
 		
 		// hack hack hack
-		$forum['name'] = "Threads by ".($userdata['displayname'] ? $userdata['displayname'] : $userdata['name']);
-		$forum['threads'] = $userdata['threads'];
-		$announce = "";
+		$forum['name'] 		= "Threads by ".($userdata['displayname'] ? $userdata['displayname'] : $userdata['name']);
+		$forum['threads'] 	= $userdata['threads'];
+		$announce 	= "";
 		pageheader($forum['name']);
 		
 	}
 	else if ($id)	{
-		$where = ", MIN(n.id) new, SUM(n.user".$loguser['id'].") ncount
-		FROM threads t
-		LEFT JOIN posts p ON p.thread = t.id
-		LEFT JOIN new_posts n ON n.id = p.id AND n.user".$loguser['id']." = 1
-		WHERE t.forum = $id
-		GROUP BY t.id DESC
+		$where = "
+			, MIN(n.id) new, SUM(n.user".$loguser['id'].") ncount
+			FROM threads t
+			LEFT JOIN posts 	p ON p.thread = t.id
+			LEFT JOIN new_posts n ON n.id 	  = p.id AND n.user".$loguser['id']." = 1
+			WHERE t.forum = $id
+			GROUP BY t.id DESC
 		";
 	
-		$forum = $sql->fetchq("SELECT name, powerlevel, threads, theme FROM forums WHERE id = $id");
+		$forum 		= $sql->fetchq("SELECT name, powerlevel, threads, theme FROM forums WHERE id = $id");
 		
-		$viewpowl = $loguser['powerlevel'] < 0 ? 0 : $loguser['powerlevel'];
+		$viewpowl 	= $loguser['powerlevel'] < 0 ? 0 : $loguser['powerlevel'];
 		
-		if ((!$forum && !$isadmin) || $viewpowl<$forum['powerlevel'])
-			errorpage("Couldn't enter this restricted forum.");
-		else if (!$forum){
-			errorpage("This forum ID doesn't exist.");
-		}
+		if ((!$forum && !$isadmin) || $viewpowl<$forum['powerlevel']) 	errorpage("Couldn't enter this restricted forum.");
+		else if (!$forum)												errorpage("This forum ID doesn't exist.");
+		
 		// online update, revised
 		update_hits($id);
 
@@ -83,7 +84,7 @@
 
 	if (!$threads){
 		if ($user) errorpage("There are no threads to show.", false);
-		print "<table class='main w c'><tr><td class='light'>There are no threads in this forum.<br/>Come back later<small> (or create a new one)</small></td></tr></table>";
+		print "<table class='main w c'><tr><td class='light'>There are no threads in this forum.<br/>Come back later<small>".($loguser['id'] ? " (or create a new one)" : "")."</small></td></tr></table>";
 	}
 	else{
 		
@@ -146,10 +147,13 @@
 			// new post link
 			$new = $thread['new'] ? "<a href='thread.php?pid=".$thread['new']."'><img src='images/status/getnew.png'></a> " : "";
 			
+			// Thread page list
+			$tpagectrl = dopagelist($thread['replies']+1, $loguser['ppp'], "thread", "", $thread['id']);
+			
 			print "<tr>
 				<td class='light c'>$status</td>
 				<td class='dim'>".($thread['icon'] ? "<img src='".$thread['icon']."'>" : "")."</td>
-				<td class='dim w' >$new".($thread['ispoll'] ? "Poll: " : "")."<a href='thread.php?id=".$thread['id']."'>".htmlspecialchars($thread['name'])."</a><br/><small>$smalltext</small></td>
+				<td class='dim w' >$new".($thread['ispoll'] ? "Poll: " : "")."<a href='thread.php?id=".$thread['id']."'>".htmlspecialchars($thread['name'])."</a> $tpagectrl<br/><small>$smalltext</small></td>
 				<td class='dim c' >".makeuserlink($thread['user'])."<br/><small><nobr>".printdate($thread['time'])."</nobr></small></td>
 				<td class='light c' >".$thread['replies']."</td>
 				<td class='light c' >".$thread['views']."</td>

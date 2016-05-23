@@ -116,7 +116,7 @@
 					<td class='light c'>".$x['id']."</td>
 					<td class='dim c'>".makeuserlink($x['uid'], $x)."</td>
 					<td class='dim fonts c'>".$x['filtered']."</td>
-					<td class='light c'>".$x['ip'].banformat($x)."</td>
+					<td class='light c'><a href='admin-ipsearch.php?ip=".$x['ip']."'>".$x['ip']."</a>".banformat($x)."</td>
 				</tr>
 				";
 		
@@ -163,7 +163,7 @@
 					<td class='dim fonts c'>$forum</td>
 					<td class='dim fonts c'>".htmlspecialchars($x['useragent'])."</td>
 					<td class='dim fonts c'>".htmlspecialchars($x['referer'])."</td>
-					<td class='light c'><nobr>".$x['ip'].banformat($x)."</nobr></td>
+					<td class='light c'><nobr><a href='admin-ipsearch.php?ip=".$x['ip']."'>".$x['ip']."</a>".banformat($x)."</nobr></td>
 				</tr>
 				";
 		}

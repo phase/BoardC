@@ -56,10 +56,8 @@
 		else if (!$_POST['user']) errorpage("You have left the username field empty!");
 		else if (!$_POST['pass']) errorpage("You have left the password field empty!");
 		
-		//$user = addslashes($user);
-		
 		// But not for this
-		$data = $sql->fetchp("SELECT id, password FROM users WHERE name = ?", array($user));
+		$data = $sql->fetchq("SELECT id, password FROM users WHERE name = '".addslashes($user)."'");
 		
 		if (password_verify($pass, filter_string($data['password']))){
 			// Update hash

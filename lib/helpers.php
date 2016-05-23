@@ -489,9 +489,9 @@
 	function d($x){print "<title>VDS - BoardC</title><body style='background: #000; color: #fff'><pre>";var_dump($x); x_die();}
 	function choosetime($t){
 		if 		($t<60) 	return "$t second".($t==1 ? "" : "s");
-		else if ($t<3600)	return sprintf("%d minute".($t<120 ? "" : "s"),$t/60);
-		else if ($t<86400)	return sprintf("%d hour".($t<7200 ? "" : "s"),$t/3600);
-		else 				return sprintf("%d day".($t<172800 ? "" : "s"),$t/86400);
+		else if ($t<3600)	return floor($t/60)." minute".(floor($t/60)==1 ? "" : "s");
+		else if ($t<86400)	return floor($t/3600)." hour".(floor($t/7200)==1 ? "" : "s");
+		else 				return floor($t/86400)." day".(floor($t/172800)==1 ? "" : "s");
 	}
 	function getyeardiff($a, $b){
 		$a = new DateTime(date("Y-m-d", $a));

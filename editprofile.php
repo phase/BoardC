@@ -40,7 +40,7 @@
 	// Do common $_POST here
 	if (isset($_POST['save'])){
 		
-		if (!$sysadmin && $_POST['powerlevel'] > 4){
+		if (!$sysadmin && filter_int($_POST['powerlevel']) > 4){
 			ipban("Make me a sysadmin!", "Auto IP banned ".$_SERVER['REMOTE_ADDR']." for attempting to become a sysadmin.");
 			errorpage("A for effort, <s>F for still failing</s> I for IP Ban");
 		}

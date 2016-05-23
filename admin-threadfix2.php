@@ -11,7 +11,13 @@
 		// This version saves query by not modifying automatically the forum counters
 		// (this is the only script where it's not needed to do so)
 		global $sql;
-		$newdata = $sql->fetchq("SELECT id, user, time FROM posts WHERE thread = $id ORDER BY time DESC");
+		$newdata = $sql->fetchq("
+			SELECT p.id, p.user, p.time, (SELECT MIN(o.time) from posts_old o WHERE o.pid = p.id) rtime
+			FROM posts p
+			LEFT JOIN posts_old o ON p.id = o.pid
+			WHERE p.thread = $id
+			ORDER BY p.time DESC
+			");
 		
 		if (!filter_int($newdata['id']))
 			$sql->query("UPDATE threads SET lastpostid = NULL WHERE id = $id");
@@ -19,7 +25,7 @@
 		else
 			$sql->query("
 				UPDATE threads
-				SET	lastpostid = ".$newdata['id'].",lastpostuser = ".$newdata['user'].",lastposttime = ".$newdata['time']."
+				SET	lastpostid = ".$newdata['id'].",lastpostuser = ".$newdata['user'].",lastposttime = ".($newdata['rtime'] ? $newdata['rtime'] : $newdata['time'])."
 				WHERE id = $id
 			");			
 	}

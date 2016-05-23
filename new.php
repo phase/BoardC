@@ -80,7 +80,7 @@
 		
 		if (isset($_POST['submit'])){
 			if (!filter_string($msg))
-				errorpage("You've written an empty reply!", false);
+				errorpage("You've written an empty reply!");
 			
 			$filtered = input_filters($msg);
 			
@@ -101,7 +101,7 @@
 			update_last_post($thread['id'], array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
 
 			if ($sql->finish($go)) header("Location: thread.php?pid=$pid");//errorpage("Successfully posted the reply.", false);
-			else errorpage("Couldn't post the reply.", false);
+			else errorpage("Couldn't post the reply.");
 		}
 		
 		pageheader($thread['name']." - New Reply");
@@ -193,10 +193,10 @@
 		if (isset($_POST['submit'])){
 			
 			if (!filter_string($name))
-				errorpage("You have left the thread name empty!", false);
+				errorpage("You have left the thread name empty!");
 			
 			if (!filter_string($msg))
-				errorpage("You've left the message blank!", false);
+				errorpage("You've left the message blank!");
 			
 			$sql->start();
 			
@@ -377,10 +377,10 @@
 
 		if (isset($_POST['submit'])){
 			
-			if (!filter_string($name))		errorpage("You have left the thread name empty!", false);
-			if (!filter_string($title))		errorpage("You have left the question empty!", false);
-			if (!filter_string($msg))		errorpage("You've left the message blank!", false);
-			if (!isset($_POST['chtext']))	errorpage("You haven't specified the options!", false);
+			if (!filter_string($name))		errorpage("You have left the thread name empty!");
+			if (!filter_string($title))		errorpage("You have left the question empty!");
+			if (!filter_string($msg))		errorpage("You've left the message blank!");
+			if (!isset($_POST['chtext']))	errorpage("You haven't specified the options!");
 			
 			
 			$sql->start();
@@ -413,8 +413,8 @@
 			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
 			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
 			
-			if ($sql->finish($c)) errorpage("The poll has been created.", false);
-			else errorpage("Couldn't create the poll. An error occured.", false);
+			if ($sql->finish($c)) header("Location: thread.php?id=$fid");//errorpage("The poll has been created.", false);
+			else errorpage("Couldn't create the poll. An error occured.");
 			
 			
 		}
@@ -679,11 +679,11 @@
 		");
 		
 		if (!filter_int($post['id'])) // just to make sure
-			errorpage("Bad post ID. (something happened, you shouldn't see this message)", false);
+			errorpage("Bad post ID. (something happened, you shouldn't see this message)");
 		
 		if (!$ismod){
-			if ($post['user'] !== $loguser['id']) errorpage("You're not allowed to edit other people's posts.", false);
-			if ($post['deleted']) errorpage("You can't edit deleted posts.", false);
+			if ($post['user'] !== $loguser['id']) errorpage("You're not allowed to edit other people's posts.");
+			if ($post['deleted']) errorpage("You can't edit deleted posts.");
 			
 		}
 			
@@ -694,7 +694,7 @@
 		if (isset($_POST['submit'])){
 			
 			if (!filter_string($_POST['message']))
-				errorpage("You've edited the reply to be blank!", false);
+				errorpage("You've edited the reply to be blank!");
 			
 			$filtered = input_filters($msg);
 			
@@ -719,8 +719,6 @@
 			
 			if ($sql->finish($go)) header("Location: thread.php?pid=$pid");
 			else errorpage("Couldn't edit the post.");
-				
-			errorpage($msg, false);
 		}
 		
 		pageheader($thread['name']." - Edit Post");		

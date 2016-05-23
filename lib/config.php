@@ -84,6 +84,7 @@
 		'dummy-name' =>				"Dummy variable",	
 		'force-userid' =>			false,
 		'force-sql-debug-on' =>		true,		
+		'force-error-printer-on' => true
 
 	
 	);

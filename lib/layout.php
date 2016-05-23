@@ -139,7 +139,7 @@
 		global $config, $sql, $hacks;
 		$GLOBALS['fw'] = null;
 		
-		$errorlog = error_printer(true, powlcheck(5), $GLOBALS['errors']);
+		$errorlog = error_printer(true, powlcheck(5) || $config['force-error-printer-on'], $GLOBALS['errors']);
 
 		if ($errorlog){
 			$errorprint = "
@@ -160,7 +160,7 @@
 		unset($errorlog);
 		
 		$querylist = "";
-		if(powlcheck(5)){
+		if(powlcheck(5) || $config['force-sql-debug-on']){
 			if (!isset($_GET['debug']) && !$config['force-sql-debug-on'])
 				$querylist = "<br/><small><a href='".$_SERVER['PHP_SELF']."?".$_SERVER['QUERY_STRING']."&debug'>SQL debugging or something</a></small>";
 			else{
@@ -550,18 +550,38 @@
 		else return "<select name='forumjump2'>$txt</select>";
 	}
 	
-	function dopagelist($total, $limit, $script, $extra=""){
+	function dopagelist($total, $limit, $script, $extra="", $sdfgjtregsf = false){
 		
 
 		if ($total<=$limit)
 			return "";
 		
-		$page	= filter_int($_GET['page']);
-		$id		= filter_int($_GET['id']);
+		$pages	= floor($total/$limit);
+		$dots	= true; // Set dots for page skip
+		
+		// This... thing is to allow recycling the function for thread page lists in forum.php		
+		if ($sdfgjtregsf){
+			$page	= $total+1;
+			$id		= $sdfgjtregsf; // Thread id
+		}
+		else{
+			$page	= filter_int($_GET['page']);
+			$id		= filter_int($_GET['id']);
+		}
 		
 		for($txt="",$n=0;$total>0;$total-=$limit){
-			$type = ($page == $n) ? "z" : "a";
-			$txt .= "<$type href='$script.php?id=$id&page=$n$extra'>".($n+1)."</$type> ";
+			// For the love of god don't print out a stupid number of pages
+			if ($n > 4 && $n < $pages - 4 && ($n > $page + 9 || $n < $page - 9)){
+				if ($dots){
+					$txt .= "... ";
+					$dots = false;
+				}
+			}
+			else{
+				$dots = true;
+				$type = ($page == $n) ? "z" : "a";
+				$txt .= "<$type href='$script.php?id=$id&page=$n$extra'>".($n+1)."</$type> ";
+			}
 			$n++;
 		}
 		
