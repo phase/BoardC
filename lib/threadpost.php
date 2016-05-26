@@ -1,12 +1,5 @@
 <?php
 	
-	switch ($loguser['signsep']){
-		case 1:  $sep = "<br>--------------------<br>"; break;
-		case 2:  $sep = "<br>____________________<br>"; break;
-		case 3:  $sep = "<br><hr><br>"; break;
-		default: $sep = "";
-	}	
-	
 	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = "", $pmmode = false, $annmode = false){
 		global $ismod, $loguser, $config, $hacks, $error_id, $sep;
 		

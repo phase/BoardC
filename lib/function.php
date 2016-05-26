@@ -50,15 +50,16 @@
 	
 	// Stop this nonsense, leave $loguser available from here
 	$loguser = array(
-		'id' => 0,
-		'password' => NULL,
-		'powerlevel' => 0,
-		'ppp' => 25,
-		'tpp' => 25,
-		'dateformat' => $config['default-date-format'],
-		'timeformat' => $config['default-time-format'],	
-		'tzoff'		 => 0,
-		'theme'		 => 1,
+		'id' 			=> 0,
+		'password' 		=> NULL,
+		'powerlevel' 	=> 0,
+		'ppp' 			=> 25,
+		'tpp' 			=> 25,
+		'dateformat' 	=> $config['default-date-format'],
+		'timeformat' 	=> $config['default-time-format'],	
+		'tzoff'		 	=> 0,
+		'theme'		 	=> 1,
+		'signsep'		=> 1
 	);
 	
 	//update timed bans
@@ -69,7 +70,7 @@
 	AND powerlevel='-1'
 	AND ban_expire-".ctime()."<0");
 
-	$ipbanned = $sql->fetchq("SELECT id, reason FROM `ipbans` WHERE `ip` = '".$_SERVER['REMOTE_ADDR']."'");
+	$ipbanned = $sql->fetchq("SELECT id, reason FROM `ipbans` WHERE `ip` = '{$_SERVER['REMOTE_ADDR']}'");
 	if (filter_int($ipbanned['id'])){
 		
 		$reason = filter_string($ipbanned['reason']);
@@ -77,39 +78,45 @@
 		if ($reason == "Password"){
 			dialog(	"Board message",
 					"Password recovery",
-					"<center>It seems you have failed 5 login attempts.<br><br>If you have lost your password, send an email at ".$config['admin-email']." for password recovery.");
+					"<center>It seems you have failed 5 login attempts.<br><br>If you have lost your password, send an email at {$config['admin-email']} for password recovery.");
 		}
 		else if ($reason == "Regkey"){
 			dialog(	"Board message",
 					"Registration",
-					"<center>You have tried to register an account using an incorrect registration key 5 times.<br>If you have forgotten it, send an email at ".$config['admin-email']." to request it again.<small><br>(and if you actually tried to guess it, well, you can go <a href='http://www.google.com'>here</a>)");
+					"<center>You have tried to register an account using an incorrect registration key 5 times.<br>If you have forgotten it, send an email at {$config['admin-email']} to request it again.<small><br>(and if you actually tried to guess it, well, you can go <a href='http://www.google.com'>here</a>)");
+		}
+		else if ($reason == "Proxy"){
+			dialog(	"Board message",
+					"Registration",
+					"<center>It seems you have left Apache open on a port. Please disable it before registering.<br>Contact {$config['admin-email']} to request an IP unblock.");
+		}
+		else if ($reason == "Pendinguser"){
+			dialog(	"Board message",
+					"Registration Message",
+					"<center>An admin will be reviewing your account soon(ish). Please be patient.<br>If nothing happens, contact {$config['admin-email']} for more info.");
 		}
 		else if (!$reason)
 			$reason = "Unspecified reason";
-		
-		//$views = $sql->resultq("SELECT views FROM misc");
 		
 		dialog("Board message","You are banned.","<center>You have been banned from the board for the following reason:<br>$reason");
 	}
 
 	$tor = $proxy = $bot = 0;
-	$banflags = $request = array();
 	
 	if (!filter_bool($pmeta['nofw'])){
-		if (file_exists("lib/firewall_new.php") && $config['enable-firewall']){
-			require "lib/firewall_new.php";
+		if (file_exists("lib/firewall.php") && $config['enable-firewall']){
+			require "lib/firewall.php";
 			$fw_error = "";
 		}
 		else{
-			$fw_error = "<div style=\"text-align: center; color: #f00; padding: 3px; border: 5px dashed red; background: #000;\"><b>HEY YOU! STOP RESTING AND REWRITE THE FIREWALL!<!--WARNING: Firewall missing or disabled--></b></div>";
+			$fw_error = "<div style=\"text-align: center; color: #f00; padding: 3px; border: 5px dashed red; background: #000;\"><b>WARNING: Firewall missing or disabled</b></div>";
 			class firewall{public function __call($a=null,$b=null){return false;} public function __get($a=null){return false;}}
 		}
 		
 		$fw = new firewall;
 	
-	if ($fw->dead || isset($_GET['sec']))
-		$fw->minilog();
-	
+		if ($fw->dead || isset($_GET['sec']))
+			$fw->minilog();
 	}
 	
 	if (strpos(strtolower(filter_string($_SERVER['HTTP_X_REQUESTED_WITH'])),'xmlhttprequest')!== false)
@@ -117,14 +124,6 @@
 	else $misc['ajax_request'] = false;
 	
 
-	// saved from the old firewall, remove this bit when the new one is finished
-	if (count($_FILES))
-		if (!$config['enable-file-uploads'])
-			errorpage("File uploads are disabled. Now kindly go away.");
-	
-	
-
-	
 	foreach ($_POST as $sgname => $sgval)
 		$_POST[$sgname] = sgfilter($sgval);
 		
@@ -139,20 +138,11 @@
 	// Guest perms moved up
 	$miscdata = $sql->fetchq("SELECT * FROM misc");
 		
-	
-	if (!($bot || $proxy || $tor)){
-		$views=$miscdata['views']+1;
+	$views = $miscdata['views']+1;
+	if (!$bot && !$proxy && !$tor)
 		$sql->query("UPDATE misc SET views=$views");
-	}
 	
 	if (filter_int($_COOKIE['id']) && filter_string($_COOKIE['verify'])){
-		
-		if ($bot || $tor || $proxy){
-			setcookie('id', NULL);
-			setcookie('verify', NULL);
-			setcookie('fid', filter_int($_COOKIE['fid'])+1);
-			errorpage("What do you think you're doing?");
-		}
 		
 		$userdata = $sql->fetchq("
 		SELECT u.*,r.*
@@ -178,6 +168,13 @@
 			setcookie('id', NULL);
 			setcookie('verify', NULL);
 		//	$fw->minilog();
+		}
+		
+		if (!powlcheck(5) && ($bot || $tor || $proxy)){
+			setcookie('id', NULL);
+			setcookie('verify', NULL);
+			setcookie('fid', filter_int($_COOKIE['fid'])+1);
+			errorpage("What do you think you're doing?");
 		}
 		
 		unset($userdata);
@@ -247,6 +244,14 @@
 	// First character is always /
 	if (!stripos($_SERVER['PHP_SELF'], "forum.php") && !stripos($_SERVER['PHP_SELF'], "thread.php") && !stripos($_SERVER['PHP_SELF'], "admin-showlogs.php"))
 		update_hits();
+	
+	// Specific signature type
+	switch ($loguser['signsep']){
+		case 1:  $sep = "<br>--------------------<br>"; break;
+		case 2:  $sep = "<br>____________________<br>"; break;
+		case 3:  $sep = "<br><hr><br>"; break;
+		default: $sep = "";
+	}
 
 	/*
 	if (isset($_GET['pupd'])){

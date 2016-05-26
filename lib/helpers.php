@@ -552,6 +552,16 @@
 
 	}
 	
+	function prime_num($max){
+		$res = array_fill(2, $max, true);
+		for ($i=2; $i<$max; $i++)
+			for($j=2; $i*$j<$max; $j++)
+				$res[($i*$j)] = false;	
+		foreach($res as $i => $key)
+			if ($key)
+				print "$i ";
+	}
+	
 	// Error reporting
 	
 	function error_reporter($type, $string, $file, $line){

@@ -1,4 +1,5 @@
 <?php
+
 	require "lib/function.php";
 	
 	$action = filter_string($_POST['action']);
@@ -48,6 +49,10 @@
 		";
 	}
 	else if ($action == "Login"){
+		
+		if ($bot || $proxy || $tor)
+			errorpage("Denied.");
+		
 		$user =	filter_string($_POST['user']);
 		$pass = filter_string($_POST['pass']);
 		
@@ -68,7 +73,7 @@
 			setcookie('verify', $newhash, ctime()+3600*12);
 			$sql->query("DELETE from failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'");
 			
-			errorpage("Successfully logged in.<br/>Return to the <a href='index.php'>index</a>.");
+			errorpage("Successfully logged in.<br>Click <a href='index.php'>here</a> to return to the index.");
 		}
 		else {
 			$attempts = $sql->resultq("SELECT attempt FROM failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'");
@@ -99,7 +104,7 @@
 		//print $action;
 		if (powlcheck(5)) errorpage("<h1>It works!</h1>");
 		ipban("Abusive/Malicious Behaviour", "Automatic IP ban to ".$_SERVER['REMOTE_ADDR']." for messing with the login form.");
-		errorpage("Couldn't log in. Either the username or the password is incorrect.<img src='cookieban.php' width=1 height=1/>");
+		errorpage("Couldn't log in. Either the username or the password is incorrect.<img src='cookieban.php' width=1 height=1>");
 	}
 	
 	pagefooter();

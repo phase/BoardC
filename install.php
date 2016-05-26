@@ -209,7 +209,7 @@
 				"<input type='submit' name='start' value='Continue'><input type='hidden' name='step' value=1>");
 	}				
 	else if ($step == 1){
-		$width = "style='width: 200px'";
+		$width = "style='width: 210px'";
 		dialog(	"Login information and setup options",
 		"This will be used to login to the board.<br/><br/>
 
@@ -221,7 +221,7 @@
 			<tr><td class='dark c' colspan='2'><b>Setup options</b></td></tr>
 			<tr><td class='light' colspan='2'><input type='checkbox' name='addforum' value=1 checked> Create sample forums/categories</td></tr>
 			<tr><td class='light' colspan='2'><input type='checkbox' name='additems' value=1 checked> Create sample item shop item(s)</td></tr>
-			<tr><td class='light' colspan='2'><input type='checkbox' name='autodel' value=1 > Delete install.php if the installation completes</td></tr>
+			<tr><td class='light' colspan='2'><input type='checkbox' name='autodel' value=1 > Delete install.php if the installation is successful</td></tr>
 			</table><br/>
 			
 		Click Install to start executing the SQL commands. This may take more than a minute.<br/>WARNING: This will drop the specified database!",
@@ -257,12 +257,12 @@ $sql->selectdb($sqldb);
 
 query("
 CREATE TABLE `announcements` (
-  `id` int(11) NOT NULL,
-  `name` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `title` text COLLATE utf8mb4_unicode_ci,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `name` text NOT NULL,
+  `title` text,
   `user` int(32) NOT NULL,
   `time` int(32) NOT NULL,
-  `text` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `text` text NOT NULL,
   `nohtml` tinyint(1) NOT NULL DEFAULT '0',
   `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
   `nolayout` tinyint(1) NOT NULL DEFAULT '0',
@@ -273,7 +273,7 @@ CREATE TABLE `announcements` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `announcements_old` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `aid` int(32) NOT NULL,
   `name` text NOT NULL,
   `title` text NOT NULL,
@@ -286,27 +286,33 @@ CREATE TABLE `announcements_old` (
   `avatar` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `bots` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `name` text NOT NULL,
+  `malicious` tinyint(1) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
 CREATE TABLE `categories` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(128) NOT NULL,
   `powerlevel` int(1) NOT NULL DEFAULT '0',
   `ord` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `failed_logins` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `ip` varchar(32) NOT NULL,
   `attempt` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `forummods` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `fid` int(32) NOT NULL,
   `uid` int(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `forums` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(256) NOT NULL,
   `title` varchar(256) NOT NULL,
   `powerlevel` int(1) NOT NULL DEFAULT '0',
@@ -322,14 +328,23 @@ CREATE TABLE `forums` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `ipbans` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `ip` varchar(32) DEFAULT NULL,
   `time` int(32) DEFAULT NULL,
-  `reason` varchar(255) DEFAULT NULL
+  `reason` varchar(255) DEFAULT NULL,
+  `userfrom` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `ipinfo` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `ip` text NOT NULL,
+  `bot` tinyint(1) NOT NULL DEFAULT '0',
+  `proxy` tinyint(1) NOT NULL DEFAULT '0',
+  `tor` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `jstrap` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user` int(32) NOT NULL,
   `ip` varchar(32) NOT NULL,
   `source` text NOT NULL,
@@ -347,8 +362,10 @@ CREATE TABLE `misc` (
   `regkey` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+INSERT INTO misc () VALUES ()");
+query("
 CREATE TABLE `hits` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `ip` varchar(32) NOT NULL,
   `time` int(32) NOT NULL,
   `page` text NOT NULL,
@@ -358,32 +375,62 @@ CREATE TABLE `hits` (
   `referer` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `log` (
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `ip` varchar(32) NOT NULL,
+  `time` int(32) NOT NULL,
+  `get` text NOT NULL,
+  `post` text NOT NULL,
+  `cookie` text NOT NULL,
+  `useragent` text NOT NULL,
+  `referer` text NOT NULL,
+  `host` text NOT NULL,
+  `page` text NOT NULL,
+  `banflags` text NOT NULL,
+  `requests` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `minilog` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `ip` varchar(32) NOT NULL,
+  `time` int(32) NOT NULL,
+  `banflags` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
 CREATE TABLE `news` (
-  `id` int(11) NOT NULL,
-  `name` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `text` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `name` text NOT NULL,
+  `text` text NOT NULL,
   `user` int(32) NOT NULL,
   `time` int(32) NOT NULL,
-  `cat` text COLLATE utf8mb4_unicode_ci,
+  `cat` text,
   `hide` tinyint(1) NOT NULL DEFAULT '0',
   `lastedituser` int(32) NOT NULL DEFAULT '0',
   `lastedittime` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used by the external \"plugin\" news.php';");
 query("
 CREATE TABLE `new_announcements` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user0` tinyint(1) NOT NULL DEFAULT '0',
   `user1` tinyint(1) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used for per-user tracking new announcements';");
 query("
 CREATE TABLE `new_posts` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user0` tinyint(1) NOT NULL DEFAULT '0',
   `user1` tinyint(1) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used for per-user tracking new posts';");
 query("
+CREATE TABLE `pendingusers` (
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `name` varchar(32) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `lastip` varchar(32) DEFAULT NULL,
+  `since` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
 CREATE TABLE `pms` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` text NOT NULL,
   `title` text NOT NULL,
   `user` int(32) NOT NULL,
@@ -398,14 +445,14 @@ CREATE TABLE `pms` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `poll_votes` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user` int(32) NOT NULL,
   `thread` int(32) NOT NULL,
   `vote` int(8) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `text` text NOT NULL,
   `time` int(32) NOT NULL,
   `thread` int(32) NOT NULL,
@@ -421,7 +468,7 @@ CREATE TABLE `posts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `posts_old` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `pid` int(32) NOT NULL,
   `text` text NOT NULL,
   `time` int(32) NOT NULL,
@@ -433,27 +480,27 @@ CREATE TABLE `posts_old` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `radar` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user` int(32) NOT NULL,
   `sel` int(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `ratings` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `userfrom` int(32) NOT NULL,
   `userto` int(32) NOT NULL,
   `rating` int(4) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `shop_categories` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(64) NOT NULL,
   `title` varchar(128) NOT NULL,
   `ord` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `shop_items` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(64) NOT NULL,
   `title` text NOT NULL,
   `cat` int(32) NOT NULL,
@@ -473,7 +520,7 @@ CREATE TABLE `shop_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `themes` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(64) NOT NULL,
   `file` varchar(64) NOT NULL,
   `special` tinyint(1) NOT NULL DEFAULT '0'
@@ -487,7 +534,7 @@ INSERT INTO `themes` (`id`, `name`, `file`, `special`) VALUES
 
 query("
 CREATE TABLE `threads` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `title` varchar(255) NOT NULL,
   `time` int(32) NOT NULL,
@@ -506,13 +553,13 @@ CREATE TABLE `threads` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `tor` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `ip` varchar(32) NOT NULL,
   `time` int(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 CREATE TABLE `users` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(32) NOT NULL,
   `displayname` varchar(255) DEFAULT NULL,
   `title` varchar(255) DEFAULT NULL,
@@ -563,7 +610,7 @@ INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) 
 ");
 query("
 CREATE TABLE `users_rpg` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `hp` int(32) NOT NULL DEFAULT '1',
   `mp` int(32) NOT NULL DEFAULT '1',
   `atk` int(32) NOT NULL DEFAULT '1',
@@ -581,67 +628,15 @@ INSERT INTO users_rpg (`id`, `hp`, `mp`, `atk`, `def`, `intl`, `dex`, `lck`, `sp
 ('".$config['deleted-user-id']."', '0', '0', '0', '0', '0', '0', '0', '0', '0');");
 query("
 CREATE TABLE `user_avatars` (
-  `id` int(32) NOT NULL,
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user` int(32) NOT NULL,
   `file` int(16) NOT NULL,
   `title` varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-ALTER TABLE `announcements`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `announcements_old`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `categories`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `failed_logins`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `forummods`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `forums`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `ipbans`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `jstrap`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `hits`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `news`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `new_announcements`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `new_posts`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `pms`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `poll_votes`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `posts`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `posts_old`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `radar`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `ratings`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `themes`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `threads`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `tor`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `user_avatars`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `shop_categories`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `shop_items`
-  ADD PRIMARY KEY (`id`);
-ALTER TABLE `users_rpg`
-  ADD PRIMARY KEY (`id`);
-");
 
-// Sample forums
+/*
+	Sample forums
+*/
 if (filter_int($_POST['addforum'])){
 	
 	query("
@@ -653,22 +648,11 @@ if (filter_int($_POST['addforum'])){
 	(1, 'General forum', 'For everybody!', 0, 0, 0, 0, 1, 1),
 	(2, 'General staff forum', 'Not for everybody!', 2, 0, 0, 0, 1, 0),
 	(3, 'The trash', 'Definitely not for everybody!', 2, 0, 0, 0, 2, 10);");
-	
-	query("
-	ALTER TABLE `categories`
-	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-	ALTER TABLE `forums`
-	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;");
-}
-else{
-	query("
-	ALTER TABLE `categories`
-	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-	ALTER TABLE `forums`
-	  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;");
 }
 
-// Sample shop items
+/*
+	Sample shop items
+*/
 if (filter_int($_POST['additems'])){
 	query("
 	INSERT INTO `shop_categories` (`id`, `name`, `title`, `ord`) VALUES
@@ -676,74 +660,8 @@ if (filter_int($_POST['additems'])){
 	query("
 	INSERT INTO `shop_items` (`id`, `name`, `title`, `cat`, `hp`, `mp`, `atk`, `def`, `intl`, `mdf`, `dex`, `lck`, `spd`, `coins`, `gcoins`, `special`, `ord`) VALUES
 	(1, 'Test item?', 'It does not actually do anything! (or is it?)', 1, '+1000', '-10', 'x45', '/2', '+2', '+0', '+56', '+9999', '+1', '0', '0', 1, 0);");
-	
-	query("
-	ALTER TABLE `shop_categories`
-	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-	ALTER TABLE `shop_items`
-	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;");
-}
-else{
-	query("
-	ALTER TABLE `shop_categories`
-	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-	ALTER TABLE `shop_items`
-	  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;");	
 }
 
-
-// Auto increments
-
-query("
-ALTER TABLE `announcements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `announcements_old`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-
-ALTER TABLE `failed_logins`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT; 
-ALTER TABLE `forummods`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-
-ALTER TABLE `hits`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `ipbans`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `jstrap`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `news`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `new_announcements`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `new_posts`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `pms`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `poll_votes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `posts`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `posts_old`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `radar`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `ratings`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-
-ALTER TABLE `themes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-ALTER TABLE `threads`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `tor`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `users`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=".($config['deleted-user-id']+1).";
-ALTER TABLE `user_avatars`
-  MODIFY `id` int(32) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `users_rpg`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=".($config['deleted-user-id']+1).";
-");
-		
 		print "\n\nQueries: ".($ok+$errors)." | Errors: $errors\n";
 		
 		if (!$errors){

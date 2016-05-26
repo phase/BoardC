@@ -190,13 +190,15 @@
 				$acs_txt
 			</td>
 			<td class='light' width='50%' valign='top'>
-				<textarea style='width: 100%; height: 400px;' readonly='readonly'>".htmlspecialchars(sgfilter($acs_txt))."</textarea>
+				<textarea style='width: 100%; height: 400px;' readonly='readonly'>".htmlspecialchars(lazyfilter($acs_txt))."</textarea>
 			</td>
 		</tr>
 	</table>
 	";
 
 	pagefooter();
+	
+	function lazyfilter($str){return $result = preg_replace("'[\x01-\x1F]'", "", $str);}
 	
 	function doacs($data, $month = false){
 		global $monthlypoints;

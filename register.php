@@ -139,6 +139,8 @@
 		// 'password' is 8 characters
 		if (stripos($pass, "password") !== false)
 			errorpage("... (type a different password)");
+		if (!$isadmin && $user == $pass)
+			errorpage("The username cannot be the same as the password.");
 		
 		$rereggie = $sql->fetchq("SELECT id, name FROM users WHERE lastip = '".$_SERVER['REMOTE_ADDR']."'");
 		if (filter_int($rereggie['id']) && !$config['allow-rereggie'] && !$isadmin){
@@ -151,14 +153,17 @@
 			errorpage("The username already exists. Please choose a different one.");
 		
 		if ($bot)
-			errorpage("What are you doing?<br/>(<small>If you've been blocked in error, contact (me)</small>)");
+			errorpage("What are you doing?");
 		
-		if ($fw->torcheck()){
+		if ($tor){
 			$sql->query("INSERT INTO tor (ip, time) VALUES ('".$_SERVER['REMOTE_ADDR']."', ".ctime().")");
 			errorpage("You seem to be using Tor.<br/>For added security, Tor users are blocked from registering/logging in.");
 		}
 		
-		// Other firewall checks here 
+		if ($proxy && !$isadmin){
+			ipban("Proxy", "Auto IP Banned asshole using a proxy to register.");
+			errorpage("You have been registered.<img src='cookieban.php' width=1 height=1><br/>Click <a href='login.php'>here</a> to log in.");
+		}
 		
 		/*
 		this code is down here to prevent a loophole caused by sharing the regkey counter and failed logins in the same table
@@ -192,29 +197,45 @@
 			else if (!$rereggie) $sql->query("DELETE from failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'"); // prevent a loophole
 			//else errorpage("No, don't think this will delete the failed_logins counter.");
 		}
-	
-		// OK
-		$sql->start();
 		
-		$newuser = $sql->prepare("INSERT INTO users (name, password, lastip, dateformat, timeformat, since) VALUES (?,?,?,?,?,?)");
-		$c[] = $sql->execute($newuser, array($user, password_hash($pass, PASSWORD_DEFAULT), $_SERVER['REMOTE_ADDR'], $config['default-date-format'], $config['default-time-format'], ctime()) );
 		
-		if ($sql->finish($c)){
-			$sql->query("INSERT INTO users_rpg () VALUES ()");
-			$id = $sql->resultq("SELECT MAX(id) FROM users");
-			$sql->query("ALTER TABLE new_posts ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
-			$sql->query("ALTER TABLE new_announcements ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
-			
-			// Remove the "new" value from all past posts
-			$sql->query("UPDATE new_posts SET user$id = 0");
-			$sql->query("UPDATE new_announcements SET user$id = 0");
-			
-			
-			mkdir("userpic/$id");
-			trigger_error("New user: $user (".$config['board-url']."profile.php?id=$id)", E_USER_NOTICE);
-			errorpage("You have been registered.<br/>Click <a href='login.php'>here</a> to log in.");
+		
+		if ($fw->apicheck($_SERVER['REMOTE_ADDR'], $user) || $config['pending-users-mode']){
+			$newuser 	= $sql->prepare("INSERT INTO pendingusers (name, password, lastip, since) VALUES (?,?,?,?)");
+			$c[] 		= $sql->execute($newuser, [$user, password_hash($pass, PASSWORD_DEFAULT), $_SERVER['REMOTE_ADDR'], ctime()]);
+			$id 		= $sql->resultq("SELECT MAX(id) FROM pendingusers");
+			ipban("Pendinguser", "New (pending) user: $user (ID #$id) IP: {$_SERVER['REMOTE_ADDR']}");
+			header("Location: index.php");
 		}
-		else errorpage("An unknown error occurred during registration.");
+		else{
+			
+			/*$result = userregister($name, password_hash($pass, PASSWORD_DEFAULT), $_SERVER['REMOTE_ADDR']);
+			
+			if ($result) 	errorpage("You have been registered.<br/>Click <a href='login.php'>here</a> to log in.");
+			else 			errorpage("An unknown error occurred during registration.");*/
+			// Nothing suspicious!
+			$sql->start();
+			$newuser 	= $sql->prepare("INSERT INTO users (name, password, lastip, since) VALUES (?,?,?,?)");
+			$c[] 		= $sql->execute($newuser, [$user, password_hash($pass, PASSWORD_DEFAULT), $_SERVER['REMOTE_ADDR'], ctime()]);
+			
+			if ($sql->finish($c)){
+				$sql->query("INSERT INTO users_rpg () VALUES ()");
+				$id = $sql->resultq("SELECT MAX(id) FROM users");
+				$sql->query("ALTER TABLE new_posts ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
+				$sql->query("ALTER TABLE new_announcements ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
+				
+				// Remove the "new" value from all past posts
+				$sql->query("UPDATE new_posts SET user$id = 0");
+				$sql->query("UPDATE new_announcements SET user$id = 0");
+				
+				
+				mkdir("userpic/$id");
+				trigger_error("New user: $user ({$config['board-url']}profile.php?id=$id) IP: {$_SERVER['REMOTE_ADDR']}", E_USER_NOTICE);
+				errorpage("You have been registered.<br/>Click <a href='login.php'>here</a> to log in.");
+			}
+			else errorpage("An unknown error occurred during registration.");
+		}
+		
 	}
 	
 	pagefooter();

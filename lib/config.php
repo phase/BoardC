@@ -27,6 +27,7 @@
 		'deleted-user-id' => 		2,
 		'trash-id' 		  => 		3,
 		'show-comments'		=>		false,
+		'pending-users-mode' =>		false,
 		
 		// Max allowed
 		'post-limit' =>				0,
@@ -37,7 +38,7 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle3.png' title='Does this remind you of anything?'>",
-		'board-version' =>			"Development Build 0.26",
+		'board-version' =>			"Development Build 0.27",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		
@@ -60,10 +61,10 @@
 		
 		
 		// Firewall
-		'enable-firewall' => 		0, // todo: rewrite firewall
-		'pageview-limit-enable' =>	false,
-		'pageview-limit' => 		1,
-		'pageview-limit-bot' =>		10, //1 each 10 seconds
+		'enable-firewall' => 		true,
+		'pageview-limit-enable' =>	true,
+		'pageview-limit' => 		0,	// Disable
+		'pageview-limit-bot' =>		10, // 1 each 10 seconds
 		
 		// Defaults
 		'default-time-zone' => 		0,// Hours (also, this was always set wrong since the beginning)

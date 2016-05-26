@@ -61,11 +61,11 @@
 		
 		if (isset($_POST['submit'])){
 			
-			if (!$msg)		errorpage("You've written an empty message!", false);
-			if (!$name)		errorpage("You've written an empty title!", false);
+			if (!$msg)		errorpage("You've written an empty message!");
+			if (!$name)		errorpage("You've written an empty title!");
 			
 			$userto = $sql->resultp("SELECT id FROM users WHERE name = ?", array(filter_string($_POST['sendto'])));
-			if (!$userto)	errorpage("This user doesn't exist!", false);
+			if (!$userto)	errorpage("This user doesn't exist!");
 			
 			
 			$msg 	= input_filters($msg);

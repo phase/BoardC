@@ -1,7 +1,7 @@
 <?php
 
 	function pageheader($title, $show = true, $forum = 0){
-		global $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta, $threadbug_txt;
+		global $sql, $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta, $threadbug_txt;
 		
 		$meta_txt 	= "";
 		
@@ -94,7 +94,28 @@
 		
 		if ($hacks['replace-image-before-login'] && !$loguser['id'])
 			$config['board-title'] = "<h1>(?)</h1>";
-
+		
+		$minilog = "";
+		
+		// UH OH CSS HACK
+		if (powlcheck(5)){
+			
+			$badrequest 	= $sql->fetchq("SELECT (SELECT COUNT(id) FROM minilog) bad, ip, time, banflags FROM minilog ORDER BY time DESC");
+			$pendingusers	= $sql->fetchq("SELECT (SELECT COUNT(id) FROM pendingusers) pu, name, lastip, since FROM pendingusers ORDER BY since DESC");
+			
+			if ($badrequest)
+				$minilog .= "<br>
+					<a class='danger' style='font-size: 13px !important; font-weight:normal; !important' href='admin-showlogs.php'>
+					<b>{$badrequest['bad']}</b> suspicious request(s) logged, last at <b>".printdate($badrequest['time'])."</b> by <b>{$badrequest['ip']} ({$badrequest['banflags']})</b>
+					</a>
+				";
+			if ($pendingusers)
+				$minilog .= "<br>
+					<a class='danger' style='font-size: 13px !important; font-weight:normal; !important' href='admin-pendingusers.php'>
+					<b>{$pendingusers['pu']}</b> new pending user(s), last at <b>".printdate($pendingusers['since'])."</b> by <b>{$pendingusers['name']}</b> (IP: <b>{$pendingusers['lastip']}</b>)</b>
+					</a>
+				";
+		}
 		
 		print "
 		<!doctype html>
@@ -111,7 +132,7 @@
 			".($hacks['test-ext'] ? audio_play("ext/sample.mp3") : "")."
 			<table class='main c w fonts'>
 				<tr>
-					<td colspan=3 class='light b'><a href='".$config['board-url']."'>".$config['board-title']."</a><br/>$links</td>
+					<td colspan=3 class='light b'><a href='".$config['board-url']."'>".$config['board-title']."</a>$minilog<br/>$links</td>
 				</tr>
 				<tr>
 					<td class='dim' style='width: 120px'>
@@ -626,6 +647,7 @@
 			"admin-userfix.php" 	=> "User Fix",
 			"admin-editforums.php" 	=> "Edit Forums",
 			"admin-editmods.php" 	=> "Edit Mods",
+			"admin-pendingusers.php"=> "Pending Users",
 			"admin-ipsearch.php" 	=> "IP Search",
 			"admin-ipbans.php" 		=> "IP Bans",
 			"admin-showlogs.php" 	=> "Board logs/Exploit attempts",			
