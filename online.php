@@ -32,8 +32,8 @@
 		LEFT JOIN ipbans i ON h.ip = i.ip
 		WHERE h.time>".(ctime()-$time)."
 		".($ip && $isadmin ? "AND h.ip = '$ip'" : "")."
-		GROUP BY h.ip
-		ORDER BY ".(isset($_GET['ipsort']) && $isadmin ? "h.ip" : "h.time DESC")."
+		GROUP BY h.ip, h.user
+		ORDER BY ".(isset($_GET['ipsort']) && $isadmin ? "h.ip" : "h.time ASC")."
 	");
 	
 	$txt = array("", "");
