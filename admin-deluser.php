@@ -36,7 +36,7 @@
 			
 			$c[] = $sql->query("DELETE FROM users WHERE id = $id");
 			$c[] = $sql->query("DELETE FROM user_avatars WHERE user = $id");
-			$c[] = $sql->query("DELETE FROM users_rpg WHERE user = $id");
+			$c[] = $sql->query("DELETE FROM users_rpg WHERE id = $id");
 			
 			// doesn't take into consideration avatars in posts_old, but who cares
 			$c[] = $sql->query("UPDATE posts SET user=$dest,avatar=0 WHERE user = $id");
