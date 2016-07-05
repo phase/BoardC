@@ -15,7 +15,7 @@
 		else $theme = filter_int($_POST['theme']);
 		
 		$sql->start();
-		$update = $sql->prepare("UPDATE misc SET disable = ?, views = ?, theme = ?, noposts = ?, regmode = ?, regkey = ?");
+		$update = $sql->prepare("UPDATE misc SET disable = ?, views = ?, theme = ?, noposts = ?, regmode = ?, regkey = ?, threshold = ?");
 		$c[] = $sql->execute($update,
 			array(
 				filter_int($_POST['disable']),
@@ -24,16 +24,12 @@
 				filter_int($_POST['noposts']),
 				filter_int($_POST['regmode']),
 				filter_string($_POST['regkey']),
+				filter_string($_POST['threshold']),
 			)
 		);
 			
 		$message = $sql->finish($c) ? "Settings updated!" : "Couldn't update the settings.";
 		errorpage($message, false);
-	}
-	else if (isset($_GET['trim'])){
-		errorpage("Feature removed (from here).", false);
-		//$sql->query("TRUNCATE hits");
-		//header("Location: admin.php"); // Make sure you don't accidentaly trim the hits again by refreshing
 	}
 	
 	$opt 	= $sql->fetchq("SELECT * FROM misc", true)[0];
@@ -62,11 +58,9 @@
 		
 		<tr><td class='light c' colspan=2>Every time you use this page you show your laziness.<br>
 		As you could be using <a href=\"/phpmyadmin\">PMA</a> instead of this unfinished thing.</td></tr>
-
-		<!-- <tr><td class='dark' colspan=2>Commands: <a href='?trim'>Trim Hits</a></tr> -->
 		
 		<tr>
-			<td class='light' style='width: 260px;'>
+			<td class='light' style='width: 270px;'>
 				<b>Disable the board</b><br>
 				<small>Does exactly what you'd think.<br>Only admins will be able to use this board.</small>
 			</td>
@@ -80,7 +74,7 @@
 				<small>I have no idea why is this here.</small>
 			</td>
 			<td class='dim'>
-				<input style='width: 50px;' type='text' name='views' value='".$opt['views']."'>
+				<input style='width: 150px;' type='text' name='views' value='".$opt['views']."'>
 			</td>
 		</tr>
 		<tr>
@@ -99,6 +93,17 @@
 			</td>
 			<td class='dim'>
 				<input type='checkbox' name='noposts' value=1 ".($opt['noposts'] ? "checked" : "").">&nbsp;Disable posting
+			</td>
+		</tr>
+		<tr>
+			<td class='light'>
+				<b><img src='images/status/hot.gif'> threshold</b><br>
+				<small>
+				Posts in a thread required to reach <img src='images/status/hot.gif'> status.
+				</small>
+			</td>
+			<td class='dim'>
+				<input style='width: 50px;' type='text' name='threshold' value=\"".$opt['threshold']."\">
 			</td>
 		</tr>
 		<tr>

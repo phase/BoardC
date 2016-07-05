@@ -45,8 +45,8 @@
 			$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
 			
 			$c[] = $sql->query("DELETE FROM ratings WHERE userfrom = $id OR userto = $id");
-			$c[] = $sql->query("ALTER TABLE new_posts DROP COLUMN user$id");
-			$c[] = $sql->query("ALTER TABLE new_announcements DROP COLUMN user$id");
+			$c[] = $sql->query("ALTER TABLE threads_read DROP COLUMN user$id");
+			$c[] = $sql->query("ALTER TABLE announcements_read DROP COLUMN user$id");
 		}
 		//if ($sql->finish($c)){
 			// delete userpics too, but only if the SQL delete was successful to prevent any fun error

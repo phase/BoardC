@@ -38,7 +38,7 @@
 		
 		'board-name' =>				"BoardC",	
 		'board-title' =>			"<img src='images/sampletitle3.png' title='Does this remind you of anything?'>",
-		'board-version' =>			"Development Build 0.27",
+		'board-version' =>			"Development Build 0.28",
 		'board-url' =>				"http://localhost/board/",
 		'admin-email' =>			"kak@nothing.null",
 		

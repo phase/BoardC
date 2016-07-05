@@ -134,11 +134,16 @@
 		$string = str_ireplace("data:image/svg", "data:image/png", $string);
 		
 		//$string = str_ireplace(".php", ".p<z>hp", $string); // oh god no why
+		
+		/*
+		amount of extra security this commented code provides: zero
+		amount of annoyance      this commented code provides: quite a bit
+		it's still better than the previous commented code. oh dear
 		$source = $string;
 		$string = preg_replace("'<(.*?)(src|rel)(.*?).php(.*?)>'si", "<img src='images/no.png'>", $source);
 		if ($string != $source)
 			trigger_error($loguser['name']." (ID #".$loguser['id']." | IP: ".$loguser['lastip'].") attempted to use a php file as image.", E_USER_NOTICE);
-
+		*/
 		return $string;
 	}
 	

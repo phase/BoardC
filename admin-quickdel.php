@@ -38,8 +38,8 @@
 		$c[] = $sql->query("DELETE FROM pms WHERE user = $id OR userto = $id");
 		$c[] = $sql->query("UPDATE threads SET user=$dest WHERE user = $id");
 		$c[] = $sql->query("DELETE FROM ratings WHERE userfrom = $id OR userto = $id");
-		$c[] = $sql->query("ALTER TABLE new_posts DROP COLUMN user$id");
-		$c[] = $sql->query("ALTER TABLE new_announcements DROP COLUMN user$id");
+		$c[] = $sql->query("ALTER TABLE threads_read DROP COLUMN user$id");
+		$c[] = $sql->query("ALTER TABLE announcements_read DROP COLUMN user$id");
 		
 		
 		if (filter_int($_POST['ipban'])) ipban("", false, $data['lastip'], true);

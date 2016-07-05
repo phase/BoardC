@@ -13,40 +13,41 @@
 			errorpage("You are already logged in.");
 		
 		pageheader("Login");
-		
 
-		
-		print "<br/><br/>
+		?>
+		<br/>
+		<br/>
 		<form method='POST' action='login.php'>
-		<table class='main w'>
-			<tr>
-				<td colspan=2 class='head c'>
-					Login
-				</td>
-			</tr>
-			<tr>
-				<td class='dim' style='width: 100px;'>
-					Username:
-				</td>
-				<td class='light'>
-					<input type='text' name='user'>
-				</td>
-			</tr>
-			<td class='dim'>
-					Password:
-				</td>
-				<td class='light'>
-					<input type='password' name='pass'>
-				</td>
-			</tr>
-			<tr>
-				<td colspan=2 style='text-align: left' class='dark c'>
-					<input type='submit' value='Login' name='action'>
-				</td>
-			</tr>
-		</table>
+			<table class='main w'>
+				<tr>
+					<td colspan=2 class='head c'>
+						Login
+					</td>
+				</tr>
+				<tr>
+					<td class='dim' style='width: 100px;'>
+						Username:
+					</td>
+					<td class='light'>
+						<input type='text' name='user'>
+					</td>
+				</tr>
+				<td class='dim'>
+						Password:
+					</td>
+					<td class='light'>
+						<input type='password' name='pass'>
+					</td>
+				</tr>
+				<tr>
+					<td colspan=2 style='text-align: left' class='dark c'>
+						<input type='submit' value='Login' name='action'>
+					</td>
+				</tr>
+			</table>
 		</form>
-		";
+		<?php
+		
 	}
 	else if ($action == "Login"){
 		
@@ -69,8 +70,11 @@
 			$newhash = password_hash($pass, PASSWORD_DEFAULT);
 			$sql->query("UPDATE users SET password='$newhash' WHERE id = ".$data['id']);
 			
-			setcookie('id', $data['id'], ctime()+3600*12);
-			setcookie('verify', $newhash, ctime()+3600*12);
+			// Update lastip info
+			$sql->query("UPDATE users SET lastip='{$_SERVER['REMOTE_ADDR']}' WHERE id = ".$data['id']);
+			
+			setcookie('id', $data['id']); // ,ctime()+3600*12
+			setcookie('verify', $newhash); // ,ctime()+3600*12
 			$sql->query("DELETE from failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'");
 			
 			errorpage("Successfully logged in.<br>Click <a href='index.php'>here</a> to return to the index.");
@@ -109,4 +113,4 @@
 	
 	pagefooter();
 
-	?>
+?>

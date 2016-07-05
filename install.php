@@ -156,7 +156,7 @@
 						<nobr>Views: 0</nobr>
 					</td>
 					<td class='dim'>
-						PRE-RELEASE<br/>VERSION
+						&nbsp;<br/>&nbsp;
 					</td>
 					<td class='dim' style='width: 120px'>
 						<nobr>".printdate(ctime())."</nobr>
@@ -286,6 +286,11 @@ CREATE TABLE `announcements_old` (
   `avatar` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `announcements_read` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `user1` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='ID is equal to the forum id, NOT to the announcement ID like the previous system';");
+query("
 CREATE TABLE `bots` (
   `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` text NOT NULL,
@@ -359,7 +364,8 @@ CREATE TABLE `misc` (
   `posts` int(32) NOT NULL DEFAULT '0',
   `noposts` tinyint(1) NOT NULL DEFAULT '0',
   `regmode` int(1) NOT NULL DEFAULT '0',
-  `regkey` text DEFAULT NULL
+  `regkey` text DEFAULT NULL,
+  `threshold` int(32) NOT NULL DEFAULT '20'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO misc () VALUES ()");
@@ -408,18 +414,6 @@ CREATE TABLE `news` (
   `lastedituser` int(32) NOT NULL DEFAULT '0',
   `lastedittime` int(32) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used by the external \"plugin\" news.php';");
-query("
-CREATE TABLE `new_announcements` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user0` tinyint(1) NOT NULL DEFAULT '0',
-  `user1` tinyint(1) NOT NULL DEFAULT '1'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used for per-user tracking new announcements';");
-query("
-CREATE TABLE `new_posts` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user0` tinyint(1) NOT NULL DEFAULT '0',
-  `user1` tinyint(1) NOT NULL DEFAULT '1'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used for per-user tracking new posts';");
 query("
 CREATE TABLE `pendingusers` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
@@ -551,6 +545,11 @@ CREATE TABLE `threads` (
   `lastposttime` int(32) DEFAULT NULL,
   `noob` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `threads_read` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `user1` int(32) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Timestamp method to track last thread view';");
 query("
 CREATE TABLE `tor` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,

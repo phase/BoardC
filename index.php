@@ -1,21 +1,26 @@
 <?php
 	require "lib/function.php";
 	
-	if (isset($_GET['markforumread'])){
-		if ($loguser['id']){
-			
-			$val = isset($_GET['r']) ? 1 : 0;
+	/*
+		Marking (all) forums as read
+		TODO: Eventually remove the ability to unread posts. It's only here for testing purposes.
+	*/
+	
+	if ( isset($_GET['markforumread']) && $loguser['id']){
+		if ( $loguser['id'] ){
+
+			$val = isset( $_GET['r'] ) ? 0 : ctime();
 			
 			if (filter_int($_GET['forumid'])){
-				$join = "LEFT JOIN posts p ON n.id = p.id LEFT JOIN threads t ON p.thread = t.id";
-				$where = "WHERE t.forum = ".intval($_GET['forumid']);
+				$join 		= "LEFT JOIN threads t ON n.id = t.id";
+				$where 		= "WHERE t.forum = ".intval($_GET['forumid']);
 			}
 			else{
-				$join = "";
-				$where = "";
+				$join 		= "";
+				$where 		= "";
 			}
 			
-			$sql->query("UPDATE new_posts n $join SET n.user".$loguser['id']."= $val $where");
+			$sql->query("UPDATE threads_read n $join SET n.user{$loguser['id']} = $val $where");
 		}
 		
 		header("Location: ".(filter_int($_GET['forumid']) ? "forum.php?id=".$_GET['forumid'] : "index.php"));
@@ -23,24 +28,44 @@
 	
 	pageheader($config['board-name'], false);
 	
-	// Header 2
 	
+	/*
+		Index.php specific header
+	*/
 
-	$newuser = $sql->fetchq("SELECT COUNT(id) as count, MAX(id) as maxid FROM users");
-	$d = ctime()-86400;
+	$newuser 	= $sql->fetchq("SELECT COUNT(id) as count, MAX(id) as maxid FROM users");
+	$d 			= ctime()-86400;
 	
-	// could possibly shrink this down to a query, but Select Distinct is weird
-	$dayusers = $sql->resultq("SELECT COUNT(*) FROM (SELECT DISTINCT user FROM posts WHERE time>$d) AS N");
-	$daythreads = $sql->resultq("SELECT COUNT(*) FROM (SELECT DISTINCT thread FROM posts WHERE time>$d) AS K");
+	// Birthday fluff
+	
+	$dayusers 		= $sql->resultq("SELECT COUNT(*) FROM (SELECT DISTINCT user FROM posts WHERE time>$d) AS N");
+	$daythreads 	= $sql->resultq("SELECT COUNT(*) FROM (SELECT DISTINCT thread FROM posts WHERE time>$d) AS K");
 
-	$p = ($dayusers==1) ? "" : "s";
+	$p = ($dayusers==1)   ? "" : "s";
 	$k = ($daythreads==1) ? "" : "s";
-	$birthday_txt = "Birthdays for ".date("F j").": ";
-	$birthdays = $sql->query("SELECT id, name, displayname, powerlevel, namecolor, sex, birthday FROM users WHERE DAYOFYEAR(FROM_UNIXTIME(birthday)) = ".date("z", ctime()+$loguser['tzoff']*3600));
-	if ($birthdays)
+	
+	
+	$birthdays = $sql->query("
+		SELECT id, name, displayname, powerlevel, namecolor, sex, birthday
+		FROM users
+		WHERE DAYOFYEAR(FROM_UNIXTIME(birthday)) = ".date("z", ctime()+$loguser['tzoff']*3600)
+	);
+	if ($birthdays){
+		$birthday_txt = "
+		<tr>
+			<td class='dim c' colspan=2>Birthdays for ".date("F j").": ";
+			
 		while ($x = $sql->fetch($birthdays))
 			$birthday_txt .= makeuserlink(false, $x)." (".getyeardiff($x['birthday'],ctime()).")";
-	else $birthday_txt .= "None";
+		
+		$birthday_txt .= "
+			</td>
+		</tr>";
+		
+	}
+	else $birthday_txt = "";
+	
+	
 	
 	print "<br/>
 	<table class='main w fonts'>
@@ -48,9 +73,7 @@
 			<td class='light' style='text-align: left; border-right: none;'>You are ".($loguser['id'] ? "logged in as ".makeuserlink($loguser['id']) : "not logged in").".</td>
 			<td class='light' style='text-align: right'>".$newuser['count']." registered users<br/>Latest registered user: ".makeuserlink($newuser['maxid'])."</td>
 		</tr>
-		<tr>
-			<td class='dim c'colspan=2>$birthday_txt</td>
-		</tr>
+		$birthday_txt
 		<tr>
 			<td class='dim c' colspan=2>".$miscdata['threads']." threads and ".$miscdata['posts']." posts in the board | $dayusers user$p active in $daythreads thread$k during the last day.</td>
 		</tr>
@@ -61,25 +84,26 @@
 	";
 	unset ($newuser, $dayusers, $daythreads, $p, $k, $d, $x);
 	
-	// index page PM box
+	/*
+		Wide PM Box for the index page
+	*/
 	if ($loguser['id']){
-		$pm =  $sql->fetchq("
 		
+		$pm =  $sql->fetchq("
 			SELECT  p.id pid, COUNT(p.id) pcount,p.time, SUM(p.new) new,
 					$userfields
 			FROM pms p
 			LEFT JOIN users u ON p.user = u.id
 			WHERE p.userto = ".$loguser['id']."
 			ORDER by p.id DESC
-			
 		");
 		
 		if ($pm['pcount']){
-			$new = $pm['new'] ? "<img src='images/status/new.gif'>" : "";
-			$pm_txt = "You have ".$pm['pcount']." private message".($pm['pcount']==1 ? "" : "s	")." (".$pm['new']." new). <a href='private.php?act=view&id=".$pm['pid']."'>Last message</a> from ".makeuserlink(false, $pm)." on ".printdate($pm['time']);
+			$new 	= $pm['new'] ? "<img src='images/status/new.gif'>" : "";
+			$pm_txt = "You have {$pm['pcount']} private message".($pm['pcount']==1 ? "" : "s	")." ({$pm['new']} new). <a href='private.php?act=view&id={$pm['pid']}'>Last message</a> from ".makeuserlink(false, $pm)." on ".printdate($pm['time']);
 		}
 		else{
-			$new = "";
+			$new 	= "";
 			$pm_txt = "You have no private messages.";
 		}
 		
@@ -106,25 +130,41 @@
 	
 	// subquery replaced by a wall of LEFT JOINs, number of new posts returned
 	$forums = $sql->query("
-		SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime, c.name catname, SUM(n.user".$loguser['id'].") new, $userfields
+		SELECT f.id fid, f.name fname, f.title, f.hidden, f.threads, f.posts, f.category, f.lastpostid, f.lastpostuser, f.lastposttime,
+			   c.name catname, $userfields
 		FROM forums f
-		LEFT JOIN categories c ON f.category = c.id
-		LEFT JOIN users u ON f.lastpostuser = u.id
-		LEFT JOIN threads t ON f.id = t.forum
-		LEFT JOIN posts p ON p.thread = t.id
-		LEFT JOIN new_posts n ON n.id = p.id
+		
+		LEFT JOIN categories   c ON f.category     = c.id
+		LEFT JOIN users        u ON f.lastpostuser = u.id
+		LEFT JOIN threads      t ON f.id           = t.forum
+		LEFT JOIN posts        p ON p.thread       = t.id
 
 		WHERE (f.powerlevel<=$querypowl AND c.powerlevel <=$querypowl $hidden $catsel)
 		GROUP BY f.id ASC
 		ORDER BY c.ord , f.ord, f.id
 	");
 	
-	if (!$forums)
+	if (!$forums){
 		print "<table class='main w c'><tr><td class='dark'>The admin hasn't configured the forum list yet.<br/>Come back later</td></tr></table>";
+	}
 	else{
 		
+		if ($loguser['id']){
+			$newposts = $sql->query("
+				SELECT t.forum, COUNT(t.id) new
+				FROM threads t
+				LEFT JOIN threads_read n ON t.id = n.id
+				WHERE n.user{$loguser['id']} < t.lastposttime
+				GROUP BY t.forum
+			");
+			while ($newpost = $sql->fetch($newposts))
+				$new_db[$newpost['forum']] = $newpost['new']; 
+			
+			//d($new_db);
+		}
+		
 		$forummods = $sql->fetchq("SELECT f.fid, $userfields FROM forummods f LEFT JOIN users u ON f.uid = u.id", true, PDO::FETCH_ASSOC|PDO::FETCH_GROUP);
-		//d($forummods);
+
 		
 		print "
 		<table class='main w nb'>
@@ -143,17 +183,19 @@
 			
 			if ($cat != $forum['category']){
 				$cat = $forum['category'];
-				
-				print "<tr><td class='dark c b' colspan=5><a href='index.php?cat=$cat'>".$forum['catname']."</a></td></tr>";
+				print "<tr><td class='dark c b' colspan=5><a href='index.php?cat=$cat'>{$forum['catname']}</a></td></tr>";
 			}
 			
-			if ($forum['lastpostid']) $lastpost = "<nobr>".printdate($forum['lastposttime'])."<br/><small><nobr> by ".makeuserlink(false, $forum)." <a href='thread.php?pid=".$forum['lastpostid']."#".$forum['lastpostid']."'><img src='images/status/getlast.png'></a></nobr></small>";
+			if ($forum['lastpostid'])
+				$lastpost = "<nobr>".printdate($forum['lastposttime'])."<br/><small><nobr> by ".makeuserlink(false, $forum)." <a href='thread.php?pid=".$forum['lastpostid']."#".$forum['lastpostid']."'><img src='images/status/getlast.png'></a></nobr></small>";
 			else $lastpost = "Nothing";
-			
+
 			for ($i=0;isset($forummods[$forum['fid']][$i]); $i++)
 				$mods[] = makeuserlink(false, $forummods[$forum['fid']][$i]);
 			
-			$new = $forum['new'] ? "<img src='images/status/new.gif'><small>".$forum['new']."</small>" : ""; 
+			
+			// Number of threads with unread posts
+			$new = isset($new_db[$forum['fid']]) ? "<img src='images/status/new.gif'><small>{$new_db[$forum['fid']]}</small>" : ""; 
 			
 			print "
 			<tr>

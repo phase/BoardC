@@ -21,18 +21,23 @@
 	
 	if ($time) $time_txt = "AND p.time>".(ctime()-$time);
 	else $time_txt = "";
+	
+	$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
+	
 	$posts = $sql->query("
-	SELECT COUNT(p.id) pcount, p.thread, n.user".$loguser['id']." new,
-	t.id tid, t.name tname, t.forum, t.replies,
-	f.id fid, f.name fname, f.powerlevel
-	FROM posts p
-	LEFT JOIN threads t ON p.thread = t.id
-    LEFT JOIN forums f ON t.forum = f.id	
-	LEFT JOIN new_posts n ON p.id = n.id
-	WHERE p.user = $id
-	$time_txt
-	GROUP BY p.thread
-	ORDER BY p.time DESC
+		SELECT 	COUNT(p.id) pcount, p.thread, $new_check new,
+				t.id tid, t.name tname, t.forum, t.replies,
+				f.id fid, f.name fname, f.powerlevel
+		FROM posts p
+		
+		LEFT JOIN threads      t ON p.thread = t.id
+		LEFT JOIN forums       f ON t.forum  = f.id	
+		LEFT JOIN threads_read n ON p.thread = n.id
+		
+		WHERE p.user = $id
+		$time_txt
+		GROUP BY p.thread
+		ORDER BY p.time DESC
 	");
 	
 

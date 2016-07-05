@@ -210,16 +210,18 @@
 	function minipostlist($thread_id){
 		global $loguser, $sql, $userfields;
 		
+		$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
+		
 		$posts = $sql->query("
-		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, p.noob, o.time rtime,
-		NULL title, $userfields welpwelp, n.user".$loguser['id']." new
+		SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, p.noob,
+				o.time rtime, NULL title, $userfields welpwelp, $new_check new
 		FROM posts p
-		LEFT JOIN users u ON p.user = u.id
-		LEFT JOIN posts_old o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
-		LEFT JOIN new_posts n ON p.id = n.id
+		LEFT JOIN users        u ON p.user   = u.id
+		LEFT JOIN posts_old    o ON o.time   = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+		LEFT JOIN threads_read n ON p.thread = n.id
 		WHERE p.thread = $thread_id
 		ORDER BY p.id DESC
-		LIMIT ".$loguser['ppp']."
+		LIMIT {$loguser['ppp']}
 		");// offset, limit
 		
 		$txt = "<br><table class='main w'><tr><td colspan=2 class='dark c'>Latest posts in the thread:</td></tr>";

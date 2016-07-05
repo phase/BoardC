@@ -221,13 +221,14 @@
 			if ($sql->finish($c)){
 				$sql->query("INSERT INTO users_rpg () VALUES ()");
 				$id = $sql->resultq("SELECT MAX(id) FROM users");
-				$sql->query("ALTER TABLE new_posts ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
-				$sql->query("ALTER TABLE new_announcements ADD COLUMN user$id int(32) NOT NULL DEFAULT '1'");
 				
-				// Remove the "new" value from all past posts
-				$sql->query("UPDATE new_posts SET user$id = 0");
-				$sql->query("UPDATE new_announcements SET user$id = 0");
+				// Update unread thread/announcement table
+				$sql->query("ALTER TABLE threads_read       ADD COLUMN user$id int(32) NOT NULL DEFAULT '0'");
+				$sql->query("ALTER TABLE announcements_read ADD COLUMN user$id int(32) NOT NULL DEFAULT '0'");
 				
+				$newtime = ctime();
+				$sql->query("UPDATE threads_read       SET user$id = '$newtime'");
+				$sql->query("UPDATE announcements_read SET user$id = '$newtime'");
 				
 				mkdir("userpic/$id");
 				trigger_error("New user: $user ({$config['board-url']}profile.php?id=$id) IP: {$_SERVER['REMOTE_ADDR']}", E_USER_NOTICE);

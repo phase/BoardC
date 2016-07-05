@@ -20,7 +20,10 @@
 		
 		foreach($sta as $s){
 			$oper = array_search($x[$s][0], $sell ? array_reverse($act) : $act);
-			if ($oper === false) trigger_error("Item started with invalid operand ".$x[$s][0], E_USER_WARNING);
+			if ($oper === false){
+				trigger_error("Item started with invalid operand ".$x[$s][0], E_USER_WARNING);
+				errorpage("An unknown error occurred.");
+			}
 			$n = (float)(trim($x[$s], '+-x/ '));
 			if ($oper == 2 && $n == 0) $n = 1; // Divide by zero check
 			$otmp = ($oper == 1) ? "*" : $act[$oper]; // replace with correct muliplication

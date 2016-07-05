@@ -95,7 +95,6 @@
 			}
 			
 			$sql->query("UPDATE users SET posts = (posts+1), coins=coins+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
-			$sql->query("INSERT INTO new_posts () VALUES ()");	
 			
 			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
 			update_last_post($thread['id'], array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
@@ -213,7 +212,7 @@
 			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
 			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
 			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
-			$sql->query("INSERT INTO new_posts () VALUES ()");
+			$sql->query("INSERT INTO threads_read () VALUES ()");
 			
 			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
 			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
@@ -408,7 +407,7 @@
 			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
 			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
 			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
-			$sql->query("INSERT INTO new_posts () VALUES ()");
+			$sql->query("INSERT INTO threads_read () VALUES ()");
 			
 			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
 			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );

@@ -2,8 +2,8 @@
 
 	require "lib/function.php";
 	
-	$time = filter_int($_GET['t']);
-	$maxposts = filter_int($_GET['p']);
+	$time 		= filter_int($_GET['t']);
+	$maxposts 	= filter_int($_GET['p']);
 	
 	// default limit: 50 threads (match Jul's defaults)
 	if (!$time){
@@ -16,22 +16,26 @@
 	}
 	
 	$isadmin = powlcheck(4);
-	// Invalid posts will always fail the powerlevel check, so this the WHERE 1 replacement is required to list those
-	// it's not like those who are admins can't access any post
+	
+	// Invalid posts will always fail the powerlevel check, so skip this if you're an admin
+	// Admins can read all posts (including invalid ones) anyway
+	
+	$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
 	
 	$posts = $sql->query("
-	SELECT p.id pid, p.time, p.thread tid, $userfields,
-	t.name tname, t.id tinvchk, t.forum fid, f.id finvchk, f.name fname, f.powerlevel fpowl, user".$loguser['id']." new
-	FROM posts p
-	LEFT JOIN threads t ON p.thread = t.id
-	LEFT JOIN forums f ON t.forum = f.id
-	LEFT JOIN users u ON p.user = u.id
-	LEFT JOIN new_posts n ON p.id = n.id
-	WHERE ".($isadmin ? "1" : "f.powerlevel<=".$loguser['powerlevel'])."
-	".($isadmin ? "" : "AND NOT ISNULL(t.id) AND NOT ISNULL(f.id)")."
-	$timelimit
-	ORDER BY p.time DESC
-	$postlimit
+		SELECT p.id pid, p.time, p.thread tid, $userfields,
+		t.name tname, t.id tinvchk, t.forum fid, f.id finvchk, f.name fname, f.powerlevel fpowl, $new_check new
+		FROM posts p
+		
+		LEFT JOIN threads      t ON p.thread = t.id
+		LEFT JOIN forums       f ON t.forum  = f.id
+		LEFT JOIN users        u ON p.user   = u.id
+		LEFT JOIN threads_read n ON t.id     = n.id
+		
+		".($isadmin ? "" : "WHERE f.powerlevel <= {$loguser['powerlevel']} AND NOT ISNULL(f.id)")."
+		$timelimit
+		ORDER BY p.time DESC
+		$postlimit
 	");
 	
 	$txt = "";
@@ -41,9 +45,9 @@
 			$new = $post['new'] ? "<img src='images/status/new.gif'> " : "";
 			$txt .= "
 			<tr>
-				<td class='dim c'>".$post['pid']."</td>
-				<td class='dim c'><a href='forum.php?id=".$post['fid']."'>".($post['finvchk'] ? $post['fname'] : "<div class='danger' style='background: #fff'>Invalid forum ID #".$post['fid']."</div>")."</a></td>
-				<td class='light'>$new<a href='thread.php?pid=".$post['pid']."#".$post['pid']."'>".($post['tinvchk'] ? $post['tname'] : "<div class='danger' style='background: #fff'>Invalid thread ID #".$post['tid']."</div>")."</a></td>
+				<td class='dim c'>{$post['pid']}</td>
+				<td class='dim c'><a href='forum.php?id={$post['fid']}'>".($post['finvchk'] ? $post['fname'] : "<div class='danger' style='background: #fff'>Invalid forum ID #{$post['fid']}</div>")."</a></td>
+				<td class='light'>$new<a href='thread.php?pid={$post['pid']}#{$post['pid']}'>".($post['tinvchk'] ? $post['tname'] : "<div class='danger' style='background: #fff'>Invalid thread ID #{$post['tid']}</div>")."</a></td>
 				<td class='light c'>".makeuserlink(false, $post)."</td>
 				<td class='dim c'>".choosetime(ctime()-$post['time'])."</td>
 			</tr>";

@@ -467,13 +467,15 @@
 				}
 				
 				// copied from minipostlist, slightly different query
+					$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
+					
 					$posts = $sql->query("
-						SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, o.time rtime,
-						NULL title, $userfields welpwelp, n.user".$loguser['id']." new
+						SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited,
+								o.time rtime, NULL title, $userfields welpwelp, $new_check new
 						FROM posts p
-						LEFT JOIN users u ON p.user = u.id
-						LEFT JOIN new_posts n ON p.id = n.id
-						LEFT JOIN posts_old o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+						LEFT JOIN users        u ON p.user   = u.id
+						LEFT JOIN threads_read n ON p.thread = n.id
+						LEFT JOIN posts_old    o ON o.time   = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
 						WHERE p.id IN (".implode(", ", $filteredstuff).") AND thread=$lookup
 					");
 					
@@ -568,14 +570,20 @@
 				";
 	
 	// Massive query to fetch almost everything threadpost needs
-	// TODO: make it so this doesn't fetch useless fields (ie. u.head and u.sign if they are disabled)
+	$skiplayout = $loguser['showhead'] ? "" : "NULL"; // Set header and signature as blank if they are disabled
+	
+	$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
+	
 	$posts = $sql->query("
-		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, ".($thread['noob'] ? "1 " : "p.")."noob,
-		n.user".$loguser['id']." new, u.head, u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost
+		SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime,
+				p.lastedited, ".($thread['noob'] ? "1 " : "p.")."noob, $new_check new,
+				$skiplayout u.head, $skiplayout u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost
 		FROM posts AS p
-		LEFT JOIN users     u ON p.user = u.id
-		LEFT JOIN posts_old o ON o.time = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
-		LEFT JOIN new_posts n ON p.id   = n.id
+		
+		LEFT JOIN users        u ON p.user   = u.id
+		LEFT JOIN posts_old    o ON o.time   = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+		LEFT JOIN threads_read n ON p.thread = n.id
+		
 		WHERE p.thread = $lookup
 		ORDER BY p.id ASC
 		LIMIT ".(filter_int($_GET['page'])*$loguser['ppp']).", ".$loguser['ppp']."
@@ -652,8 +660,8 @@
 					$post = array_replace($post, $sql->fetchq("SELECT text,rev crev,time,nohtml,nosmilies,nolayout,avatar FROM posts_old  WHERE pid = ".$post['id']." AND rev = ".filter_int($_GET['rev'])));
 			}
 			
-			if ($post['new'])
-				$set[] = $post['id'];
+			// To enable updating the last view date
+			if ($post['new']) $set = true;
 
 			print threadpost($post, false, $showmergecheckbox);
 
@@ -664,7 +672,7 @@
 			print "</form>";
 		
 		if (isset($set))
-			$sql->query("UPDATE new_posts SET user".$loguser['id']." = 0 WHERE id IN (".implode(", ", $set).")");
+			$sql->query("UPDATE threads_read SET user{$loguser['id']} = ".ctime()." WHERE id = $lookup");
 	}
 	// This "thread is empty" message doesn't display anymore due to the code considering threads with 0 posts invalid
 	// (and if the last post in a thread is deleted, the thread is erased automatically anyway)

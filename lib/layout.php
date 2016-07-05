@@ -332,26 +332,28 @@
 		
 		global $sql, $loguser, $userfields;
 		
-		$announce = $sql->query("
-			SELECT a.id aid, a.name aname, a.title atitle, a.user, a.time, a.forum, $userfields, SUM(n.user".$loguser['id'].") new
+		$new_check = $loguser['id'] ? "(a.time > n.user{$loguser['id']})" : "0";
+		
+		$ann = $sql->fetchq("
+			SELECT a.id aid, a.name aname, a.title atitle, a.user, a.time, a.forum, $userfields, $new_check new
 			FROM announcements a
 			LEFT JOIN users u ON a.user = u.id
-			LEFT JOIN new_announcements n ON a.id = n.id
+			LEFT JOIN announcements_read n ON a.id = n.id
 			WHERE a.forum = 0 ".($id ? "OR a.forum = $id" : "")."
-			GROUP BY a.id DESC, a.forum ASC
+			ORDER BY a.id DESC
 		");
 		
 		$txt = "";
 		
-			while($ann=$sql->fetch($announce))
-				$txt .= "
-					<tr>
-						<td colspan='7' class='head c fonts'>".($ann['forum'] ? "Forum a" : "A")."nnouncements</td>
-					</tr>
-					<tr>
-						<td class='dim c'>".($ann['new'] ? "<img src='images/status/new.gif'>" : "")."</td>
-						<td class='light' colspan='6'><a href='announcement.php?id=".$ann['forum']."'>".$ann['aname']."</a> -- Posted by ".makeuserlink(false, $ann)." on ".printdate($ann['time']).($ann['atitle'] ? "<small><br/>".$ann['atitle']."</small>" : "")."</td>
-					</tr>";
+		if ($ann)
+			$txt .= "
+				<tr>
+					<td colspan='7' class='head c fonts'>".($ann['forum'] ? "Forum a" : "A")."nnouncements</td>
+				</tr>
+				<tr>
+					<td class='dim c'>".($ann['new'] ? "<img src='images/status/new.gif'>" : "")."</td>
+					<td class='light' colspan='6'><a href='announcement.php?id=".$ann['forum']."'>".$ann['aname']."</a> -- Posted by ".makeuserlink(false, $ann)." on ".printdate($ann['time']).($ann['atitle'] ? "<small><br/>".$ann['atitle']."</small>" : "")."</td>
+				</tr>";
 			
 		return $txt;
 		

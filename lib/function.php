@@ -31,7 +31,6 @@
 
 	set_error_handler('error_reporter');
 
-	
 	if (ini_get("register_globals"))
 		die("Please update your PHP version.");
 	
@@ -39,10 +38,11 @@
 		die("If the magic quotes are turned on, it's likely the PHP version you're using is too low for the board to run.");
 	
 	
-	// placeholder functions for compatibility
-	if (!function_exists("password_hash")){
-		function password_hash($source, $dumb="insecure"){return sha1($source);}
-	}
+	// fuck it
+	if (!function_exists("password_hash"))
+		die("NO NO NO NO! Update to a PHP version that supports password_hash()");
+		//function password_hash($source, $dumb="insecure"){return sha1($source);}
+	
 	
 	//cache is bad
 	header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -59,7 +59,8 @@
 		'timeformat' 	=> $config['default-time-format'],	
 		'tzoff'		 	=> 0,
 		'theme'		 	=> 1,
-		'signsep'		=> 1
+		'signsep'		=> 1,
+		'showhead'		=> 1
 	);
 	
 	//update timed bans
@@ -161,7 +162,11 @@
 					ipban("Auto - IP ban evasion", false);
 					header("Location: index.php");
 				}
-				$loguser['lastip'] = $_SERVER['REMOTE_ADDR'];
+				// Clear the cookies and request login
+				setcookie('id', NULL);
+				setcookie('verify', NULL);
+				errorpage("It seems your IP has changed. Please login again."); // TODO: This message is for testing. Eventually comment this to enable auto refresh.
+				header("Location: ?{$_SERVER['QUERY_STRING']}");
 			}
 		}
 		else {
@@ -173,7 +178,7 @@
 		if (!powlcheck(5) && ($bot || $tor || $proxy)){
 			setcookie('id', NULL);
 			setcookie('verify', NULL);
-			setcookie('fid', filter_int($_COOKIE['fid'])+1);
+			setcookie('fid', filter_int($_COOKIE['fid'])+1, 2147483647);
 			errorpage("What do you think you're doing?");
 		}
 		
@@ -220,7 +225,7 @@
 					<small><li> Testing if the ACP works properly</small>
 				</ul>
 				
-				<center>In the mean time, join <b>#nktest</b> on <b>irc.badnik.net</b>.</center>"
+				<center>In the mean time, join <b>#nktest</b> on <b>irc.badnik.zone</b>.</center>"
 			);
 	}	
 	
@@ -254,6 +259,8 @@
 	}
 
 	/*
+	don't uncomment, uses old format
+	
 	if (isset($_GET['pupd'])){
 		
 		$i = $sql->query("SELECT id FROM posts");
@@ -269,7 +276,21 @@
 		x_die("Done.");
 		
 	}
-*/
+	*/
+
+	/*
+	if (isset($_GET['pupd2'])){
+		$x = $sql->query("SELECT id FROM threads");
+		while ($y = $sql->fetch($x))
+			$sql->query("INSERT INTO threads_read (id, user1) VALUES ({$y['id']}, ".ctime().")");
+		
+		$x = $sql->query("SELECT id FROM announcements");
+		while ($y = $sql->fetch($x))
+			$sql->query("INSERT INTO announcements_read (id, user1) VALUES ({$y['id']}, ".ctime().")");
+		
+		x_die("OK");
+	}
+	*/
 	
 	
 ?>

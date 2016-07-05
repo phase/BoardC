@@ -57,7 +57,7 @@
 			
 			$a 	  = $sql->prepare("INSERT INTO announcements (name, title, user, time, text, nohtml, nosmilies, nolayout, avatar, forum) VALUES (?,?,?,?,?,?,?,?,?,?)");
 			$go[] = $sql->execute($a, array($name, $title, $loguser['id'], ctime(), $msg, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar']), $id));
-			$sql->query("INSERT INTO new_announcements () VALUES ()");
+			$sql->query("INSERT INTO announcements_read () VALUES ()");
 			if ($sql->finish($go)) header("Location: announcement.php?id=$id");
 			else errorpage("Couldn't create the announcement.");
 		}
@@ -187,7 +187,7 @@
 			
 			$go[] = $sql->execute($a, array($name, $title, $msg, ctime(), $post['rev']+1, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $loguser['id'], $_POST['avatar']) );
 			
-			if ($sql->finish($go)) header("Location: announcement.php?id=$id");//$msg = "The announcement has been edited successfully.";
+			if ($sql->finish($go)) header("Location: announcement.php?id={$post['forum']}");//$msg = "The announcement has been edited successfully.";
 			else errorpage("Couldn't edit the announcement.");
 		}
 		
@@ -274,15 +274,16 @@
 	
 	$page = filter_int($_GET['page']);
 	
+	$new_check = $loguser['id'] ? "(a.time > n.user{$loguser['id']})" : "0";
 
 	$ann = $sql->query("
 	
 		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,a.lastedited,a.rev,0 noob,o.time rtime,
-				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, u.lastpost, n.user".$loguser['id']." new
+				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, u.lastpost, $new_check new
 		FROM announcements a
 		LEFT JOIN users u ON a.user = u.id
-		LEFT JOIN announcements_old AS o ON o.time = (SELECT MIN(o.time) FROM announcements_old o WHERE o.aid = a.id)
-		LEFT JOIN new_announcements n ON a.id = n.id
+		LEFT JOIN announcements_old  o ON o.time = (SELECT MIN(o.time) FROM announcements_old o WHERE o.aid = a.id)
+		LEFT JOIN announcements_read n ON a.id = n.id
 		WHERE a.forum = $id
 		GROUP BY a.id DESC
 		LIMIT ".($page*$loguser['ppp']).", ".$loguser['ppp']."
@@ -304,7 +305,11 @@
 		$pagectrl 	= dopagelist($count, $loguser['ppp'], "announcement");
 		
 		while ($a = $sql->fetch($ann)){
-			if ($a['new']) $set[] = "id =".$a['id'];
+			
+			// Collect announcement IDs to update the last view table
+			if ($a['new']){
+				$id_list[] = $a['id'];
+			}
 			
 			if ($ismod){
 				if (filter_int($_GET['del']) == $a['id']){
@@ -317,11 +322,15 @@
 					$a = array_replace($a, $sql->fetchq("SELECT text,rev crev,time,nohtml,nosmilies,nolayout,avatar FROM announcements_old  WHERE aid = ".$a['id']." AND rev = ".filter_int($_GET['rev'])));
 			}
 			
+			// Insert name and title at the top of the annoucement, along with a hr separator
+			$a['text'] = "<center><b>{$a['aname']}</b><br><small>{$a['atitle']}</small></center><hr class='w'>{$a['text']}";
+			
 			$txt .= threadpost($a, false, false, $ismod ? false : true, false, false, true);
+
 		}
 		
-		if (isset($set))
-			$sql->query("UPDATE new_announcements SET user".$loguser['id']." = 0");//$sql->query("UPDATE new_announcements SET user".$loguser['id']." = 0 WHERE ".implode(" AND ", $set));
+		if (isset($id_list))
+			$sql->query("UPDATE announcements_read SET user{$loguser['id']} = ".ctime()." WHERE id IN (".implode(",", $id_list).")");//$sql->query("UPDATE new_announcements SET user".$loguser['id']." = 0");//$sql->query("UPDATE new_announcements SET user".$loguser['id']." = 0 WHERE ".implode(" AND ", $set));
 	}
 
 	else{

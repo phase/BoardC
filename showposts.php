@@ -18,15 +18,19 @@
 
 	
 	pageheader("Posts by ".($user['displayname'] ? $user['displayname'] : $user['name']));
-
+	
+	$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
+	
 	$posts = $sql->query("
-		SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, p.noob,
-		t.id tid, t.name tname, f.id fid, f.powerlevel fpowl, n.user".$loguser['id']." new
+		SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, p.noob,
+				t.id tid, t.name tname, f.id fid, f.powerlevel fpowl, $new_check new
 		FROM posts p
-		LEFT JOIN threads t	  ON p.thread = t.id
-		LEFT JOIN forums f    ON t.forum  = f.id
-		LEFT JOIN posts_old o ON o.time   = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
-		LEFT JOIN new_posts n ON p.id	  = n.id
+		
+		LEFT JOIN threads      t ON p.thread = t.id
+		LEFT JOIN forums       f ON t.forum  = f.id
+		LEFT JOIN posts_old    o ON o.time   = (SELECT MIN(o.time) FROM posts_old o WHERE o.pid = p.id)
+		LEFT JOIN threads_read n ON t.id	  = n.id
+		
 		WHERE p.user = $id
 		ORDER BY p.id ".($ord ? "DESC" : "ASC")."
 		LIMIT ".($page*$loguser['ppp']).", ".$loguser['ppp']."
