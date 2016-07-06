@@ -13,13 +13,13 @@
 		errorpage("Go away.");
 	}
 	
-	$sysadmin 	= powlcheck(5); // Can edit
+	$sysadmin 	= powlcheck(5); // Can edit / ban
 	
 	$table 		= filter_string($_GET['mode']);
 	$ord		= filter_int($_GET['ord']);
 	$page		= filter_int($_GET['page']);
 	
-	$allowed = array("minilog", "jstrap", "hits");
+	$allowed = array("minilog", "log", "jstrap", "hits");
 	if (!in_array($table, $allowed)) $table = "minilog";
 	
 	if ($sysadmin){
@@ -76,22 +76,12 @@
 	$total 		= $sql->resultq("SELECT COUNT(id) FROM $table");
 	$limit		= 100;
 	$pagectrl	= dopagelist($total, $limit, "admin-showlogs", "&mode=$table&ord=$ord");
-		
-	if ($table == 'minilog'){
-		/*
-			Excerpts from the log flagged as malicious (banflags != 0)
-		*/
-		
-		//if (!file_exists("lib/firewall.php"))
-		//	errorpage("Sorry, but this page requires the firewall to be loaded.");
 	
-		$colspan = 6;
-		$tablename = "Denied requests";
-		
+	if ($table == 'minilog' || $table == 'log'){
 		// Detailed view
 		$view = filter_int($_GET['view']);
 		if ($view){
-			pageheader("$tablename - Request #$view");
+			pageheader("Request #$view");
 			
 			$all 	= $sql->fetchq("
 				SELECT l.*, $userfields user, i.ip ipbanned
@@ -112,12 +102,22 @@
 			$requests = str_replace("\0", "\n", $all['requests']);
 			// End snip
 			
+			// Next / Previous controls
+			$max = $sql->resultq("SELECT MAX(id) FROM log");
+			$prev_txt = "<a href='?mode=$table&view=".($view <= 1 ? 1 : $view + 1)."'>&lt;</a>";
+			$next_txt = "<a href='?mode=$table&view=".($view == $max ? $max : $view + 1)."'>&gt;</a>";
 			
 			print adminlinkbar()."
-			<table class='main w c'><tr><td class='dim'><a href='?'>Return to the log</a></td></tr></table>
+			<table class='main w c'><tr><td class='dim'><a href='?mode=$table'>Return to the log</a></td></tr></table>
 			<br><center>
 			<table class='main w'>
-				<tr><td class='head c' colspan='2'>Request #$view</td></tr>
+				<tr>
+					<td class='head c' colspan='2'>
+						$prev_txt
+						Request #$view
+						$next_txt
+					</td>
+				</tr>
 				
 				<tr>
 					<td class='light' style='width: 50%'><b>IP Address</b><br><a href='admin-ipsearch.php?ip={$all['ip']}'>{$all['ip']}</a>".banformat($all)."</td>
@@ -156,7 +156,19 @@
 			pagefooter();
 			
 		}
+	}
+	if ($table == 'minilog'){
+		/*
+			Excerpts from the log flagged as malicious (banflags != 0)
+		*/
 		
+		//if (!file_exists("lib/firewall.php"))
+		//	errorpage("Sorry, but this page requires the firewall to be loaded.");
+	
+		$colspan 	= 6;
+		$tablename 	= "Denied requests";
+
+
 		$list = $sql->query("
 			SELECT l.id, l.time, l.ip, l.banflags, l.requests, $userfields user, i.ip ipbanned
 			FROM minilog m
@@ -195,10 +207,67 @@
 			
 			$txt .= "
 				<tr>
-					<td class='light c'><a href='?view={$x['id']}'>{$x['id']}</a></td>
+					<td class='light c'><a href='?mode=$table&view={$x['id']}'>{$x['id']}</a></td>
 					<td class='light c'>$user</td>
 					<td class='dim fonts c'>".printdate($x['time'])."</td>
 					<td class='light fonts c'>$reason</td>
+					<td class='dim fonts c'>$requests</td>
+					<td class='light c'><nobr><a href='admin-ipsearch.php?ip={$x['ip']}'>{$x['ip']}</a>".banformat($x)."</nobr></td>
+				</tr>
+				";
+		}
+	}
+	else if ($table == 'log'){
+		/*
+			Log viewer
+		*/
+		
+		//if (!file_exists("lib/firewall.php"))
+		//	errorpage("Sorry, but this page requires the firewall to be loaded.");
+	
+		$colspan 	= 6;
+		$tablename 	= "Requests";
+		
+		$logs_query = "
+			SELECT l.id, l.time, l.ip, l.banflags, l.requests, l.page, l.get, $userfields user, i.ip ipbanned
+			FROM log l
+			LEFT JOIN users  u ON u.id  = (SELECT MIN(u.id) FROM users u WHERE l.ip = u.lastip)
+			LEFT JOIN ipbans i ON l.ip  = i.ip
+			ORDER BY l.id ".($ord ? "ASC" : "DESC")."
+			LIMIT ".($limit*$page).", $limit
+		";
+		
+		
+
+		/*
+			Get and display the log
+		*/
+		$list = $sql->query($logs_query);
+		
+		$txt = "
+			<tr>
+				<td class='head c'>#</td>
+				<td class='head c'>User</td>
+				<td class='head c'>Time</td>
+				<td class='head c'>Page</td>
+				<td class='head c'>Bad request</td>
+				<td class='head c'>IP</td>
+			</tr>
+			";
+			
+
+		while($x = $sql->fetch($list)){
+			$user 	= $x['user'] ? makeuserlink($x['user'], $x) : "Guest";
+
+			$requests = $x['requests'] ? "<span class='danger'><b>YES</b></span>" : "NO";
+
+			
+			$txt .= "
+				<tr>
+					<td class='light c'><a href='?mode=$table&view={$x['id']}'>{$x['id']}</a></td>
+					<td class='light c'>$user</td>
+					<td class='dim fonts c'>".printdate($x['time'])."</td>
+					<td class='light fonts c'>".htmlspecialchars($x['page'])."?".htmlspecialchars($x['get'])."</td>
 					<td class='dim fonts c'>$requests</td>
 					<td class='light c'><nobr><a href='admin-ipsearch.php?ip={$x['ip']}'>{$x['ip']}</a>".banformat($x)."</nobr></td>
 				</tr>
@@ -302,7 +371,7 @@
 		
 		<tr>
 			<td class='light c'><b>Log</b></td>
-			<td class='dim'><a href='?mode=minilog'>Denied requests</a> - <a href='?mode=jstrap'>XSS Attempts</a> - <a href='?mode=hits'>Board logs</a></td>
+			<td class='dim'><a href='?mode=log'>Requests</a> - <a href='?mode=minilog'>Denied requests</a> - <a href='?mode=jstrap'>XSS Attempts</a> - <a href='?mode=hits'>Board logs</a></td>
 		</tr>
 		
 		<tr>
