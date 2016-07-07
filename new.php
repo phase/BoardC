@@ -533,7 +533,7 @@
 		
 		
 		print "
-		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - New Thread<br>
+		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - New Poll<br>
 		<form action='new.php?act=newpoll&id=$id'  method='POST'>
 		
 			<table class='main'>
@@ -614,6 +614,205 @@
 			</table>
 		</form>
 		";
+	}
+	else if ($_GET['act'] == "editpoll"){
+		
+		if (!$id)
+			errorpage("No thread specified.");
+		
+		
+		$thread = $sql->fetchq("
+			SELECT 	t.id, t.name, t.title, t.ispoll,
+					f.id fid, f.name fname, f.powerlevel, f.theme
+			FROM threads t
+			LEFT JOIN forums     f ON t.forum = f.id
+			WHERE t.id = $id
+		");
+		
+		if (!$thread || (!$thread['fid'] && !powlcheck(4)))
+			errorpage("The thread doesn't exist.");		
+		if (!$thread['ispoll'])
+			errorpage("This isn't a poll!");
+		if (!ismod($thread['fid']))
+			errorpage("You're not allowed to do this!");
+
+		
+		if (isset($thread['theme'])) $loguser['theme'] = filter_int($thread['theme'])-1;
+		
+		// Load previously sent or defaults	
+		$polldata	= split_null($thread['title']);
+		
+		$name 		= isset($_POST['name']) 		? $_POST['name'] 			: $thread['name'];
+		$title 		= isset($_POST['title']) 		? $_POST['title'] 			: $polldata[0];
+		$briefing 	= isset($_POST['briefing']) 	? $_POST['briefing'] 		: $polldata[1];
+		$multivote 	= isset($_POST['multivote']) 	? $_POST['multivote'] 		: $polldata[2];
+		$addopt 	= filter_int($_POST['addopt']) 	? intval($_POST['addopt']) 	: 1;
+		
+		if (isset($_POST['chtext'])){
+			// Choice text and color counter
+			$chtext 	= $_POST['chtext'];
+			$chcolor 	= $_POST['chcolor'];
+			//$chvote 	= $_POST['chvote'];
+		}
+		else{
+			for ($i=3; isset($polldata[$i+2]); $i+=2){
+				$chtext[] 	= $polldata[$i];
+				$chcolor[] 	= $polldata[$i+1];
+			}
+		}
+		
+		$choices = count($chtext);
+
+		if (isset($_POST['submit'])){
+			
+			if (!filter_string($name))		errorpage("You have left the thread name empty!");
+			if (!filter_string($title))		errorpage("You have left the question empty!");
+			if (!isset($_POST['chtext']))	errorpage("You haven't specified the options!");
+			
+			
+			$sql->start();
+			
+			// Poll data is appended to the thread title (question)
+			$title  = input_filters($title);
+			$title .= "\0".input_filters($briefing);
+			$title .= "\0".filter_int($multivote);
+			
+			for ($i = 1; $i < $choices; $i++){
+				if (isset($_POST['remove'][$i]) || !$chtext[$i]) continue;
+				$title .= "\0".input_filters($chtext[$i])."\0".input_filters($chcolor[$i]);
+			}
+			
+			$c[] = $sql->queryp("UPDATE threads SET name = ?, title = ? WHERE id = $id", [input_filters($name), $title]);
+
+			if ($sql->finish($c)) header("Location: thread.php?id=$id");
+			else errorpage("Couldn't edit the poll. An error occured.");
+			
+			
+		}
+		
+		$choice_txt = "";
+		$choice_out = ""; // this is actually for the preview page, but might as well build this here
+
+		// build options from array, delete too
+		for ($i = 1, $n = 1; $i < $choices; $i++, $n++){
+			if (isset($_POST['remove'][$i]) || !$chtext[$i]){
+				$n--; // Prevent undefined offsets that erase other choices
+				continue;
+			}
+			$choice_txt .= "
+			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext[$i])."\" type='text'> &nbsp;
+			Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($chcolor[$i])."\" type='text'> &nbsp;
+			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+			
+			$choice_out .= "
+			<tr>
+				<td class='light' width='20%'>".$chtext[$i]."</td>
+				<td class='dim' width='60%'><table bgcolor='".$chcolor[$i]."' cellpadding='0' cellspacing='0' width='50%'><tr><td>&nbsp;</td></tr></table></td>
+				<td class='light c' width='20%'>? votes, ??.?%</td>
+			</tr>
+			";
+
+		}
+		
+		if (isset($_POST['changeopt'])){
+			// add set option number
+			for ($n;$n<$addopt;$n++)
+				$choice_txt .= "
+				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+				Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
+				<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+		}
+		$choice_txt .= "
+			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+			Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
+			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+		
+		pageheader($thread['fname']." - New Poll");
+		
+		if (isset($_POST['preview'])){
+			
+			// Only show the poll data here
+			print "<br>
+			<table class='main w'>
+				<tr><td class='head c' colspan=3>Poll Preview</td></tr>
+				<tr><td colspan='3' class='dark c'><b>$title</b></td></tr>
+				<tr><td class='dim fonts' colspan='3'>$briefing</td></tr>
+				$choice_out
+				<tr>
+					<td class='dim fonts' colspan='3'>Multi-voting is ".(filter_int($_POST['multivote']) ? "enabled" : "disabled").".</td>
+				</tr>
+			</table>
+			
+			";
+
+		}
+
+		$vote_sel[filter_int($multivote)] = "checked";
+
+
+		print "
+		<a href='forum.php?id=".$thread['fid']."'>".htmlspecialchars($thread['fname'])."</a> - Edit Poll<br>
+		<center>
+		<form action='new.php?act=editpoll&id=$id' method='POST'>
+		
+			<table class='main'>
+				<tr>
+					<td colspan=2 class='head c'>
+						Edit Poll
+					</td>
+				</tr>
+				
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Thread name:</b>
+					</td>
+					<td class='dim'>
+						<input style='width: 400px;' type='text' name='name' value=\"".htmlspecialchars($name)."\">
+					</td>
+				</tr>
+				
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Question:</b>
+					</td>
+					<td class='dim'>
+						<input style='width: 400px;' type='text' name='title' value=\"".htmlspecialchars($title)."\">
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Briefing:</b>
+					</td>
+					<td class='dim'>
+						<textarea name='briefing' rows='2' cols='80' wrap='virtual'>".htmlspecialchars($briefing)."</textarea>
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Multi-voting:</b>
+					</td>
+					<td class='dim'>
+						<input type='radio' name='multivote' value=0 ".filter_string($vote_sel[0]).">Disabled&nbsp;&nbsp;&nbsp;&nbsp;
+						<input type='radio' name='multivote' value=1 ".filter_string($vote_sel[1]).">Enabled
+					</td>
+				</tr>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Choices:</b>
+					</td>
+					<td class='dim'>
+						$choice_txt
+						<input type='submit' name='changeopt' value='Submit changes'> and show <input type='text' name='addopt' value='$addopt' size='4' maxlength='1'> options
+					</td>
+				</tr>
+				<tr>
+					<td colspan=3 class='dim'>
+						<input type='submit' value='Submit changes' name='submit'>&nbsp;
+						<input type='submit' value='Preview changes' name='preview'>&nbsp;
+				</td></tr>
+			</table>
+		</form>
+		</center>";
 	}
 
 	else if ($_GET['act'] == 'editpost'){

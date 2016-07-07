@@ -548,7 +548,7 @@
 					<tr>
 						<td class='dark'>
 							Moderating options:
-							<$w href='thread.php?id=$lookup&tren'>Rename</$w> |
+							".($thread['ispoll'] ? "<$w href='new.php?id=$lookup&act=editpoll'>Edit poll</$w>" : "<$w href='thread.php?id=$lookup&tren'>Rename</$w>")." |
 							<$w href='thread.php?id=$lookup&ticon'>Change icon</$w> |
 							<$w href='thread.php?id=$lookup&tmove'>Move</$w> |
 							<$w href='thread.php?id=$lookup&tstick'>".($thread['sticky'] ? "Uns" : "S")."tick</$w> |
