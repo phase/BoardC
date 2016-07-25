@@ -153,7 +153,7 @@
 		//errorpage("Under construction!");
 		$post = $sql->fetchq("
 		SELECT  p.id,p.name pmname,p.user,p.userto,p.time,p.text,p.nohtml,p.nosmilies,p.nolayout,p.avatar,p.new,
-				$userfields,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastpost
+				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastpost,u.rankset
 		FROM pms p
 		LEFT JOIN users u ON p.user = u.id
 		WHERE p.id = $id 

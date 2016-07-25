@@ -12,7 +12,7 @@
 	$user = $sql->fetchq("
 		SELECT  $userfields, u.title, u.lastip, u.ban_expire, u.since,
 				u.head, u.sign, u.lastview, u.bio, u.posts, (SELECT COUNT(p.user) FROM posts p WHERE p.user = $id) rposts, u.threads, u.homepage, u.homepage_name, u.email,
-				u.twitter, u.facebook, u.youtube, u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins,
+				u.twitter, u.facebook, u.youtube, u.tzoff, u.ppp, u.tpp, u.realname, u.location, u.birthday, u.theme, u.coins, u.gcoins, u.rankset,
 				u.lastpost, t.id tid, t.name tname, t.forum tforum, f.name fname,
 				r.*
 		FROM users AS u

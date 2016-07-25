@@ -60,7 +60,8 @@
 		'tzoff'		 	=> 0,
 		'theme'		 	=> 1,
 		'signsep'		=> 1,
-		'showhead'		=> 1
+		'showhead'		=> 1,
+		'rankset'		=> 1
 	);
 	
 	//update timed bans

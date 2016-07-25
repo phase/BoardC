@@ -4,11 +4,11 @@
 */
 	
 	// Sql database options
-	$sqlhost = 		'localhost';
-	$sqluser = 		'Kak';
-	$sqlpass = 		'V6TtzduVvmmfrZej';
-	$sqldb = 		'boardc';
-	$sqlpersist = 	true;
+	$sqlhost 		= 'localhost'; // Database host
+	$sqluser 		= 'Kak'; // Username
+	$sqlpass 		= 'V6TtzduVvmmfrZej'; // Password
+	$sqldb 			= 'boardc'; // Database
+	$sqlpersist 	= true; // Persist connection
 	
 	// Root Admin IPs
 	$adminips = array(
@@ -96,6 +96,7 @@
 		'correct-board-name'		 => false,
 		'test-ext'					 => false,
 		'failed-attempt-at-irc'		 => false,
+		'force-modern-web-design'	 => false,
 	);
 	
 

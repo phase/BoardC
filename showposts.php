@@ -11,7 +11,11 @@
 	$ord	= filter_int($_GET['ord']);
 	$page	= filter_int($_GET['page']);
 	
-	$user 	= $sql->fetchq("SELECT $userfields, u.title, u.since, u.location, u.posts, u.head, u.sign, u.lastip ip, u.lastpost, u.lastview FROM users u WHERE u.id = $id");
+	$user 	= $sql->fetchq("
+		SELECT $userfields uid, u.title, u.since, u.location, u.posts, u.head, u.sign, u.lastip ip, u.lastpost, u.lastview, u.rankset
+		FROM users u
+		WHERE u.id = $id
+	");
 	
 	if (!$user)
 		errorpage("This user doesn't exist!");

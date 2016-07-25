@@ -83,11 +83,11 @@ textarea:focus {
   background:#000000;
   color:	#DDDDDD;
   font:	10pt verdana;}
-.radio{
+radio{
   border:	none;
   background:none;
   color:	#DDDDDD;
   font:	10pt verdana;}
-.submit{
+submit{
   border:	#000000 solid 2px;
   font:	10pt verdana;}

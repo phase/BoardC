@@ -3,14 +3,11 @@
 	
 	/*
 		Marking (all) forums as read
-		TODO: Eventually remove the ability to unread posts. It's only here for testing purposes.
 	*/
 	
 	if ( isset($_GET['markforumread']) && $loguser['id']){
 		if ( $loguser['id'] ){
 
-			$val = isset( $_GET['r'] ) ? 0 : ctime();
-			
 			if (filter_int($_GET['forumid'])){
 				$join 		= "LEFT JOIN threads t ON n.id = t.id";
 				$where 		= "WHERE t.forum = ".intval($_GET['forumid']);
@@ -20,7 +17,7 @@
 				$where 		= "";
 			}
 			
-			$sql->query("UPDATE threads_read n $join SET n.user{$loguser['id']} = $val $where");
+			$sql->query("UPDATE threads_read n $join SET n.user{$loguser['id']} = ".ctime()." $where");
 		}
 		
 		header("Location: ".(filter_int($_GET['forumid']) ? "forum.php?id=".$_GET['forumid'] : "index.php"));
@@ -89,12 +86,18 @@
 	*/
 	if ($loguser['id']){
 		
+		// I still think there is probably a better way to handle this instead of using 2 (!) subqueries. oh well
 		$pm =  $sql->fetchq("
-			SELECT  p.id pid, COUNT(p.id) pcount,p.time, SUM(p.new) new,
-					$userfields
+			SELECT  p.id pid, p.time, $userfields,
+					(
+						SELECT COUNT(p.id) FROM pms p WHERE p.userto = {$loguser['id']}
+					) pcount,
+					(
+						SELECT SUM(p.new)  FROM pms p WHERE p.userto = {$loguser['id']}
+					) new
 			FROM pms p
 			LEFT JOIN users u ON p.user = u.id
-			WHERE p.userto = ".$loguser['id']."
+			WHERE p.userto = {$loguser['id']}
 			ORDER by p.id DESC
 		");
 		

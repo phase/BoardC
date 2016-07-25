@@ -74,7 +74,7 @@
 		$query = "
 		UPDATE users SET
 		head=?, sign=?, sex=?, realname=?, location=?, birthday=?, bio=?, email=?, youtube=?, twitter=?, facebook=?,
-		dateformat=?, timeformat=?, tzoff=?, showhead=?, signsep=?, theme=?";
+		dateformat=?, timeformat=?, tzoff=?, showhead=?, signsep=?, theme=?, rankset=?";
 
 
 			
@@ -95,7 +95,8 @@
 			filter_int($_POST['tzoff']),
 			filter_int($_POST['showhead']),
 			filter_int($_POST['signsep']),
-			$theme
+			$theme,
+			filter_int($_POST['rankset'])
 		);
 		
 		// Variable recycling!
@@ -195,6 +196,7 @@
 	else $fields["Appareance"] = array();
 
 	$fields["Appareance"] = array_merge($fields["Appareance"], array(
+		"User rank"		=> array(3, "rankset", "You can hide your rank, or choose from different sets.", findranks(true)),
 		"Post header" 	=> array(1, "head", "This will get added before the start of each post you make. This can be used to give a default font color and face to your posts (by putting a &lt;font&gt; tag). This should preferably be kept small, and not contain too much text or images."),
 		"Signature" 	=> array(1, "sign", "This will get added at the end of each post you make, below an horizontal line. This should preferably be kept to a small enough size."),
 		"Icon"			=> array(4, "icon", "This will appear next to your username. Select a PNG image to upload."),

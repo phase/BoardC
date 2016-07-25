@@ -189,7 +189,7 @@
 			<center><form method='POST' action='thread.php?id=$lookup&tkill'><table class='main c'>
 				<tr><td class='head'>Delete Thread</td></tr>
 				
-				<tr><td class='light'>Are you sure you want to delete this thread?<br><small>This action is irreversable!</small></td></tr>
+				<tr><td class='light'>Are you sure you want to delete this thread?<br><small>This action is irreversible!</small></td></tr>
 				<tr><td class='dim'><input type='submit' name='dokill' value='Yes'> <input type='submit' name='return' value='No'></td></tr>
 			
 			</table></form></center>";
@@ -521,7 +521,79 @@
 				</tr>
 			</table>";
 	}
-	
+	else if ($ismod){
+		// Stop this nonsense. No more delete/undelete refresh cycles.
+		// Apply post actions that actually alter the db here and header() away
+		
+		if (isset($_GET['noob']) && !$thread['noob']){ // If the thread is forced in noob mode, don't do anything
+			$sanityCheck = $sql->resultq("SELECT id FROM posts WHERE id = ".intval($_GET['noob'])." AND thread = $lookup");
+			if ($sanityCheck){
+				$sql->query("UPDATE posts SET noob = NOT noob WHERE id = ".intval($_GET['noob']));
+			}
+			header("Location: ?pid={$_GET['noob']}#{$_GET['noob']}");
+		}				
+		else if (isset($_GET['hide'])){ // Hide is actually delete. Delete is actually erase. CONSISTENCY!
+			$sanityCheck = $sql->resultq("SELECT id FROM posts WHERE id = ".intval($_GET['hide'])." AND thread = $lookup");
+			if ($sanityCheck){
+				$sql->query("UPDATE posts SET deleted = NOT deleted WHERE id = ".intval($_GET['hide']));
+			}
+			header("Location: ?pid={$_GET['hide']}#{$_GET['hide']}");
+		}
+
+		else if (powlcheck(5) && filter_int($_GET['del'])){
+			
+			$_GET['del'] = intval($_GET['del']);
+			// Deleting posts from the database by accident a good thing does not make. Added a confirmation prompt.
+			
+			if (isset($_POST['return']))
+				header("Location: thread.php?pid={$_GET['del']}#{$_GET['del']}");
+			
+			else if (isset($_POST['dokill'])){
+				//errorpage("{$_GET['del']} - {$lookup}");
+				$sql->start();
+				
+				$sql->query("DELETE FROM posts WHERE id = ".$_GET['del']);
+				$sql->query("DELETE FROM posts_old WHERE pid = ".$_GET['del']);
+				
+				// Note: Negative replies can't be reached here even if we delete the starting post, as a thread with zero real posts is automatically deleted.
+				$sql->query("UPDATE threads SET replies=replies-1 WHERE id=$lookup");
+				
+				if (!$error_id)
+					$sql->query("UPDATE forums SET posts=posts-1 WHERE id = ".$forum['id']);
+				
+				$sql->query("UPDATE misc SET posts=posts-1");
+				$tmpUser = $sql->resultq("SELECT user FROM posts WHERE id = ".$_GET['del']);
+				$sql->query("UPDATE users SET posts=posts-1 WHERE id = $tmpUser");
+				
+				if ($error_id != 3){
+					// As deleting threads by accident is a BAD thing, actually count the real number of posts before doing anything fancy
+					$realposts = $sql->resultq("SELECT COUNT(id) FROM posts WHERE thread = $lookup");
+					if (!$realposts && !$error_id){// we have deleted the last post, delete the thread too
+						$sql->query("DELETE FROM threads WHERE id = $lookup");
+						$sql->query("UPDATE user SET threads = threads - 1 WHERE id = ".$thread['user']);
+						update_last_post($forum['id'], false, true);
+						$sql->end();
+						header("Location: forum.php?id=".$forum['id']);
+					}						
+					else update_last_post($lookup); 
+				}
+				//update_last_post($lookup);
+				$sql->end();
+			}
+			
+			pageheader($thread['name']." - Delete Post");
+			
+			print "
+				<center><form method='POST' action='thread.php?pid={$_GET['del']}&del={$_GET['del']}'><table class='main c'>
+					<tr><td class='head'>Delete Post</td></tr>
+					
+					<tr><td class='light'>Are you sure you want to delete this post (ID #{$_GET['del']}) from thread (ID #{$thread['id']})?<br><small>This action is irreversible!</small></td></tr>
+					<tr><td class='dim'><input type='submit' name='dokill' value='Yes'> <input type='submit' name='return' value='No'></td></tr>
+				
+				</table></form></center>";
+			pagefooter();
+		}	
+	}
 	
 	pageheader($thread['name'], true, $forum['id']);
 	
@@ -577,7 +649,7 @@
 	$posts = $sql->query("
 		SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime,
 				p.lastedited, ".($thread['noob'] ? "1 " : "p.")."noob, $new_check new,
-				$skiplayout u.head, $skiplayout u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost
+				$skiplayout u.head, $skiplayout u.sign, u.lastip ip, u.title, $userfields temp, u.posts, u.since, u.location, u.lastview, u.lastpost, u.rankset
 		FROM posts AS p
 		
 		LEFT JOIN users        u ON p.user   = u.id
@@ -607,55 +679,12 @@
 			$post['postcur'] = array_search($post['id'], $postids[$post['user']])+1;
 			
 			if ($ismod){
-				// TODO: Make a redirect so these doesn't change stuff after refreshing.
-				if (filter_int($_GET['noob']) == $post['id'] && !$thread['noob']){ // If the thread is forced in noob mode, don't do anything
-					$sql->query("UPDATE posts SET noob = NOT noob WHERE id = ".$post['id']);
-					$post['noob'] = $post['noob'] ? false : true;
-				}				
-				else if (filter_int($_GET['hide']) == $post['id']){
-					$sql->query("UPDATE posts SET deleted = NOT deleted WHERE id = ".$post['id']);
-					$post['deleted'] = $post['deleted'] ? false : true;
-				}
-				
-				else if (powlcheck(5) && filter_int($_GET['del']) == $post['id']){
-					$sql->start();
-					
-					$sql->query("DELETE FROM posts WHERE id = ".$post['id']);
-					$sql->query("DELETE FROM posts_old WHERE pid = ".$post['id']);
-					
-					/*
-					// Check for starting post by time, so we can't get into negative replies
-					// TODO: this part can break by moving the first post to a different thread
-					
-					if ($thread['time'] != $post['time'])
-						*/
-						$sql->query("UPDATE threads SET replies=replies-1 WHERE id=$lookup");
-					
-					if (!$error_id)
-						$sql->query("UPDATE forums SET posts=posts-1 WHERE id = ".$forum['id']);
-					
-					$sql->query("UPDATE misc SET posts=posts-1");
-					$sql->query("UPDATE users SET posts=posts-1 WHERE id=".$post['user']);
-					
-					if ($error_id != 3){
-						// As deleting threads by accident is a BAD thing, actually count the real number of posts before doing anything fancy
-						$realposts = $sql->resultq("SELECT COUNT(id) FROM posts WHERE thread = $lookup");
-						if (!$realposts && !$error_id){// we're deleting the last post
-							$sql->query("DELETE FROM threads WHERE id = $lookup");
-							update_last_post($forum['id'], false, true);
-							header("Location: forum.php?id=".$forum['id']);
-						}						
-						else update_last_post($lookup);
-					}
-					update_last_post($lookup);
-					$sql->end();
-					continue;
-				}
-				
+				// Mod post actions with no alteration to the database, making them refresh safe.
+				// Pin post (unhides)
 				if (filter_int($_GET['pin']) == $post['id'])
 					$post['deleted'] = false;
 				
-				// old version of post
+				// Get old version of post
 				if (isset($_GET['rev']) && filter_int($_GET['pid'])==$post['id'])
 					$post = array_replace($post, $sql->fetchq("SELECT text,rev crev,time,nohtml,nosmilies,nolayout,avatar FROM posts_old  WHERE pid = ".$post['id']." AND rev = ".filter_int($_GET['rev'])));
 			}

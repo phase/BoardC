@@ -34,7 +34,7 @@
 			// Topbar
 			if ($ismod)
 				$controls = "
-					<a href='thread.php?id=".$post['thread']."&pin=".$post['id']."'>Peek</a>
+					<a href='thread.php?id=".$post['thread']."&pin=".$post['id']."'>Peek</a> |
 					<a href='thread.php?id=".$post['thread']."&hide=".$post['id']."'>Undelete</a>
 				";
 		}
@@ -147,23 +147,7 @@
 		// Noobify post (implemented for absolutely no reason at all other than feature++). Also, more HTML from Jul.
 		$noobdiv = $post['noob'] ? "<div style='display: inline; position: relative; top: 0; left: 0;'><img src='images/noob/noobsticker2-".mt_rand(1,6).".png' style='position: absolute; top: -3px; left: ".floor(strlen($post['name'])*2.5)."px;' title='n00b'>" : "<div>";
 		
-		// Sidebar layout moved here
-		if (!$post['deleted'] && !$mini)
-			$sidebar = "
-				".($post['title'] ? $post['title']."<br>" : "")."
-				".($avatar ? "$avatar<br>" : "")."
-				Posts: $postcount<br>
-				EXP: [NUM]<br>
-				For Next: [NUM]<br>
-				<br>
-				Since: ".printdate($post['since'], true, false)."<br>
-				".($post['location'] ? "From: ".$post['location']."<br>" : "")."
-				<br>
-				Since last post: ".($post['lastpost'] ? choosetime(ctime()-$post['lastpost']) : "None")."<br>
-				Last activity: ".choosetime(ctime()-$post['lastview'])."
-			";
-		else $sidebar = "";
-		
+		// Print posts
 		if (isset($_GET['lol']))
 			return "
 				<table class='main w' style='border-top: none'><tr><td class='$theme'>
@@ -180,7 +164,25 @@
 				</td></tr></table>
 			";
 		
-		else if (!$mini)
+		else if (!$mini){
+			// Sidebar layout only ever used here
+			if (!$post['deleted']){
+				$sidebar = "
+					".($post['rankset'] ? doranks($post['rankset'], $post['posts']) : "")."<br>
+					".($post['title'] ? $post['title']."<br>" : "")."
+					".($avatar ? "$avatar<br>" : "")."
+					Posts: $postcount<br>
+					EXP: [NUM]<br>
+					For Next: [NUM]<br>
+					<br>
+					Since: ".printdate($post['since'], true, false)."<br>
+					".($post['location'] ? "From: ".$post['location']."<br>" : "")."
+					<br>
+					Since last post: ".($post['lastpost'] ? choosetime(ctime()-$post['lastpost']) : "None")."<br>
+					Last activity: ".choosetime(ctime()-$post['lastview'])."
+				";
+			}
+			
 			return "
 				<table id='".$post['id']."' class='main content_$uid'>
 					<tr>
@@ -190,11 +192,11 @@
 					</tr>
 					<tr>
 						<td class='sidebar_$uid $theme fonts' valign='top'>$sidebar</td>
-						<td class='mainbar_$uid $theme' valign='top' $height>".$post['head'].$post['text'].$post['sign']."</td>
+						<td class='mainbar_$uid $theme' valign='top' $height colspan='2'>".$post['head'].$post['text'].$post['sign']."</td>
 					</tr>
 				</table>
 			";
-		
+		}
 		else
 			return "
 				<tr id='".$post['id']."'>
@@ -213,7 +215,7 @@
 		$new_check = $loguser['id'] ? "(p.time > n.user{$loguser['id']})" : "0";
 		
 		$posts = $sql->query("
-		SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip as ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, p.noob,
+		SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, u.lastip ip, 1 nolayout, p.nohtml, p.nosmilies, p.lastedited, p.noob,
 				o.time rtime, NULL title, $userfields welpwelp, $new_check new
 		FROM posts p
 		LEFT JOIN users        u ON p.user   = u.id

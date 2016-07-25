@@ -3,20 +3,10 @@
 	require "lib/config.php";
 //	error_reporting(0);
 	
-	function filter_bool(&$bool){
-		if (!isset($bool)) return false;
-		else return (bool) $bool;
-	}
+	function filter_bool(&$bool){return (bool) $bool;}
+	function filter_int(&$int){return (int) $int;}
+	function filter_string(&$string){return (string) $string;}
 	
-	function filter_int(&$int){
-		if (!isset($int)) return 0;
-		else return (int) $int;
-	}
-	
-	function filter_string(&$string){
-		if (!isset($string)) return "";
-		else return (string) $string;
-	}
 	function sgfilter(&$source){
 		$result = $source;
 		$result = str_replace("\x00", "", $result);
@@ -332,6 +322,17 @@ CREATE TABLE `forums` (
   `lastposttime` int(32) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `hits` (
+  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `ip` varchar(32) NOT NULL,
+  `time` int(32) NOT NULL,
+  `page` text NOT NULL,
+  `useragent` text NOT NULL,
+  `user` int(32) NOT NULL DEFAULT '0',
+  `forum` int(32) NOT NULL DEFAULT '0',
+  `referer` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
 CREATE TABLE `ipbans` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `ip` varchar(32) DEFAULT NULL,
@@ -356,31 +357,6 @@ CREATE TABLE `jstrap` (
   `filtered` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
-CREATE TABLE `misc` (
-  `disable` tinyint(1) NOT NULL DEFAULT '0',
-  `views` int(32) NOT NULL DEFAULT '0',
-  `theme` int(32) DEFAULT NULL,
-  `threads` int(32) NOT NULL DEFAULT '0',
-  `posts` int(32) NOT NULL DEFAULT '0',
-  `noposts` tinyint(1) NOT NULL DEFAULT '0',
-  `regmode` int(1) NOT NULL DEFAULT '0',
-  `regkey` text DEFAULT NULL,
-  `threshold` int(32) NOT NULL DEFAULT '20'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO misc () VALUES ()");
-query("
-CREATE TABLE `hits` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `page` text NOT NULL,
-  `useragent` text NOT NULL,
-  `user` int(32) NOT NULL DEFAULT '0',
-  `forum` int(32) NOT NULL DEFAULT '0',
-  `referer` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
 CREATE TABLE `log` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `ip` varchar(32) NOT NULL,
@@ -402,6 +378,20 @@ CREATE TABLE `minilog` (
   `time` int(32) NOT NULL,
   `banflags` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+CREATE TABLE `misc` (
+  `disable` tinyint(1) NOT NULL DEFAULT '0',
+  `views` int(32) NOT NULL DEFAULT '0',
+  `theme` int(32) DEFAULT NULL,
+  `threads` int(32) NOT NULL DEFAULT '0',
+  `posts` int(32) NOT NULL DEFAULT '0',
+  `noposts` tinyint(1) NOT NULL DEFAULT '0',
+  `regmode` int(1) NOT NULL DEFAULT '0',
+  `regkey` text DEFAULT NULL,
+  `threshold` int(32) NOT NULL DEFAULT '20'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+INSERT INTO misc () VALUES ()");
 query("
 CREATE TABLE `news` (
   `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
@@ -479,6 +469,49 @@ CREATE TABLE `radar` (
   `sel` int(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
+CREATE TABLE `ranks` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `rankset` int(32) NOT NULL,
+  `posts` int(32) NOT NULL,
+  `text` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+INSERT INTO `ranks` (`id`, `rankset`, `posts`, `text`) VALUES
+(1, 1, 0, 'Nobody'),
+(2, 1, 1, 'Random nobody'),
+(3, 1, 10, 'User'),
+(4, 1, 25, 'Member'),
+(5, 1, 1000, 'Catgirl'),
+(6, 1, 2500, 'Common spammer'),
+(7, 2, 0, '<img src=''images/ranks/tgm/9.png''>'),
+(8, 2, 10, '<img src=''images/ranks/tgm/8.png''>'),
+(9, 2, 25, '<img src=''images/ranks/tgm/7.png''>'),
+(10, 2, 50, '<img src=''images/ranks/tgm/6.png''>'),
+(11, 2, 100, '<img src=''images/ranks/tgm/5.png''>'),
+(12, 2, 150, '<img src=''images/ranks/tgm/4.png''>'),
+(13, 2, 200, '<img src=''images/ranks/tgm/3.png''>'),
+(14, 2, 250, '<img src=''images/ranks/tgm/2.png''>'),
+(15, 2, 350, '<img src=''images/ranks/tgm/1.png''>'),
+(16, 2, 500, '<img src=''images/ranks/tgm/s1.png''>'),
+(17, 2, 750, '<img src=''images/ranks/tgm/s2.png''>'),
+(18, 2, 1000, '<img src=''images/ranks/tgm/s3.png''>'),
+(19, 2, 1250, '<img src=''images/ranks/tgm/s4.png''>'),
+(20, 2, 1500, '<img src=''images/ranks/tgm/s5.png''>'),
+(21, 2, 2000, '<img src=''images/ranks/tgm/s6.png''>'),
+(22, 2, 2500, '<img src=''images/ranks/tgm/s7.png''>'),
+(23, 2, 3250, '<img src=''images/ranks/tgm/s8.png''>'),
+(24, 2, 4000, '<img src=''images/ranks/tgm/s9.png''>'),
+(25, 2, 5000, '<img src=''images/ranks/tgm/gm.png''>');");
+query("
+CREATE TABLE `ranksets` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `name` varchar(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+query("
+INSERT INTO `ranksets` (`id`, `name`) VALUES
+(1, 'Default'),
+(2, 'TGM');");
+query("
 CREATE TABLE `ratings` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `userfrom` int(32) NOT NULL,
@@ -525,7 +558,6 @@ INSERT INTO `themes` (`id`, `name`, `file`, `special`) VALUES
 (2, 'Night (Jul)', 'night.css', '0'),
 (3, 'Hydra''s Blue Thing (Alternate)', 'hbluealt.css', '0'),
 (4, 'The Zen', 'spec-zen.css', '1');");
-
 query("
 CREATE TABLE `threads` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
@@ -600,7 +632,8 @@ CREATE TABLE `users` (
   `radar_mode` int(4) NOT NULL DEFAULT '0',
   `profile_locked` tinyint(1) NOT NULL DEFAULT '0',
   `editing_locked` int(1) NOT NULL DEFAULT '0',
-  `title_status` int(1) NOT NULL DEFAULT '0'
+  `title_status` int(1) NOT NULL DEFAULT '0',
+  `rankset` INT(4) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 query("
 INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES

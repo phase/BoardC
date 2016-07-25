@@ -353,6 +353,27 @@
 		return strtr($string, $tags);
 	}
 	
+	function doranks($rankset, $posts){
+		global $sql;
+		
+		if (!$posts) $rankset = 1;
+		
+		static $rankQuery = NULL;
+		
+		if (!$rankQuery){
+			$rankQuery = $sql->prepare("
+				SELECT text FROM ranks
+				WHERE rankset = ? AND posts <= ?
+				ORDER BY posts DESC
+				LIMIT 1
+			");
+		}
+		
+		$rankCur 	= 	$sql->execute($rankQuery, [$rankset, $posts]);
+		$res 		= 	$sql->result($rankQuery, 0);
+		return	$res;
+	}
+	
 	function dosmilies($string, $return_array = NULL){
 		static $smilies = NULL;
 		
@@ -397,16 +418,30 @@
 	
 	function findthemes($mode = false, $all = false){
 		global $sql;
+		
 		// Due to editprofile limitations I won't change, all the special themes need to be last in the list
-		//static $themes;
-		//if (!$themes)
-			$themes = $sql->fetchq("SELECT * FROM themes".($all ? "" : " WHERE special = 0"), true, PDO::FETCH_ASSOC);
+		$themes = $sql->fetchq("SELECT * FROM themes".($all ? "" : " WHERE special = 0"), true, PDO::FETCH_ASSOC);
 
 		if ($mode) // editprofile mode
 			return implode("|", array_extract($themes, "name"));
 		else
 			return $themes;
 		
+	}
+	
+	function findranks($mode = false){
+		global $sql;
+		
+		// The equivalent of the previous function, but for ranks
+		// To be called in editprofile.php
+		$ranks = $sql->query("SELECT name FROM ranksets");
+
+		$res[] = "None";
+		while ($rank = $sql->fetch($ranks))
+			$res[] = $rank['name'];
+		
+		return $mode ? implode("|", $res) : $res;
+
 	}
 	
 	// Thread.php helpers
@@ -573,16 +608,16 @@
 		global $loguser, $errors;
 		
 		static $type_txt = array(
-			1 		=> "Error",
-			2 		=> "Warning",
-			8 		=> "Notice",
-			256 	=> "User Error",
-			512 	=> "User Warning",
-			1024 	=> "User Notice",
-			2048 	=> "Strict",
-			4096 	=> "Recoverable Error",
-			8192 	=> "Deprecated",
-			16384 	=> "User Deprecated",
+			E_ERROR 			=> "Error",
+			E_WARNING 			=> "Warning",
+			E_NOTICE 			=> "Notice",
+			E_USER_ERROR 		=> "User Error",
+			E_USER_WARNING 		=> "User Warning",
+			E_USER_NOTICE 		=> "User Notice",
+			E_STRICT 			=> "Strict",
+			E_RECOVERABLE_ERROR => "Recoverable Error",
+			E_DEPRECATED 		=> "Deprecated",
+			E_USER_DEPRECATED 	=> "User Deprecated",
 		);
 		
 		if (in_array($type, array(256,512,16384)) && strpos($file,"mysql.php") !== false){ //Errors in mysql.php are a complete lie

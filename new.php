@@ -869,7 +869,7 @@
 		// A copy of a massive query to fetch almost everything threadpost needs
 		$post = $sql->fetchq("
 			SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, p.noob,
-			u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.lastpost, u.since, u.location, u.lastview
+			u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.lastpost, u.since, u.location, u.lastview, u.rankset
 			FROM posts p
 			LEFT JOIN users u     ON p.user = u.id
 			LEFT JOIN posts_old o ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)

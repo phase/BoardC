@@ -14,6 +14,18 @@
 		if (!powlcheck(5))
 			$fw_error = "";
 		
+		// Don't you hate stuff like this? I think I do!
+		if ($hacks['force-modern-web-design']){
+			$fw_error .= "
+			<noscript>
+				<div style='color: #fff; background: #000; text-align: center; font-size: 50px; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000;'>
+				YOURE USING NOSCRIPT FUCK YOU I'M A SHITHEAD WEB DESIGNER WHO ONLY CARES ABOUT WHERE IS MY MONEY  I N3EED IT!!!1!!1!
+				<br>
+				<div style='font-size: 12px'>(if you're seeing this page, the board administrator really is a fucking douchebag)</div>
+				</div>
+			</noscript>";
+		}
+		
 		$links = "";
 		
 		if (powlcheck(1))
@@ -44,9 +56,9 @@
 		
 		if ($loguser['id']){
 			if (getfilename() == 'index.php') // mark all posts read
-				$links .= " - <a href='index.php?markforumread'>Mark all forums read</a> - <a class='danger' href='index.php?markforumread&r'>Reverse</a>";
+				$links .= " - <a href='index.php?markforumread'>Mark all forums read</a>";
 			else if ($forum) // mark all posts in forum read
-				$links .= " - <a href='index.php?markforumread&forumid=$forum'>Mark forum read</a> - <a class='danger' href='index.php?markforumread&forumid=$forum&r'>Reverse II</a>";
+				$links .= " - <a href='index.php?markforumread&forumid=$forum'>Mark forum read</a>";
 		}
 		
 		$links2 = "
@@ -62,6 +74,7 @@
 		if ($config['enable-news'])
 			$links2 .= " - <a href='news.php'>News</a>";
 		$links2 .= "<br/>
+		<a href='ranks.php'>Ranks</a> - 
 		<a href='faq.php'>Rules/FAQ</a> - 
 		<a href='acs.php'>ACS</a> - 
 		<a href='latestposts.php'>Latest posts</a> - 
@@ -85,6 +98,7 @@
 			$cssmeta = explode(PHP_EOL,$css, 4);
 			$config['board-name'] 	= $cssmeta[1];
 			$config['board-title'] 	= $cssmeta[2];
+			unset($cssmeta);
 		}
 		
 		if ($show)
@@ -474,18 +488,13 @@
 	function onlineusers($forum = false){
 		global $sql, $bot, $proxy, $tor, $userfields;
 		
-		$bots = "[NUM]"; // TEMP
-		
-
-
-		// TODO: in online db specify if it's a bot, proxy or tor
-		
 		$online = $sql->query("
-			SELECT h.forum, h.ip, f.id fid, f.name fname, $userfields
+			SELECT h.forum, h.ip, f.id fid, f.name fname, $userfields, i.bot, i.proxy, i.tor
 			FROM hits h
 			
-			LEFT JOIN users u ON h.user = u.id
-			LEFT JOIN forums as f ON h.forum=f.id
+			LEFT JOIN users  u ON h.user  = u.id
+			LEFT JOIN forums f ON h.forum = f.id
+			LEFT JOIN ipinfo i ON h.ip    = i.ip
 			
 			WHERE h.time>".(ctime()-300)."
 			".($forum ? "AND h.forum = $forum" : "")."
@@ -497,26 +506,36 @@
 		$guests = 0;
 		$fname = NULL;
 		$txt = $ipdb = $udb = array();
+		$bot = $proxy = $tor = 0;
 
 		while($x = $sql->fetch($online)){
+			
 			/*
 			a separate check is needed for users and guests
 			
 			as using an unified IP check would make show up twice
 			users who for some reason have their IP changed
 			*/
-			
+	
 			if ($x['id']){ // user
 				if (filter_bool($udb[$x['id']])) continue; // don't count same users twice
 				else $udb[$x['id']] = true;
-					
+
 				$txt[] = makeuserlink(false, $x, true);
+				// Increment counters
+				$bot 	+= $x['bot'];
+				$proxy 	+= $x['proxy'];
+				$tor 	+= $x['tor'];
 				$users++;
 			}
 			else{
 				if (filter_bool($ipdb[$x['ip']])) continue; // also don't count same guests twice
 				else $ipdb[$x['ip']] = true;
 				
+				// Increment counters
+				$bot 	+= $x['bot'];
+				$proxy 	+= $x['proxy'];
+				$tor 	+= $x['tor'];
 				$guests++;
 			}
 			
@@ -526,7 +545,7 @@
 		$txt = implode(", ", $txt);
 
 		
-		$extra = powlcheck(2) ? "<!-- ([NUM] bots | [NUM] proxies | [NUM] tor users) -->" : "";
+		$extra = powlcheck(2) ? "($bot bots | $proxy proxies | $tor tor users)" : "";
 		$where = $forum ? "in $fname" : "online";
 		$p = ($users==1) ? "" : "s";
 		$k = ($guests==1) ? "" : "s";

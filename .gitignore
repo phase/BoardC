@@ -1,7 +1,6 @@
-.git/
-
 # not necessary
 sample.sql
+development.sql
 structure.txt
 versions.txt
 

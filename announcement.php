@@ -139,7 +139,7 @@
 
 		$post = $sql->fetchq("
 			SELECT p.id, p.text, p.name aname, p.title atitle, p.time, p.rev, p.user, p.forum, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited,
-			u.head, u.sign, u.lastip ip, $userfields uid, u.title, u.posts, u.since, u.location, u.lastview, u.lastpost, 0 new
+			u.head, u.sign, u.lastip ip, $userfields uid, u.title, u.posts, u.since, u.location, u.lastview, u.lastpost, 0 new, u.rankset
 			FROM announcements AS p
 			LEFT JOIN users AS u ON p.user = u.id
 			LEFT JOIN announcements_old AS o ON p.id = (SELECT MAX('o.id') FROM announcements_old o WHERE o.aid = p.id)
@@ -279,7 +279,7 @@
 	$ann = $sql->query("
 	
 		SELECT  a.id,a.name aname,a.title atitle,a.user,a.time,a.text,a.nohtml,a.nosmilies,a.nolayout,a.avatar,a.lastedited,a.rev,0 noob,o.time rtime,
-				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, u.lastpost, $new_check new
+				$userfields uid,u.title,u.head,u.sign,u.posts,u.since,u.location,u.lastview,u.lastip ip, u.lastpost, $new_check new, u.rankset
 		FROM announcements a
 		LEFT JOIN users u ON a.user = u.id
 		LEFT JOIN announcements_old  o ON o.time = (SELECT MIN(o.time) FROM announcements_old o WHERE o.aid = a.id)
