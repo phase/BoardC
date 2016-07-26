@@ -355,7 +355,7 @@
 	
 	function doranks($rankset, $posts){
 		global $sql;
-		
+		// TODO: Make sure the ranks are fetched before all at once
 		if (!$posts) $rankset = 1;
 		
 		static $rankQuery = NULL;

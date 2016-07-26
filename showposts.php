@@ -47,7 +47,7 @@
 			<table class='w' style='border-spacing: 0'>
 				<tr>
 					<td>
-						<a href='index.php'>".$config['board-name']."</a> - Posts by ".makeuserlink(false, $user, true)."
+						<a href='index.php'>".$config['board-name']."</a> - Posts by ".makeuserlink($user['uid'], $user, true)."
 					</td>
 					<td style='text-align: right'>
 						Sorting: <a href='showposts.php?id=$id&ord=0'>From oldest to newest</a> - <a href='showposts.php?id=$id&ord=1'>From newest to oldest</a>
