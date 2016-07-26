@@ -653,15 +653,24 @@
 			$chtext 	= $_POST['chtext'];
 			$chcolor 	= $_POST['chcolor'];
 			//$chvote 	= $_POST['chvote'];
+			
+			/*
+				This specific check is to skip over the last entry, but only if it is blank and the form has been previewed / posted.
+				In this case, it always belongs to the extra option, which is then shown as a blank one with the "removed" attribute.
+			*/
+			$choices = count($chtext);
+			if (!$chtext[$choices-1])
+				$choices--;
 		}
 		else{
-			for ($i=3; isset($polldata[$i+2]); $i+=2){
+			for ($i=3; isset($polldata[$i]); $i+=2){
 				$chtext[] 	= $polldata[$i];
 				$chcolor[] 	= $polldata[$i+1];
 			}
+			$choices = count($chtext);
 		}
 		
-		$choices = count($chtext);
+		
 
 		if (isset($_POST['submit'])){
 			
@@ -677,8 +686,12 @@
 			$title .= "\0".input_filters($briefing);
 			$title .= "\0".filter_int($multivote);
 			
-			for ($i = 1; $i < $choices; $i++){
-				if (isset($_POST['remove'][$i]) || !$chtext[$i]) continue;
+			for ($i = 0; $i < $choices; $i++){
+				if (isset($_POST['remove'][$i]) || !$chtext[$i]){
+					// Remove all the votes associated with this
+					$c[] = $sql->query("DELETE FROM poll_votes WHERE thread = $id AND vote = ".($i+1));
+					continue;
+				}
 				$title .= "\0".input_filters($chtext[$i])."\0".input_filters($chcolor[$i]);
 			}
 			
@@ -694,23 +707,27 @@
 		$choice_out = ""; // this is actually for the preview page, but might as well build this here
 
 		// build options from array, delete too
-		for ($i = 1, $n = 1; $i < $choices; $i++, $n++){
-			if (isset($_POST['remove'][$i]) || !$chtext[$i]){
-				$n--; // Prevent undefined offsets that erase other choices
-				continue;
-			}
+		for ($i = 0, $n = 0; $i < $choices; $i++, $n++){
+			
+			// Mark deleted entries but still show them in the option list
+			if (isset($_POST['remove'][$i]) || !$chtext[$i])
+				$deleted = true;
+			else
+				$deleted = false;
+			
 			$choice_txt .= "
 			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext[$i])."\" type='text'> &nbsp;
 			Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($chcolor[$i])."\" type='text'> &nbsp;
-			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
+			<input name='remove[$n]' value=1 type='checkbox' ".($deleted ? "checked" : "")."> Remove<br>";
 			
-			$choice_out .= "
-			<tr>
-				<td class='light' width='20%'>".$chtext[$i]."</td>
-				<td class='dim' width='60%'><table bgcolor='".$chcolor[$i]."' cellpadding='0' cellspacing='0' width='50%'><tr><td>&nbsp;</td></tr></table></td>
-				<td class='light c' width='20%'>? votes, ??.?%</td>
-			</tr>
-			";
+			if (!$deleted)
+				$choice_out .= "
+				<tr>
+					<td class='light' width='20%'>".$chtext[$i]."</td>
+					<td class='dim' width='60%'><table bgcolor='".$chcolor[$i]."' cellpadding='0' cellspacing='0' width='50%'><tr><td>&nbsp;</td></tr></table></td>
+					<td class='light c' width='20%'>? votes, ??.?%</td>
+				</tr>
+				";
 
 		}
 		
@@ -727,7 +744,7 @@
 			Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
 			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
 		
-		pageheader($thread['fname']." - New Poll");
+		pageheader($thread['fname']." - Edit Poll");
 		
 		if (isset($_POST['preview'])){
 			
@@ -751,7 +768,7 @@
 
 
 		print "
-		<a href='forum.php?id=".$thread['fid']."'>".htmlspecialchars($thread['fname'])."</a> - Edit Poll<br>
+		<a href='forum.php?id=".$thread['fid']."'>".htmlspecialchars($thread['fname'])."</a> - <a href='thread.php?id=$id'>".htmlspecialchars($thread['name'])."</a> - Edit Poll<br>
 		<center>
 		<form action='new.php?act=editpoll&id=$id' method='POST'>
 		

@@ -91,15 +91,16 @@
 			
 			$done = $sql->resultq("SELECT id FROM poll_votes WHERE user = ".$loguser['id']." AND thread = $lookup AND vote = ".filter_int($_GET['vote']));
 			
-			if ($done){// delete your vote when clicking on something you already voted on
+			if ($done){ // delete your vote when clicking on something you already voted on
 				$sql->query("DELETE from poll_votes WHERE id = $done");
 				header("Location: thread.php?id=$lookup");
+				x_die();
 			}
 			else if (!$thread['polldata'][2]) // multiple votes flag
 				$sql->query("DELETE from poll_votes WHERE user = ".$loguser['id']." AND thread = $lookup");
 
-			
 			$sql->query("INSERT INTO poll_votes (user, thread, vote) VALUES (".$loguser['id'].", $lookup, ".filter_int($_GET['vote']).")");
+			
 		}
 
 		header("Location: thread.php?id=$lookup");
