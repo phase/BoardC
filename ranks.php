@@ -61,7 +61,7 @@
 		
 		if (!$x || $x['rank'] > $ranks[$j]['posts']){ // bigger rank
 		
-			if ($usertmp){
+			if ($usertmp || $inactive){
 				$txt .= "
 				<tr>
 						<td class='dim fonts' width='200'>{$ranks[$j]['text']}</td>
