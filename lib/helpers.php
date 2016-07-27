@@ -568,6 +568,34 @@
 		return $after;
 	}
 	
+	/*
+		At some point I may add an extra salt at the end, which will be stored in the database and refreshed during backup time
+	*/
+	function hashstr($var){
+		global $config, $loguser;
+		// Sanity check
+		$str = ((string)$var).((string)$loguser['id']).$config['auth-salt'];
+		if (count($str) > 72)
+			trigger_error("Hash password will be truncated as it is over 72 characters long.", E_USER_WARNING);
+		return base64_encode(password_hash($str, PASSWORD_DEFAULT));
+	}
+	
+	function checkstr($var, $hash){
+		global $config, $loguser;
+		return password_verify(((string)$var).((string)$loguser['id']).$config['auth-salt'], base64_decode(filter_string($hash)));
+	}
+	
+	function createtoken($var){
+		return hashstr($var);
+	}
+	
+	function checktoken($var){
+		if (checkstr($var, filter_string($_GET['auth'])))
+			return true;
+		else errorpage("The token is eiher missing or has expired. Please try again.");
+	}
+
+	
 	function dec_rom($num){
 
 		$txt = "IVXLCDM";

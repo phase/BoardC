@@ -70,11 +70,17 @@
 			$newhash = password_hash($pass, PASSWORD_DEFAULT);
 			$sql->query("UPDATE users SET password='$newhash' WHERE id = ".$data['id']);
 			
-			// Update lastip info
-			$sql->query("UPDATE users SET lastip='{$_SERVER['REMOTE_ADDR']}' WHERE id = ".$data['id']);
+			$lastip = $sql->resultq("SELECT lastip FROM users WHERE id = ".$data['id']);
+			
+			if ($lastip != $_SERVER['REMOTE_ADDR']){
+				// Update lastip info
+				$sql->query("UPDATE users SET lastip='{$_SERVER['REMOTE_ADDR']}' WHERE id = ".$data['id']);
+				trigger_error("Login: User $user (ID #{$data['id']}) changed IP from $lastip to {$_SERVER['REMOTE_ADDR']}", E_USER_NOTICE);
+			}
 			
 			setcookie('id', $data['id']); // ,ctime()+3600*12
 			setcookie('verify', $newhash); // ,ctime()+3600*12
+			
 			$sql->query("DELETE from failed_logins WHERE ip = '".$_SERVER['REMOTE_ADDR']."'");
 			
 			errorpage("Successfully logged in.<br>Click <a href='index.php'>here</a> to return to the index.");
@@ -98,10 +104,10 @@
 		
 	}
 	
-	else if ($action == "Logout"){
+	else if ($action == "Logout" && checktoken("login")){
 		setcookie('id', NULL);
 		setcookie('verify', NULL);
-		errorpage("Successfully logged out.");
+		header("Location: index.php");
 	}
 	
 	else{

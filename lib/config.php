@@ -28,6 +28,7 @@
 		'trash-id' 		  => 		3,
 		'show-comments'		=>		false,
 		'pending-users-mode' =>		false,
+		'auth-salt' => "silly salt string you should change",
 		
 		// Max allowed
 		'post-limit' =>				0,

@@ -1,7 +1,7 @@
 <?php
-	
+
 	// Common board actions are now done here
-	error_reporting(0);	// Suppress everything, including fatal errors (the integrated error handler will be used instead)
+	//error_reporting(0);	// Suppress everything, including fatal errors (the integrated error handler will be used instead)
 	ini_set("default_charset", "UTF-8");
 
 	
@@ -20,7 +20,6 @@
 		dialog("BoardC", "Midnight backup time", "<center>A backup of the board is in progress.<br><br>Please wait for five minutes.");	
 	*/
 	require "lib/threadpost.php";
-	
 	
 	// Database connection. It handles the give up message by itself.
 	$sql = new mysql;
@@ -125,6 +124,7 @@
 		$misc['ajax_request'] = true;
 	else $misc['ajax_request'] = false;
 	
+	
 
 	foreach ($_POST as $sgname => $sgval)
 		$_POST[$sgname] = sgfilter($sgval);
@@ -143,6 +143,7 @@
 	$views = $miscdata['views']+1;
 	if (!$bot && !$proxy && !$tor)
 		$sql->query("UPDATE misc SET views=$views");
+	
 	
 	if (filter_int($_COOKIE['id']) && filter_string($_COOKIE['verify'])){
 		

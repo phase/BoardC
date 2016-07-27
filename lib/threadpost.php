@@ -182,6 +182,7 @@
 					Last activity: ".choosetime(ctime()-$post['lastview'])."
 				";
 			}
+			else $sidebar = "";
 			
 			return "
 				<table id='".$post['id']."' class='main content_$uid'>
