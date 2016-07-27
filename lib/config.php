@@ -93,7 +93,7 @@
 	
 	//options for dumb stuff
 	$hacks = array(
-		'replace-image-before-login' => true,
+		'replace-image-before-login' => false,
 		'correct-board-name'		 => false,
 		'test-ext'					 => false,
 		'failed-attempt-at-irc'		 => false,

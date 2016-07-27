@@ -104,7 +104,8 @@
 		
 	}
 	
-	else if ($action == "Logout" && checktoken("login")){
+	else if ($action == "Logout"){
+		checktoken();
 		setcookie('id', NULL);
 		setcookie('verify', NULL);
 		header("Location: index.php");

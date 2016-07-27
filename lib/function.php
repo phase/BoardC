@@ -229,7 +229,10 @@
 				
 				<center>In the mean time, join <b>#nktest</b> on <b>irc.badnik.zone</b>.</center>"
 			);
-	}	
+	}
+
+	// Generate a token
+	$token = gettoken();
 	
 	// RPG Stuff
 	$q = getuseritems($loguser);

@@ -1,7 +1,7 @@
 <?php
 
 	function pageheader($title, $show = true, $forum = 0){
-		global $sql, $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta, $threadbug_txt;
+		global $sql, $config, $hacks, $fw_error, $loguser, $views, $miscdata, $meta, $threadbug_txt, $token;
 		
 		$meta_txt 	= "";
 		
@@ -47,7 +47,7 @@
 				<a href='register.php'>Register</a>";
 		else
 			$links .= "
-				<a href='login.php?logout&auth=".urlencode(createtoken("login"))."'>Logout</a> - 
+				<a href='login.php?logout&auth=".urlencode($token)."'>Logout</a> - 
 				<a href='editprofile.php'>Edit profile</a> - 
 				<a href='editavatars.php'>Edit avatars</a> - 
 				<a href='radar.php'>Post radar</a> - 
