@@ -1,7 +1,7 @@
 <?php
 class mysql{
 	/*
-	MySQL Public Class. Function names mostly compatible with AB2.5x
+		MySQL Class.
 	*/
 	public $db = false;
 	public $queries = 0;
@@ -9,31 +9,24 @@ class mysql{
 	public $querytime = 0;
 	public $querylist = array();
 	
-	// The install script required a split
-	public function connect($host,$user,$pass,$persist){
+	
+	public function connect($host, $user, $pass, $dbname, $persist){
 		$start = microtime(true);
-		try{
-			$this->db = new PDO('mysql:host='.$host, $user, $pass, array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8', PDO::ATTR_PERSISTENT => $persist ? true : false, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION)); //throw warning blah
+		try {
+			$dsn 		= "mysql:host=$host;dbname=$dbname;charset=utf8"; // set the charset directly here
+			$options 	= array(
+				PDO::ATTR_PERSISTENT 			=> $persist ? true : false,
+				PDO::ATTR_ERRMODE 				=> PDO::ERRMODE_EXCEPTION, //throw warning blah
+				PDO::ATTR_EMULATE_PREPARES   	=> false, // Disable this shit
+			);
+			
+			$this->db = new PDO($dsn, $user, $pass, $options); 
 			$this->querytime += (microtime(true) - $start);			
 			return $this->db;
-			}
-		catch (PDOException $durr){
-			/*	switch($durr->getCode()){
-				case 1045: $msg = "Access denied (invalid username/password)."; break;
-				case 2002: $msg = "Couldn't connect to the MySQL server."; break;
-				
-				default: $msg = "Unspecified reason";
-			}*/
-			die("<body bgcolor=0 text=ffea><font face=arial color=white><br><center><b>Couldn't connect to the MySQL server</b><br/><br/><small>".$durr->getMessage());
 		}
-	}
-	public function selectdb($db, $is_install = false){
-		try{
-			$this->db->query("USE $db");
-		}
-		catch(PDOException $x){
-			if ($is_install) return false;
-			else die("<body bgcolor=0 text=ffea><font face=arial color=white><br><center><b>Couldn't select the database</b>");//die("Couldn't select the database $db");
+		catch (PDOException $durr) {
+			// TODO: the getMessage is for debug purposes only. remove it on the final version
+			die("<body bgcolor=0 text=ffea><font face=arial color=white><br><center><b>Couldn't connect to the MySQL server</b><br><br><small>".$durr->getMessage());
 		}
 	}
 	
@@ -97,34 +90,37 @@ class mysql{
 			trigger_error("RowCount failure", E_USER_WARNING);
 			return false;
 		}
-		}
+	}
 	public function quote($string) {return $this->db->quote($string);}
 	public function escape($string) {return $string;}
+	public function lastInsertId($obj = NULL) {return $this->db->lastInsertId($obj);}
 	
 	// Standard Query/Fetch/Result Functions
-	public function query($query){
+	public function query($query, $mode = PDO::FETCH_ASSOC){
+		$calledfrom = $this->getqueryfile(); // We only need to get file and line number
 		$start = microtime(true);
 		
 		try{
-			$ref = $this->db->query($query);
-			$result = $this->num_rows($ref);
+			$ref = $this->db->query($query, $mode);
+			//$result = $this->num_rows($ref);
 		}
 		catch (PDOException $x){
-			trigger_error("Query failure: $query | ".str_replace("You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near", "Error near: ", $this->db->errorInfo()[2])."</small>", E_USER_WARNING);
-			$result = false;// true;
+			trigger_error("Query failure: $query | ".str_replace("You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near", "Error near: ", $this->db->errorInfo()[2]), E_USER_WARNING);
+			//$result = false;// true;
 			$q_error = true;
+			$ref = false;
 		}	
 		
 		$timetaken = microtime(true) - $start;
 		$this->querytime += $timetaken;
 		$this->queries++;
-		$this->querylist[] = array($query, 0, $timetaken, isset($q_error));
+		$this->querylist[] = array($query, 0, $timetaken, isset($q_error), $calledfrom['file'], $calledfrom['line']);
 		
-		if ($result != false) return $ref;
-		else return false;
+		return $ref;
 	}
 	
 	public function exec($query){
+		$calledfrom = $this->getqueryfile();
 		$start = microtime(true);
 		try{
 			$result = $this->db->exec($query);
@@ -137,15 +133,13 @@ class mysql{
 		$timetaken = microtime(true) - $start;
 		$this->querytime += $timetaken;
 		$this->queries++;
-		$this->querylist[] = array($query, 0, $timetaken, isset($q_error));
+		$this->querylist[] = array($query, 0, $timetaken, isset($q_error), $calledfrom['file'], $calledfrom['line']);
+		
 		return $result;
 	}
 	
 	public function fetch($ref, $all = false, $style = PDO::FETCH_ASSOC){
-		if ($ref == false){
-			//trigger_error("Called fetch without checking NULL value", E_USER_WARNING);
-			return false;
-		}
+		if (!$ref) return false;
 		$start = microtime(true);
 		try{
 			$res = $all ? $ref->fetchAll($style) : $ref->fetch($style);
@@ -159,10 +153,7 @@ class mysql{
 	}
 	
 	public function result($ref, $col = 0){
-		if ($ref == false){
-			return false;
-			//trigger_error("Called result without checking NULL value", E_USER_WARNING);
-		}
+		if (!$ref) return false;
 		$start = microtime(true);
 		try{
 			$res = $ref->fetchColumn($col);
@@ -177,46 +168,79 @@ class mysql{
 	// Stubs
 	public function resultq($query, $col = 0){
 		$q = $this->query($query);
-		if (!$q) return false;
 		$res = $this->result($q);
 		return $res;
 	}
 	
 	public function fetchq($query, $all = false, $style = PDO::FETCH_ASSOC){
 		$q = $this->query($query);
-		if (!$q) return false;
 		$res = $this->fetch($q, $all, $style);
 		return $res;
 	}
 	
 
 	public function prepare($query, $option=false){
+		$calledfrom = $this->getqueryfile();
 		$start = microtime(true);
 		try{
 			$res = $this->db->prepare($query);
 		}
 		catch (PDOException $x){
-			trigger_error("Prepare failure", E_USER_WARNING);		
+			trigger_error("Prepare failure | $x", E_USER_WARNING);		
 			$res = false;
+			$q_error = true;
 		}
-		$this->querytime += (microtime(true) - $start);
+		$timetaken = microtime(true) - $start;
+		$this->querytime += $timetaken;
+		//$this->pqueries++; We don't count the initial prepare statement
+		$this->querylist[] = array(
+			$query,
+			1,
+			$timetaken,
+			isset($q_error),
+			$calledfrom['file'],
+			$calledfrom['line'],
+			true
+		);
 		return $res;
 	}
 	
 	public function execute($ref, $cmd_array = NULL){
+		if (!$ref){
+			/*
+				EXPLAINATION:
+				
+				Previously the board used emulated prepares, meaning that pquery errors would show up here.
+				Now it doesn't, so the errors show up while preparing the query, and attempting to execute a broken $ref
+				causes a fatal error.
+				
+				To prevent this mess that can't be caught in the try block (thanks PHP!), we just return false in the case.
+			*/
+			trigger_error("Execute failure for bad pquery | Values:(".implode(", ", $cmd_array).")", E_USER_WARNING);	
+			return false;
+		}
+		
+		$calledfrom = $this->getqueryfile();
 		$start = microtime(true);
 		try{
 			$status = $ref->execute($cmd_array);
 		}
 		catch (PDOException $x){
-			trigger_error("Execute failure |$x", E_USER_WARNING);		
+			trigger_error("Execute failure | $x", E_USER_WARNING);		
 			$status = false;
 			$q_error = true;
 		}
 		$timetaken = microtime(true) - $start;
 		$this->querytime += $timetaken;
 		$this->pqueries++;
-		$this->querylist[] = array($ref->queryString." | Values:(".implode(", ", $cmd_array).")", 1, $timetaken, isset($q_error));
+		$this->querylist[] = array(
+			$ref->queryString." | Values:(".implode(", ", $cmd_array).")",
+			1,
+			$timetaken,
+			isset($q_error),
+			$calledfrom['file'],
+			$calledfrom['line']
+		);
 		return $status;
 	}
 	
@@ -224,22 +248,28 @@ class mysql{
 	public function queryp($query, $vars){ //vars array
 		$ref = $this->prepare($query);
 		$res = $this->execute($ref, $vars);
-		if ($res !== false) return $ref;
-		else return false;
+		return $ref;
 	}
 	
 	public function fetchp($query, $vars, $all = false){
 		$ref = $this->queryp($query, $vars);
-		if (!$ref) return false;
 		$res = $this->fetch($ref);
 		return $res;
 	}
 	
 	public function resultp($query, $vars, $col = 0){
 		$ref = $this->queryp($query, $vars);
-		if (!$ref) return false;
 		$res = $this->result($ref, $col);
 		return $res;			
+	}
+	
+	// Get file and line number for the query
+	private function getqueryfile(){
+		$x = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0];
+		for ($i = 1; strpos($x['file'], "mysql.php"); $i++){
+			$x = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $i+1)[$i];
+		}
+		return $x;
 	}
 }
 	

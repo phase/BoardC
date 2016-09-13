@@ -1,15 +1,15 @@
 <?php
 
 	/*
-		News Engine v0.01 -- 17/05/16
+		News Engine v0.02 -- 30/08/16
 		
 		DESCRIPTION:
 		A news engine (read: alternate announcements page) that everybody can read, but only privileged or up can write.
 		The permission settings are stored in config.php
 		(this is a test for forum integration)
 		
-		TODO: 
-		- A search box
+		TODO:
+		Change the layout of this page. The current one is a placeholder that looks cramped.
 	*/
 	
 	require "lib/function.php";
@@ -19,23 +19,32 @@
 	$page		= filter_int($_GET['page']);
 	$usersort	= filter_int($_GET['user']);
 	$ord		= filter_int($_GET['ord']);
-	$filter		= filter_string($_GET['cat']);
+	$filter		= filter_string($_GET['cat'], true);
 	
+	if (filter_string($_GET['search'])){
+		$search		= filter_string($_GET['search'], true);
+	} else if (isset($_POST['search'])){
+		// Refreshing with _POST is bad
+		header("Location: ?search=".urlencode($_POST['search']));
+		x_die();
+	} else {
+		$search		= "";
+	}
 	
 	$q_filter = "";
-	if ($id)
+	if ($id) {
 		$q_filter = "AND n.id = $id";
-	else{
+	} else{
 		if ($filter){
-			// As only alphanumeric characters (and space) are allowed in tag names, never accept anything which also contains other special characters
-			// If it does, redirect to the "Suspicious request detected" page (or maybe actually edit $fw->banflags() here to force log the attempt)
-			if (alphanumeric($filter) !== $filter)
-				header("Location: index.php?sec=1");
-			$q_filter = "AND n.cat REGEXP '(;|^)$filter(;|$)'"; // Changed to check first and last characters
+			if (alphanumeric($filter) !== $filter){
+				errorpage("Invalid characters in tag.");
+				//header("Location: index.php?sec=1");
+			}
+			$q_filter = "AND n.cat REGEXP '(;|^)$filter(;|$)' "; // Changed to check first and last characters
 		}
 		if ($usersort){
 			// Sort by user ID
-			$q_filter .= " AND n.user = $usersort";
+			$q_filter .= "AND n.user = $usersort";
 		}
 	}
 
@@ -52,27 +61,73 @@
 	
 	// Notice: This does NOT store old news revisions yet. Maybe it will in the future...
 	
-	$q_where = 	"WHERE ".($canwrite ? "1" : "n.hide = 0")." $q_filter";
+	$q_where 	= 	"WHERE ".($canwrite ? "1" : "n.hide = 0")." $q_filter";
+	$offset		= $page * $loguser['ppp'];
 	
-	$news = $sql->query("
+	$news = $sql->queryp("
 		SELECT n.id, n.time, n.name newsname, n.text, n.lastedituser, n.lastedittime, n.cat, n.hide, $userfields uid
 		FROM news n
 		LEFT JOIN users u ON n.user = u.id
-		$q_where
+		$q_where AND n.text LIKE ?
 		ORDER BY n.time ".($ord ? "ASC" : "DESC")."
-		LIMIT ".$page*$loguser['ppp'].", ".$loguser['ppp']."
-	");
+		LIMIT $offset, {$loguser['ppp']}
+	", ["%$search%"]);
 	
 	// Better than staring at a blank page if you can't create new news
-	if (!$news && !$canwrite)
-		errorpage("There are no news to show.<br/>Click <a href='index.php'>here</a> to return to the forums...", false);
+	if (!$news && !$canwrite){
+		errorpage("
+			There are no news to show.<br>
+			Click <a href='index.php'>here</a> to return to the forums...
+		", false);
+	}
 	
 	
-	$newpost = $canwrite ? "News options: <a href='editnews.php?new'>New post</a> |" : "";
-	print "<br/><table class='main w fonts'><tr><td class='dark'>$newpost Sorting: <a href='?ord=0&cat=$filter&user=$usersort'>From newest to oldest</a> - <a href='?ord=1&cat=$filter&user=$usersort'>From oldest to newest</a> </td></tr></table>";
+	$newpost = $canwrite ? "Options: <a href='editnews.php?new'>New post</a> |" : "";
+	$news_count	= $sql->resultp("SELECT COUNT(n.id) FROM news n $q_where AND INSTR(n.text, ?) > 0 ", [$search]);
 	
-	$news_count	= $sql->resultq("SELECT COUNT(n.id) FROM news n $q_where");
-	$pagectrl	= dopagelist($news_count, $loguser['ppp'], "news", "&cat=$filter&user=$usersort");
+	/*
+		Number of posts (on this page)
+	*/
+	if (!$id){
+		print "<small>Showing $news_count post".($news_count == 1 ? "" : "s")." in total".
+			( /* all those little details I put here (that are making this code block bloated) are making me sad */
+				$news_count > $loguser['ppp'] ?
+				", from ".($offset + 1)." to ".($offset + $loguser['ppp'] > $news_count ? $news_count : $offset + $loguser['ppp'])." on this page" :
+				""
+			).".</small>";
+	}
+	
+	/*
+		Header
+	*/
+	print "
+	<br>
+	<form method='POST' action='?'>
+	<table class='main w'>
+		<tr>
+			<td class='dark fonts' colspan=2>".
+				"$newpost ".
+				"Sorting: <a href='?ord=0&cat=$filter&user=$usersort'>From newest to oldest</a> ".
+				"- <a href='?ord=1&cat=$filter&user=$usersort'>From oldest to newest</a> ".
+			"</td>
+		</tr>
+		<tr>
+			<td class='light c' style='width: 100px'>
+				Search
+			</td>
+			<td class='dim'>
+				<input type='text' name='search' value=\"".htmlspecialchars($search)."\">&nbsp;<input type='submit' name='dosearch' value='Search'>
+			</td>
+		</tr>
+	</table>
+	</form>
+	<br>
+	";
+	
+	/*
+		Posts
+	*/
+	$pagectrl	= dopagelist($news_count, $loguser['ppp'], "news", "&cat=$filter&user=$usersort&search=$search");
 	
 	print $pagectrl;
 	while ($post = $sql->fetch($news)){

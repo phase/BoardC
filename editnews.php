@@ -1,7 +1,7 @@
 <?php
 
 	/*
-		News editor v0.00 -- 15/05/16
+		News editor v0.01 -- 30/08/16
 		Edits the contents in the news table
 		
 		Currently contains:
@@ -14,9 +14,13 @@
 	require "lib/function.php";
 	require "lib/news_function.php";
 	
-	if (!$canwrite)
-		errorpage("Sorry, but you're not allowed to edit the news.<br/>Click <a href='news.php'>here</a> to return to the news main page.");	
-
+	if (!$canwrite){
+		errorpage("
+			Sorry, but you're not allowed to edit the news.<br>
+			Click <a href='news.php'>here</a> to return to the news main page.
+		");	
+	}
+	
 	$id	= filter_int($_GET['id']);
 	
 	
@@ -31,15 +35,18 @@
 			WHERE n.id = $id
 		");
 		
-		if (!$news) 							errorpage("The post doesn't exist!");
-		if ($loguser['id'] != $news['user'])	errorpage("You have no permission to do this!");
+		if (!$news) 										errorpage("The post doesn't exist!");
+		if (!$isadmin && $loguser['id'] != $news['user'])	errorpage("You have no permission to do this!");
+		
 		$name = isset($_POST['nname'])	? $_POST['newsname'] : $news['newsname'];
 		$text = isset($_POST['text'])	? $_POST['text']	 : $news['text'];
 		$tags = isset($_POST['cat'])	? $_POST['cat']		 : $news['cat'];
 		
 		if (isset($_POST['submit'])){
-			if (!$name || !$text)
-				errorpage("You have left one of the required fields blank!");
+			checktoken();
+			
+			if (!$name || !$text) errorpage("You have left one of the required fields blank!");
+			
 			// Prevent creation of tags without alphanumeric characters
 			$taglist = explode(";", $tags);
 			foreach($taglist as $tag)
@@ -49,22 +56,24 @@
 			// Here we go
 			$sql->queryp(
 				"UPDATE news SET name = ?, text = ?, cat = ?, lastedituser = ?, lastedittime = ? WHERE id = $id",
-				array($name, $text, $tags, $loguser['id'], ctime())
+				[$name, $text, $tags, $loguser['id'], ctime()]
 			);
 			header("Location: news.php?id=$id");
+			x_die();
 		}
 		
 		
 		pageheader("News editor");	
 		
-		if (isset($_POST['preview']))
-			print "<br/>
+		if (isset($_POST['preview'])){
+			print "<br>
 				<table class='main w'><tr><td class='head c'>Message preview</td></tr>
 				<tr><td class='dim'>".news_format(array_merge($news, $_POST))."</td></tr></table>";
-
+		}
 		
 		print "<a href='news.php'>".$config['board-name']."</a> - News editor
 		<form method='POST' action='editnews.php?id=$id&edit'>
+		<input type='hidden' name='auth' value='$token'>
 		<center><table class='main'>
 			<tr><td class='head c' colspan='2'>News editor</td></tr>
 			<!-- <tr>
@@ -81,8 +90,8 @@
 			</tr>
 			<tr>
 				<td class='light c'>
-					<b>Tags:</b><small><br/>
-					Only alphanumeric characters and spaces allowed<br/>
+					<b>Tags:</b><small><br>
+					Only alphanumeric characters and spaces allowed<br>
 					Multiple tags should be separated by ;
 					</small>
 				</td>
@@ -109,6 +118,8 @@
 		$_POST['hide']	= 0;
 		
 		if (isset($_POST['submit'])){
+			checktoken();
+			
 			if (!$name || !$text)
 				errorpage("You have left one of the required fields blank!");
 			// Prevent creation of tags without alphanumeric characters
@@ -123,21 +134,23 @@
 				array($name, $text, $tags, $loguser['id'], ctime())
 			);
 			
-			$id = $sql->resultq("SELECT MAX(id) FROM news");
+			$id = $sql->resultq("SELECT LAST_INSERT_ID()");
 			header("Location: news.php?id=$id");
+			x_die();
 		}
 		
 		
 		pageheader("News editor [New]");	
 		
 		if (isset($_POST['preview']))
-			print "<br/>
+			print "<br>
 				<table class='main w'><tr><td class='head c'>Message preview</td></tr>
 				<tr><td class='dim'>".news_format(array_merge($loguser,$_POST))."</td></tr></table>";
 
 		
 		print "<a href='news.php'>".$config['board-name']."</a> - Add news
 		<form method='POST' action='editnews.php?new'>
+		<input type='hidden' name='auth' value='$token'>
 		<center><table class='main'>
 			<tr><td class='head c' colspan='2'>News editor</td></tr>
 			<!-- <tr>
@@ -154,8 +167,8 @@
 			</tr>
 			<tr>
 				<td class='light c'>
-					<b>Tags:</b><small><br/>
-					Only alphanumeric characters and spaces allowed<br/>
+					<b>Tags:</b><small><br>
+					Only alphanumeric characters and spaces allowed<br>
 					Multiple tags should be separated by ;
 					</small>
 				</td>
@@ -170,6 +183,7 @@
 		
 	}
 	else if (isset($_GET['del'])){
+		checktoken(true); // ?
 		// ACTION: Hide/Unhide from normal users and guests
 		if (!$id) errorpage("No news ID specified.");
 		
@@ -184,6 +198,7 @@
 		header("Location: news.php");
 	}
 	else if (isset($_GET['kill'])){
+		checktoken(true);
 		// ACTION: Delete from database
 		if (!$id) 		errorpage("No news ID specified.");
 		if (!$isadmin)  errorpage("You're not allowed to do this!");

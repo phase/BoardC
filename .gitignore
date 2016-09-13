@@ -1,20 +1,19 @@
-# not necessary
-sample.sql
-development.sql
-structure.txt
-versions.txt
-
 # user avatar folder
 userpic/*
 
 # trade secrets
+ext/downloader.php
 lib/firewall.php
+cookieban.php
+library2.php
+fw.sql
 images/secret/*
 lib/*.dat
 lib/*.csv
 lib/*.txt
 
-# files pending a rewrite
-tortesthing.php
-library2.php
-cookieban.php
+# not needed anymore as install.php should generate it
+lib/config.php
+
+# these files wouldn't work due to missing features
+admin-pendingusers.php

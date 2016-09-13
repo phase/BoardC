@@ -1,9 +1,8 @@
 <?php
-
+	
 	require "lib/function.php";
 
-	if (!powlcheck(4))
-		errorpage("<a href='index.php?sec=1'>Make me a local mod!</a>");
+	admincheck();
 
 	pageheader("Local Mods");
 	
@@ -11,167 +10,184 @@
 
 	$id = filter_int($_GET['id']);
 	
-	if ($id){
-		if (!$sql->resultq("SELECT 1 FROM forums WHERE id=$id"))
-			errorpage("Forum ID #$id doesn't exist.");
-		
-		$forumname = $sql->resultq("SELECT name FROM forums WHERE id=$id");
-		
-		if (isset($_POST['go'])){
-			
-			//errorpage("Under construction", false);
-			
-			$sql->start();
-			
-			$remove = $sql->prepare("DELETE FROM forummods WHERE fid = $id AND uid = ?");
-			$add 	= $sql->prepare("INSERT INTO forummods (fid, uid) VALUES ($id, ?)");
-			
-
-			if (isset($_POST['forummods']))
-				if (is_array($_POST['forummods']))
-					foreach ($_POST['forummods'] as $k)
-						$c[] = $sql->execute($remove, array($k));
-
-			for ($i=0;$i<3;$i++)
-				if (isset($_POST["userlist$i"]))
-					if (is_array($_POST["userlist$i"]))
-						foreach ($_POST["userlist$i"] as $k)
-							$c[] = $sql->execute($add, array($k));
-				
-			if (!isset($c)) errorpage("Nothing to update.", false);
-			
-			$message = ($sql->finish($c)) ? "'$forumname' mods updated!" : "Couldn't update the mod list.";
-			
-			errorpage($message, false);
-			errorpage("",false);
-
-		}
-
-		// Build user listboxes (multiple)		
-		$userlist = array("", "", "");
+	$valid = $sql->resultq("SELECT 1 FROM forums WHERE id = $id");
+	if (!$valid){
+		$id = $sql->resultq("SELECT MIN(id) FROM forums");
+	}
 	
-		$userlistq = $sql->query("SELECT id, name, powerlevel FROM users WHERE powerlevel IN (0, 1, 2)");
+	$forumname = $sql->resultq("SELECT name FROM forums WHERE id = $id");
+	
+	if (isset($_POST['go'])){
 		
-		if ($userlistq){
-			while ($user = $sql->fetch($userlistq))
-				$userlist[$user['powerlevel']] .= "<option value='".$user['id']."'>".$user['name']."</option>\n";
+		checktoken();
+		
+		$sql->start();
+		
+		$remove = $sql->prepare("DELETE FROM forummods WHERE fid = $id AND uid = ?");
+		$add 	= $sql->prepare("INSERT INTO forummods (fid, uid) VALUES ($id, ?)");
+		
+		
+		if (isset($_POST['forummods']))
+			if (is_array($_POST['forummods']))
+				foreach ($_POST['forummods'] as $k)
+					$c[] = $sql->execute($remove, array($k));
+
+		for ($i=0;$i<3;$i++)
+			if (isset($_POST["userlist$i"]))
+				if (is_array($_POST["userlist$i"]))
+					foreach ($_POST["userlist$i"] as $k)
+						$c[] = $sql->execute($add, array($k));
 			
-			unset($user);
-		}
-		unset($userlistq);	
+		if (isset($c)) 	$message = ($sql->finish($c)) ? "Updated local mod list for <b>".htmlspecialchars($forumname)."</b>!" : "Couldn't update the mod list.";
+		else			$message = "There was nothing to update.";
 		
-		
-		// Get Forum Mods
-		$modlist = "";
-		
-		$forummods = $sql->query("
-		SELECT f.uid user, u.name username, u.powerlevel powl
+		//print messagebar("Message", $message);
+		setmessage($message);
+		header("Location: ?id=$id");
+		x_die();
+
+	}
+
+	// Get existing forum mods
+	
+	
+	$forummods = $sql->query("
+		SELECT f.uid, u.name, u.displayname, u.powerlevel
 		FROM forummods AS f
-		LEFT JOIN users AS u
-		ON f.uid = u.id
-		WHERE f.fid=$id
-		ORDER BY f.fid
-		");
-		
-		if ($forummods){
-			while($mods = $sql->fetch($forummods))
-				$modlist .= "<option value='".$mods['user']."'>".$mods['username']." [Powl: ".$mods['powl']."]</option>\n";
-
-			unset($mods);
-		}
-		else $mods_cnt = false;
-		unset($forummods);
-		
-		print "<br/><center><form method='POST' action='admin-editmods.php?id=$id'>
-		<table class='main'>
-			<tr><td class='head c' colspan=2>Forum Mods - $forumname</td></tr>
-			
-			<tr>
-				<td class='dark c' colspan=2>
-					Select the users to add/remove, then click on Save Settings.<br/><small>Better description coming soon (?)</small>
-				</td>
-			</tr>
-			
-			<tr><td class='head c'>Remove users:</td><td class='head c' colspan=2>Add users:</td></tr>
-			
-			<tr>
-				<td class='light' style='text-align: right;'>
-					Current local mods:<br/>
-					<select size='10' style='min-width: 200px' name='forummods[]' multiple>
-						$modlist
-					</select>
-				</td>
-				<td class='dim'>
-					<table><tr><td>
-						User list (Normal)</br>
-						<select size='10' style='min-width: 200px' name='userlist0[]' multiple>
-							".$userlist[0]."
-						</select>
-					</td><td>
-						User list (Privileged)</br>
-						<select size='10' style='min-width: 200px' name='userlist1[]' multiple>
-							".$userlist[1]."
-						</select>
-					</td><td>
-						User list (Staff)</br>
-						<select size='10' style='min-width: 200px' name='userlist2[]' multiple>
-							".$userlist[2]."
-						</select>
-					</td></tr></table>
-				</td>
-			</tr>
-			
-			<tr>
-				<td class='dark' colspan=3>
-					<input type='submit' value='Save Settings' name='go'>
-				</td>
-			</tr>
-		</table>
-		</form></center>
-		";
-
-		
-	}
-	else{
-
-		$forumlist = "";
-		$cat = 0;
-		$cattxt = array();
-		
-		$forums = $sql->query("
-		SELECT f.id id, f.name name, title, hidden, threads, posts, category
-		FROM forums AS f
-		LEFT JOIN categories AS c
-		ON category = c.id
-		ORDER BY c.ord , f.ord, f.id		
-		");
-		
-		$categories = $sql->query("SELECT id, name, ord, powerlevel FROM categories ORDER BY ord");
-		
-		while($category = $sql->fetch($categories))
-			$cattxt[$category['id']] = $category['name'];
-		
-		while($forum = $sql->fetch($forums)){
-			if ($cat != $forum['category']){
-				$cat = $forum['category'];
-				$forumlist .= "<b>".(isset($cattxt[$cat]) ? $cattxt[$cat] : "Invalid Category [ID #".$forum['category']."]")."</b><br/>";
-				//$cat++;
+		LEFT JOIN users AS u ON f.uid = u.id
+		WHERE f.fid = $id
+		ORDER BY u.powerlevel DESC
+	");
+	
+	$modlist 	= "";
+	$powl 		= NULL;
+	$duplicates = array(0);
+	
+	if ($forummods){
+		while($mods = $sql->fetch($forummods)){
+			// Instead of printing the powerlevel after the name, use different optgroups
+			if ($powl != $mods['powerlevel']){
+				$powl 		= $mods['powerlevel'];
+				$modlist   .= "</optgroup><optgroup label='{$power_txt[$powl]}'>";
 			}
-			$forumlist .= "<a href='admin-editmods.php?id=".$forum['id']."'>".$forum['name']."</a><br/>";
+			$modlist .= "
+				<option value='{$mods['uid']}'>
+					".htmlspecialchars($mods['displayname'] ? $mods['displayname'] : $mods['name'])."
+				</option>";
+			$duplicates[] = $mods['uid'];// used to hide these in the user list
 		}
-		
-		print "<br/><table class='main w'>
-		<tr><td class='head c'>Forum Mods</td></tr>
-		
-		<tr><td class='dim c'>Select a forum from the list to edit the local moderators.</td></tr>
-
-		<tr><td class='dark'></td></tr>
-		
-		<tr><td class='light c'>$forumlist</tr>
-		</table>";
-		
+		$modlist .= "</optgroup>";
+		unset($mods);
 	}
 	
+	// Build user listboxes (multiple)		
+	$userlist = array("", "", "");
+
+	$userlistq = $sql->query("
+		SELECT id, name, displayname, powerlevel
+		FROM users
+		WHERE powerlevel IN (0, 1, 2) AND id NOT IN (".implode(",", $duplicates).")
+	");
+	
+	if ($userlistq){
+		while ($user = $sql->fetch($userlistq)){
+			$userlist[$user['powerlevel']] .= "
+				<option value='{$user['id']}'>
+					".htmlspecialchars($user['displayname'] ? $user['displayname'] : $user['name'])."
+				</option>";
+		}
+		unset($user);
+	}
+	unset($userlistq);	
+	
+	
+	// Forum jumping copied from the function, but with some changes (it shows forums in invalid category IDs)
+	$forums = $sql->query("
+		SELECT f.id, f.name, f.category, c.name catname
+		FROM forums f
+		LEFT JOIN categories c ON f.category = c.id
+		ORDER BY c.ord , f.ord, f.id
+	");
+	$cat 		= NULL;
+	$forumjump 	= "";
+	while ($forum = $sql->fetch($forums)){
+		// $cat holds the previous category id, and it's updated only when it changes
+		if ($forum['category'] != $cat){
+			$cat 		= $forum['category'];
+			if (!$forum['catname']) $forum['catname'] = "[Invalid category ID #$cat]";
+			$forumjump .= "</optgroup><optgroup label='{$forum['catname']}'>";
+		}
+		
+		$forumjump .= "<option value={$forum['id']} ".($id == $forum['id'] ? "selected" : "").">{$forum['name']}</option>";
+	}
+	
+	print $message;
+	?>
+	<center>
+	<form method='POST' action='admin-editmods.php?id=<?php echo $id ?>'>
+	<input type='hidden' name='auth' value='<?php echo $token ?>'>
+	
+	<b>Select a forum from the list:</b>
+	<select name='id' onChange='parent.location="?id="+this.options[this.selectedIndex].value'>
+		<?php echo $forumjump ?>
+		</optgroup>
+	</select>
+	<noscript><input type='submit' value='Go' name='fjumpgo'></noscript>
+	<br>
+	<br>
+	<table class='main'>
+		<tr><td class='head c' colspan=2>Forum Mods - <?php echo $forumname ?></td></tr>
+		
+		<tr>
+			<td class='dark c' colspan=2>
+				Select the users to add/remove, then click on Save Settings.<br><small>Better description coming soon (?)</small>
+			</td>
+		</tr>
+		
+		<tr><td class='head c'>Remove users:</td><td class='head c' colspan=2>Add users:</td></tr>
+		
+		<tr>
+			<td class='light' style='text-align: right;'>
+				Current local mods:<br>
+				<select size='10' style='min-width: 200px' name='forummods[]' multiple>
+					<?php echo $modlist ?>
+				</select>
+			</td>
+			<td class='dim'>
+				<table>
+					<tr>
+						<td>
+							User list (<?php echo $power_txt[0] ?>)</br>
+							<select size='10' style='min-width: 200px' name='userlist0[]' multiple>
+								<?php echo $userlist[0] ?>
+							</select>
+						</td><td>
+							User list (<?php echo $power_txt[1] ?>)</br>
+							<select size='10' style='min-width: 200px' name='userlist1[]' multiple>
+								<?php echo $userlist[1] ?>
+							</select>
+						</td><td>
+							User list (<?php echo $power_txt[2] ?>)</br>
+							<select size='10' style='min-width: 200px' name='userlist2[]' multiple>
+								<?php echo $userlist[2] ?>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		
+		<tr>
+			<td class='dark' colspan=3>
+				<input type='submit' value='Save Settings' name='go'>
+			</td>
+		</tr>
+	</table>
+	
+	</form>
+	</center>
+	<?php
+
 	pagefooter();
 
 ?>

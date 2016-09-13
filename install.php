@@ -1,728 +1,849 @@
 <?php
+	/*
+		An installer...
+		...with the layout based from the installer in AB 1.92.08
+		
+		this file trusts you to not be an idiot
+	*/
+	
+	
+	define('LAST_PAGE', 7);
+	define('CONFIG_LENGTH', 29); // Pad with spaces until char 29. Increase it when values aren't aligned.
+	
+	if (file_exists("lib/config.php")) require "lib/config.php";
+	else $config['default-time-zone'] = 0;
+	require "lib/helpers.php";
+	require "lib/layout.php";
+	
+	
 
-	require "lib/config.php";
-//	error_reporting(0);
 	
-	function filter_bool(&$bool){return (bool) $bool;}
-	function filter_int(&$int){return (int) $int;}
-	function filter_string(&$string){return (string) $string;}
+	// Welp
+	// This takes advantage of the .htaccess rules in the lib folder
+	// (this is a pretty bad design but w/e)
+	if (!file_exists("lib/token.txt")){
+		$h = fopen("lib/token.txt", 'wb');
+		fwrite($h, openssl_random_pseudo_bytes(10));
+		fclose($h);
+	}
 	
-	function sgfilter(&$source){
-		$result = $source;
-		$result = str_replace("\x00", "", $result);
-		$result = preg_replace("'[\x01-\x09\x0B-\x1F\x7F]'", "", $result);
-		$result = str_replace("\xC2\xA0","\x20", $result);
-		$result = preg_loop($result, "\xC2+[\x80-\x9F]");
-		$result = html_entity_decode($result, ENT_NOQUOTES, 'UTF-8');
-		$result = preg_replace("'(&#x?([0-9]|[a-f])+[;>])'si", "<img src='images/coin.gif'>", $result);
-		return $result;
-	}
-	function preg_loop($before, $remove){
-		$after = NULL;
-		while ($before != $after){
-			if ($after === NULL) $after = $before;
-			else $before = $after;
-			$after = preg_replace("'$remove'", "", $after);
-		}
-		return $after;
-	}
-	function ctime(){return time()+$GLOBALS['config']['default-time-zone'];}
-	function printdate($t){return date($GLOBALS['config']['default-date-format']." ".$GLOBALS['config']['default-time-format'], $t+$GLOBALS['config']['default-time-zone']);}
-	
-	function query($q){
-		global $sql, $errors, $q_errors, $ok;
-		$res = $sql->exec($q);
-		if ($res === false) {$errors++; $q_errors[] = $q; print "$q NG!\n";}
-		else $ok++;
-	}
+	$token = hash("sha256", file_get_contents("lib/token.txt"));
 
-	function dialog($desc, $contents, $buttons, $title="Installer"){
-		global $config;
-		die("
+	if (file_exists("lib/firewall.php")) {
+		define('INTERNAL_VER', true);
+	}
+	
+	?>
+	
 <!doctype html>
 <html>
 	<head>
-		<title>BoardC Installer</title>
-			<style type='text/css'>
-				body {
-					background: #999;
-					font-family: Verdana, Geneva, sans-serif;
-					font-size: 13px;
-					color: #fff;
-					
-					background-color: #000F1F;
-					background-image: url('images/themes/night/starsbg.png');
-				}
-				body, table {
-					color: #DDDDDD;
-					font:13px verdana;
-				}
-
-				.danger{
-					color: #FF0000 !important;
-				}
-				.selected{
-					color: #FFFF00 !important;
-				}
-				.disabled{
-					color: #888888 !important;
-				}
-				.notice{
-					color: #FFF !important;
-				}
-				.fonts {
-					font: 10px verdana;
-				}
-				.c{
-					text-align: center;
-				}
-
-				.w{
-					width: 100%;
-				}
-
-				a:link,a:visited,a:active,a:hover{text-decoration:none;font-weight:bold;}
-				a:link		{color: #BEBAFE}
-				a:visited	{color: #9990C0}
-				a:active	{color: #CFBEFF}
-				a:hover		{color: #CECAFE}
-
-				table.main{
-					border-spacing: 0px;
-					color: #fff;
-					border-top:	#000000 1px solid;
-					border-left: #000000 1px solid;
-				}
-
-				td.light,td.dim,td.head,td.dark{
-					border-right:	#000000 1px solid;
-					border-bottom:	#000000 1px solid;
-				}
-
-				.light{
-					background: #111133;
-					
-				}
-				.dim{
-					background: #11112B;
-				}
-				.head{
-					background: #302048;
-					color: #FFEEFF;
-				}
-				.dark{
-					background: #2F2F5F;
-					color: #FFEEFF;
-				}
-
-
-				textarea, input, select, button {
-					border: 1px solid #663399;
-					background-color: #000000;
-					color: #DDDDDD;
-				  font:	10pt verdana;
-				}
-				.submit {
-					border: 2px solid #663399;
-				}
-				input.radio {
-					border:	none;
-					background: none;
-					color: #DDDDDD;
-					font:	10pt verdana;
-				}
-			</style>
-			
-			<link rel='icon' type='image/png' href='images/favicon.png'>
-			
-		</head>
-		<body>
-			<table class='main c w fonts'>
-				<tr>
-					<td colspan=3 class='light b'><a href='".$config['board-url']."'>".$config['board-title']."</a><br/><a href='install.php'>Restart installation</a></td>
-				</tr>
-				<tr>
-					<td class='dim' style='width: 120px'>
-						<nobr>Views: 0</nobr>
-					</td>
-					<td class='dim'>
-						&nbsp;<br/>&nbsp;
-					</td>
-					<td class='dim' style='width: 120px'>
-						<nobr>".printdate(ctime())."</nobr>
-					</td>
-					
-				</tr>			
-				<tr><td colspan=3 class='dim'></td></tr>
-			</table>
-			<br/>
-			<center><form method='POST' action='install.php'><table class='main'>
-				<tr>
-					<td class='head c'><center><b>$title</b></center></td>
-				</tr>
-				<tr><td class='light c'>$desc</td></tr>
-				<tr><td class='dim'><center>$contents</center></td></tr>
-				<tr><td class='dark c'>$buttons</td></tr>
-			</table></form>
-			<br/>
-			
-			<table class='main c fonts'><tr><td class='light'>
-			BoardC ".$config['board-version']."<br/>
-			&copy; 2016 Kak
-			</td></tr></table>
-			</center>		
-			
-		</body>
-		</html>");
-	}
-	
-	$step = filter_int($_POST['step']);
-	
-	if ($step){
-		require "lib/mysql.php";
-		$sql = new mysql;
-		$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
-	}
-	if (!$step){
-		dialog(	"This will setup BoardC ".$config['board-version'],
-				"BoardC will be configured under these settings:<br/><br/>
-
-					<table class='special head'>
-					<tr><td class='light'>SQL Host:</td><td class='light'>$sqlhost</td></tr>
-					<tr><td class='light'>SQL User:</td><td class='light'>$sqluser</td></tr>
-					<tr><td class='light'>SQL Password:</td><td class='light'>$sqlpass</td></tr>
-					<tr><td class='light'>SQL Database:</td><td class='light'>$sqldb</td></tr>
-					<tr><td class='light'>Deleted User ID:</td><td class='light'>".$config['deleted-user-id']."</td></tr>
-					</table><br/>
-					
-				If these are correct, click 'Continue'. Otherwise, edit config.php in the 'lib' directory.",
-				"<input type='submit' name='start' value='Continue'><input type='hidden' name='step' value=1>");
-	}				
-	else if ($step == 1){
-		$width = "style='width: 210px'";
-		dialog(	"Login information and setup options",
-		"This will be used to login to the board.<br/><br/>
-
-			<table class='special head'>
-			<tr><td class='dark c' colspan='2'><b>User ID #1 Login info</b></td></tr>
-			<tr><td class='light'>Username:</td><td class='light'><input type='text' name='username' $width></td></tr>
-			<tr><td class='light'>Password:</td><td class='light'><input type='text' name='pass1' $width></td></tr>
-			<tr><td class='light'>Retype Password:</td><td class='light'><input type='text' name='pass2' $width></td></tr>
-			<tr><td class='dark c' colspan='2'><b>Setup options</b></td></tr>
-			<tr><td class='light' colspan='2'><input type='checkbox' name='addforum' value=1 checked> Create sample forums/categories</td></tr>
-			<tr><td class='light' colspan='2'><input type='checkbox' name='additems' value=1 checked> Create sample item shop item(s)</td></tr>
-			<tr><td class='light' colspan='2'><input type='checkbox' name='autodel' value=1 > Delete install.php if the installation is successful</td></tr>
-			</table><br/>
-			
-		Click Install to start executing the SQL commands. This may take more than a minute.<br/>WARNING: This will drop the specified database!",
-		"<input type='submit' name='start' value='Install'><input type='hidden' name='step' value=2>");
-	}
-	else if ($step == 2){
-		$name = filter_string($_POST['username']);
-		$pass1 = filter_string($_POST['pass1']);
-		$pass2 = filter_string($_POST['pass2']);
-		
-		$return = "<input type='submit' name='start' value='Return'><input type='hidden' name='step' value=1>";
-		
-		if (!$name) dialog("", "You have left the username field empty!", $return, "Error");
-		if (!$pass1) dialog("", "You have left the password field empty!", $return, "Error");
-		if ($pass1 != $pass2) dialog("", "The passwords you entered don't match.", $return, "Error");
-		
-		// Here we go
-		print "<!doctype html><title>Installer</title><body style='background: #008; color: #fff;'>
-		<pre><b style='background: #fff; color: #008'>BoardC Installer</b>\n\nInstalling...";
-
-		$sql->query("DROP DATABASE IF EXISTS `$sqldb`");	
-		$sql->start();
-		
-		$errors = 0;
-		$q_errors = array();
-		$ok = 0;
-		
-		set_time_limit(0); //Fatal error:  Maximum execution time of 30 seconds exceeded in C:\xampp\htdocs\boardx\lib\mysql.php on line 128
-		
-query("
-CREATE DATABASE `$sqldb`; DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
-$sql->selectdb($sqldb);
-
-query("
-CREATE TABLE `announcements` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` text NOT NULL,
-  `title` text,
-  `user` int(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `text` text NOT NULL,
-  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
-  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
-  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0',
-  `forum` int(32) NOT NULL DEFAULT '0',
-  `lastedited` int(32) NOT NULL DEFAULT '0',
-  `rev` int(5) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `announcements_old` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `aid` int(32) NOT NULL,
-  `name` text NOT NULL,
-  `title` text NOT NULL,
-  `text` text NOT NULL,
-  `time` int(32) NOT NULL,
-  `rev` int(4) NOT NULL,
-  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
-  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
-  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `announcements_read` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user1` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='ID is equal to the forum id, NOT to the announcement ID like the previous system';");
-query("
-CREATE TABLE `bots` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` text NOT NULL,
-  `malicious` tinyint(1) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `categories` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(128) NOT NULL,
-  `powerlevel` int(1) NOT NULL DEFAULT '0',
-  `ord` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `failed_logins` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) NOT NULL,
-  `attempt` tinyint(1) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `forummods` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `fid` int(32) NOT NULL,
-  `uid` int(32) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `forums` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(256) NOT NULL,
-  `title` varchar(256) NOT NULL,
-  `powerlevel` int(1) NOT NULL DEFAULT '0',
-  `hidden` tinyint(1) NOT NULL DEFAULT '0',
-  `threads` int(32) NOT NULL DEFAULT '0',
-  `posts` int(32) NOT NULL DEFAULT '0',
-  `category` int(32) NOT NULL DEFAULT '0',
-  `ord` int(32) NOT NULL DEFAULT '0',
-  `theme` int(32) DEFAULT NULL,
-  `lastpostid` int(32) DEFAULT NULL,
-  `lastpostuser` int(32) DEFAULT NULL,
-  `lastposttime` int(32) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `hits` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `page` text NOT NULL,
-  `useragent` text NOT NULL,
-  `user` int(32) NOT NULL DEFAULT '0',
-  `forum` int(32) NOT NULL DEFAULT '0',
-  `referer` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `ipbans` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) DEFAULT NULL,
-  `time` int(32) DEFAULT NULL,
-  `reason` varchar(255) DEFAULT NULL,
-  `userfrom` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `ipinfo` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` text NOT NULL,
-  `bot` tinyint(1) NOT NULL DEFAULT '0',
-  `proxy` tinyint(1) NOT NULL DEFAULT '0',
-  `tor` tinyint(1) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `jstrap` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user` int(32) NOT NULL,
-  `ip` varchar(32) NOT NULL,
-  `source` text NOT NULL,
-  `filtered` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `log` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `get` text NOT NULL,
-  `post` text NOT NULL,
-  `cookie` text NOT NULL,
-  `useragent` text NOT NULL,
-  `referer` text NOT NULL,
-  `host` text NOT NULL,
-  `page` text NOT NULL,
-  `banflags` text NOT NULL,
-  `requests` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `minilog` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `banflags` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `misc` (
-  `disable` tinyint(1) NOT NULL DEFAULT '0',
-  `views` int(32) NOT NULL DEFAULT '0',
-  `theme` int(32) DEFAULT NULL,
-  `threads` int(32) NOT NULL DEFAULT '0',
-  `posts` int(32) NOT NULL DEFAULT '0',
-  `noposts` tinyint(1) NOT NULL DEFAULT '0',
-  `regmode` int(1) NOT NULL DEFAULT '0',
-  `regkey` text DEFAULT NULL,
-  `threshold` int(32) NOT NULL DEFAULT '20'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO misc () VALUES ()");
-query("
-CREATE TABLE `news` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` text NOT NULL,
-  `text` text NOT NULL,
-  `user` int(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `cat` text,
-  `hide` tinyint(1) NOT NULL DEFAULT '0',
-  `lastedituser` int(32) NOT NULL DEFAULT '0',
-  `lastedittime` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Used by the external \"plugin\" news.php';");
-query("
-CREATE TABLE `pendingusers` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(32) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `lastip` varchar(32) DEFAULT NULL,
-  `since` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `pms` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` text NOT NULL,
-  `title` text NOT NULL,
-  `user` int(32) NOT NULL,
-  `userto` int(32) NOT NULL,
-  `time` int(32) NOT NULL,
-  `text` text NOT NULL,
-  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
-  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
-  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0',
-  `new` tinyint(1) NOT NULL DEFAULT '1'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `poll_votes` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user` int(32) NOT NULL,
-  `thread` int(32) NOT NULL,
-  `vote` int(8) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `posts` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `text` text NOT NULL,
-  `time` int(32) NOT NULL,
-  `thread` int(32) NOT NULL,
-  `user` int(32) NOT NULL,
-  `rev` int(4) NOT NULL,
-  `deleted` tinyint(1) NOT NULL DEFAULT '0',
-  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
-  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
-  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
-  `lastedited` int(32) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0',
-  `noob` tinyint(1) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `posts_old` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `pid` int(32) NOT NULL,
-  `text` text NOT NULL,
-  `time` int(32) NOT NULL,
-  `rev` int(4) NOT NULL,
-  `nohtml` tinyint(1) NOT NULL DEFAULT '0',
-  `nosmilies` tinyint(1) NOT NULL DEFAULT '0',
-  `nolayout` tinyint(1) NOT NULL DEFAULT '0',
-  `avatar` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `radar` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user` int(32) NOT NULL,
-  `sel` int(32) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `ranks` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `rankset` int(32) NOT NULL,
-  `posts` int(32) NOT NULL,
-  `text` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `ranks` (`id`, `rankset`, `posts`, `text`) VALUES
-(1, 1, 0, 'Nobody'),
-(2, 1, 1, 'Random nobody'),
-(3, 1, 10, 'User'),
-(4, 1, 25, 'Member'),
-(5, 1, 1000, 'Catgirl'),
-(6, 1, 2500, 'Common spammer'),
-(7, 2, 0, '<img src=''images/ranks/tgm/9.png''>'),
-(8, 2, 10, '<img src=''images/ranks/tgm/8.png''>'),
-(9, 2, 25, '<img src=''images/ranks/tgm/7.png''>'),
-(10, 2, 50, '<img src=''images/ranks/tgm/6.png''>'),
-(11, 2, 100, '<img src=''images/ranks/tgm/5.png''>'),
-(12, 2, 150, '<img src=''images/ranks/tgm/4.png''>'),
-(13, 2, 200, '<img src=''images/ranks/tgm/3.png''>'),
-(14, 2, 250, '<img src=''images/ranks/tgm/2.png''>'),
-(15, 2, 350, '<img src=''images/ranks/tgm/1.png''>'),
-(16, 2, 500, '<img src=''images/ranks/tgm/s1.png''>'),
-(17, 2, 750, '<img src=''images/ranks/tgm/s2.png''>'),
-(18, 2, 1000, '<img src=''images/ranks/tgm/s3.png''>'),
-(19, 2, 1250, '<img src=''images/ranks/tgm/s4.png''>'),
-(20, 2, 1500, '<img src=''images/ranks/tgm/s5.png''>'),
-(21, 2, 2000, '<img src=''images/ranks/tgm/s6.png''>'),
-(22, 2, 2500, '<img src=''images/ranks/tgm/s7.png''>'),
-(23, 2, 3250, '<img src=''images/ranks/tgm/s8.png''>'),
-(24, 2, 4000, '<img src=''images/ranks/tgm/s9.png''>'),
-(25, 2, 5000, '<img src=''images/ranks/tgm/gm.png''>');");
-query("
-CREATE TABLE `ranksets` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(64) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `ranksets` (`id`, `name`) VALUES
-(1, 'Default'),
-(2, 'TGM');");
-query("
-CREATE TABLE `ratings` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `userfrom` int(32) NOT NULL,
-  `userto` int(32) NOT NULL,
-  `rating` int(4) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `shop_categories` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(64) NOT NULL,
-  `title` varchar(128) NOT NULL,
-  `ord` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `shop_items` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(64) NOT NULL,
-  `title` text NOT NULL,
-  `cat` int(32) NOT NULL,
-  `hp` varchar(32) NOT NULL,
-  `mp` varchar(32) NOT NULL,
-  `atk` varchar(32) NOT NULL,
-  `def` varchar(32) NOT NULL,
-  `intl` varchar(32) NOT NULL,
-  `mdf` varchar(32) NOT NULL,
-  `dex` varchar(32) NOT NULL,
-  `lck` varchar(32) NOT NULL,
-  `spd` varchar(32) NOT NULL,
-  `coins` varchar(32) NOT NULL DEFAULT '0',
-  `gcoins` varchar(32) NOT NULL DEFAULT '0',
-  `special` int(32) NOT NULL DEFAULT '0',
-  `ord` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `themes` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(64) NOT NULL,
-  `file` varchar(64) NOT NULL,
-  `special` tinyint(1) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `themes` (`id`, `name`, `file`, `special`) VALUES
-(1, 'Default', 'default.css', '0'),
-(2, 'Night (Jul)', 'night.css', '0'),
-(3, 'Hydra''s Blue Thing (Alternate)', 'hbluealt.css', '0'),
-(4, 'The Zen', 'spec-zen.css', '1');");
-query("
-CREATE TABLE `threads` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `time` int(32) NOT NULL,
-  `forum` int(32) NOT NULL,
-  `user` int(32) NOT NULL,
-  `sticky` tinyint(1) NOT NULL,
-  `closed` tinyint(1) NOT NULL,
-  `views` int(32) NOT NULL DEFAULT '0',
-  `replies` int(32) NOT NULL DEFAULT '0',
-  `icon` text,
-  `ispoll` tinyint(1) NOT NULL DEFAULT '0',
-  `lastpostid` int(32) DEFAULT NULL,
-  `lastpostuser` int(32) DEFAULT NULL,
-  `lastposttime` int(32) DEFAULT NULL,
-  `noob` tinyint(1) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `threads_read` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user1` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Timestamp method to track last thread view';");
-query("
-CREATE TABLE `tor` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `ip` varchar(32) NOT NULL,
-  `time` int(32) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-CREATE TABLE `users` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `name` varchar(32) NOT NULL,
-  `displayname` varchar(255) DEFAULT NULL,
-  `title` varchar(255) DEFAULT NULL,
-  `password` varchar(255) NOT NULL,
-  `powerlevel` int(1) NOT NULL DEFAULT '0',
-  `sex` int(1) NOT NULL DEFAULT '2',
-  `namecolor` varchar(6) DEFAULT NULL,
-  `lastip` varchar(32) DEFAULT NULL,
-  `ban_expire` int(32) DEFAULT '0',
-  `since` int(32) NOT NULL DEFAULT '0',
-  `ppp` int(3) NOT NULL DEFAULT '25',
-  `tpp` int(3) NOT NULL DEFAULT '25',
-  `head` text,
-  `sign` text,
-  `dateformat` varchar(32) DEFAULT NULL,
-  `timeformat` varchar(32) DEFAULT NULL,
-  `lastpost` int(32) NOT NULL DEFAULT '0',
-  `lastview` int(32) NOT NULL DEFAULT '0',
-  `lastforum` int(32) NOT NULL DEFAULT '0',
-  `bio` text,
-  `posts` int(32) NOT NULL DEFAULT '0',
-  `threads` int(32) NOT NULL DEFAULT '0',
-  `email` varchar(64) NOT NULL,
-  `homepage` varchar(64) NOT NULL,
-  `youtube` varchar(64) NOT NULL,
-  `twitter` varchar(64) NOT NULL,
-  `facebook` varchar(64) NOT NULL,
-  `homepage_name` varchar(64) NOT NULL,
-  `tzoff` int(2) NOT NULL DEFAULT '0',
-  `realname` varchar(64) NOT NULL,
-  `location` varchar(64) NOT NULL,
-  `birthday` int(32) DEFAULT NULL,
-  `theme` int(8) NOT NULL DEFAULT '1',
-  `showhead` tinyint(1) NOT NULL DEFAULT '1',
-  `signsep` int(3) NOT NULL DEFAULT '1',
-  `icon` text,
-  `coins` int(32) NOT NULL DEFAULT '0',
-  `gcoins` int(32) NOT NULL DEFAULT '0',
-  `radar_mode` int(4) NOT NULL DEFAULT '0',
-  `profile_locked` tinyint(1) NOT NULL DEFAULT '0',
-  `editing_locked` int(1) NOT NULL DEFAULT '0',
-  `title_status` int(1) NOT NULL DEFAULT '0',
-  `rankset` INT(4) NOT NULL DEFAULT '1'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES
-('1', '$name','".password_hash(sgfilter($pass1), PASSWORD_DEFAULT)."','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '5'),
-('".$config['deleted-user-id']."', 'Deleted user', 'rip','".$_SERVER['REMOTE_ADDR']."','".ctime()."', '-2');
-");
-query("
-CREATE TABLE `users_rpg` (
-  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `hp` int(32) NOT NULL DEFAULT '1',
-  `mp` int(32) NOT NULL DEFAULT '1',
-  `atk` int(32) NOT NULL DEFAULT '1',
-  `def` int(32) NOT NULL DEFAULT '1',
-  `intl` int(32) NOT NULL DEFAULT '1',
-  `dex` int(32) NOT NULL DEFAULT '1',
-  `lck` int(32) NOT NULL DEFAULT '1',
-  `spd` int(32) NOT NULL DEFAULT '1',
-  `mdf` int(32) NOT NULL DEFAULT '1',
-  `item1` int(32) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-query("
-INSERT INTO users_rpg (`id`, `hp`, `mp`, `atk`, `def`, `intl`, `dex`, `lck`, `spd`, `mdf`) VALUES
-('1', '1', '1', '1', '1', '1', '1', '1', '1', '1'),
-('".$config['deleted-user-id']."', '0', '0', '0', '0', '0', '0', '0', '0', '0');");
-query("
-CREATE TABLE `user_avatars` (
-  `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `user` int(32) NOT NULL,
-  `file` int(16) NOT NULL,
-  `title` varchar(32) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-/*
-	Sample forums
-*/
-if (filter_int($_POST['addforum'])){
-	
-	query("
-	INSERT INTO `categories` (`id`, `name`, `powerlevel`, `ord`) VALUES
-	(1, 'Main', 0, 1),
-	(2, 'Game Over', 0, 100);");
-	query("
-	INSERT INTO `forums` (`id`, `name`, `title`, `powerlevel`, `hidden`, `threads`, `posts`, `category`, `ord`) VALUES
-	(1, 'General forum', 'For everybody!', 0, 0, 0, 0, 1, 1),
-	(2, 'General staff forum', 'Not for everybody!', 2, 0, 0, 0, 1, 0),
-	(3, 'The trash', 'Definitely not for everybody!', 2, 0, 0, 0, 2, 10);");
-}
-
-/*
-	Sample shop items
-*/
-if (filter_int($_POST['additems'])){
-	query("
-	INSERT INTO `shop_categories` (`id`, `name`, `title`, `ord`) VALUES
-	(1, 'Sample category', 'This is a sample description', 0);");
-	query("
-	INSERT INTO `shop_items` (`id`, `name`, `title`, `cat`, `hp`, `mp`, `atk`, `def`, `intl`, `mdf`, `dex`, `lck`, `spd`, `coins`, `gcoins`, `special`, `ord`) VALUES
-	(1, 'Test item?', 'It does not actually do anything! (or is it?)', 1, '+1000', '-10', 'x45', '/2', '+2', '+0', '+56', '+9999', '+1', '0', '0', 1, 0);");
-}
-
-		print "\n\nQueries: ".($ok+$errors)." | Errors: $errors\n";
-		
-		if (!$errors){
-			$c = $sql->end();
-			if ($c !== false){
-				if (!file_exists("userpic")) mkdir("userpic");
-				if (!file_exists("userpic/1")) mkdir("userpic/1");
-				
-				if (filter_int($_POST['autodel'])){
-					$otheraction = "now";
-					unlink("install.php");
-				}
-				else{
-					$otheraction = "(and <i>should</i>) delete this file and";
-				}
-				
-				die("Operation completed successfully.\nYou can $otheraction login <a href='login.php' style='background: #fff'>here</a>.");
+		<title>BoardC -- Install</title>
+		<style>
+			body{
+				background: 	#333;
+				font-family:	"Courier New", Courier, monospace;
+				font-size:		13px;
+				color:			#ddd;
 			}
-			else die("An unknown error occurred while closing the transaction.");
+			.container{
+				padding: 		4px;
+				border-spacing: 0px;
+				border: 		0px;
+				min-width: 		700px;
+				max-width: 		100px;
+				
+				height: 		100%;
+				text-align:		center;
+			}
+			.header{
+				text-align:		center;
+				background:		#222;
+				width:			0px; /* ?????? (this was width=0 in td)*/
+			}
+			.content{
+				background:		#111;
+				vertical-align:	top;
+				height: 		100%;
+			}
+			.warn{
+				color:			#ff8080;
+				font-weight:	bold;
+			}
+			.highlight{
+				color:			#ff8080;
+			}
+			.ok{
+				color:			#60ff60;
+			}
+			.sect, .sect2{
+				background:		#333;
+				border-spacing: 0px;
+				border: 		0px;
+				white-space: 	nowrap;
+			}
+			.sect2{
+				background:		#282828;
+			}
+			.secthead{
+				background:		#224;
+				border-spacing: 0px;
+				border: 		0px;
+				text-align:		center;
+				white-space: 	nowrap;
+			}
+			a:link,a:visited,a:active,a:hover{
+				text-decoration-color: #80FF80;
+				color:			#80FF80;
+				font-weight: 	normal;
+			}
+			textarea, input, select, button{
+				border: 			1px solid #ffdd33;
+				background-color: 	#000000;
+				color: 				#DDDDDD;
+				font-family:		"Courier New", Courier, monospace;
+				font-size:			13px;
+			}
+			.submit {
+				border: 			2px solid #80FF80;
+			}
+			.sel {
+				text-align: 	left;
+				border-spacing: 0px;
+				border: 		0px;
+			}
+		</style>
+	</head>
+	<body>
+	<form method='POST' action='?'>
+	<center>
+		<table class='container'>
+			<tr>
+				<td class='header'>
+					<b>BoardC Installer</b>
+				</td>
+			</tr>
+			<tr>
+				<td class='content'>
+	<?php
+	
+	
+	// Defaults
+	
+	if (!isset($_POST['sqlhost'])) 	$_POST['sqlhost'] 	= filter_string($sqlhost);
+	if (!isset($_POST['sqlpass'])) 	$_POST['sqlpass'] 	= filter_string($sqlpass);
+	if (!isset($_POST['sqluser'])) 	$_POST['sqluser'] 	= filter_string($sqluser);
+	if (!isset($_POST['sqldb'])) 	$_POST['sqldb'] 	= filter_string($sqldb);
+	
+	$_POST['dropdb'] = filter_int($_POST['dropdb']);
+	
+	
+	
+	
+	// Page handler
+	$step 	= filter_int($_POST['step']);
+	$cmd	= filter_string($_POST['stepcmd']);
+	
+	if 	($cmd == 'Next') 	$step++;
+	else 					$step--;
+	
+	
+	
+	// Collect all _POST actions
+	foreach ($_POST as $key => $val)
+		echo "<input type='hidden' name='$key' value=\"".htmlspecialchars($val)."\">";
+	
+	if ($step <= 0)  {
+		$step = 0;
+		$buttons = 	"<input type='submit' class='submit' name='stepcmd' value='Next'>".
+					"<input type='hidden' name='step' value=0>";
+	} else {
+		$outtoken = filter_string($_POST['auth']);
+		if ($token != $outtoken) die("Bad or missing token.");	
+		
+		$buttons = 	"<input type='submit' class='submit' name='stepcmd' value='Back'>".
+					" - <input type='submit' class='submit' name='stepcmd' value='Next'>".
+					"<input type='hidden' name='step' value='$step'>";
+	}
+
+	
+	
+	// DB Connection
+	if ($step >= 2)	$sql = new mysql_mini;
+	if ($step >= 3) $db  = $sql->selectdb();
+	
+	/*
+		Welcome screen
+	*/	
+	if (!$step) {
+
+		if (defined('INTERNAL_VER')) {
+			$dist = "As this is an internal version, please...<br><span class='warn'>DO NOT DISTRIBUTE !!</span>";
+		} else {
+			$dist = "<br>You are free to use and distribute this version.";
 		}
-		else{
-			$sql->undo();
-			die("Installation failed.");
-		}
+		
+		?>
+				Welcome to the BoardC installer! <?php echo $dist ?>
+			<br>Please report all bugs to Kak or the <a href='https://github.com/Kak2X/BoardC/issues'>Issue Tracker</a>
+			<br>
+			<br>You will be prompted to enter the SQL Database Info in the next page.
+			<br>
+			<!-- we only need to put the token here -->
+			<input type='hidden' name='auth' value='<?php echo $token ?>'>
+		<?php	
 		
 	}
 	
+	/*
+		SQL Host info
+	*/		
+	else if ($step == 1) {
+			?>
+				Please enter the SQL credentials.
+				<br>The installer will attempt to connect to the specified server on the next page.
+				<br>
+				<br>
+				<center>
+				<table>
+					<tr><td class='sect'>SQL Host:</td><td class='sect'><input type='text' name='sqlhost' value='<?php echo $_POST['sqlhost'] ?>'></td></tr>
+					<tr><td class='sect'>SQL User:</td><td class='sect'><input type='text' name='sqluser' value='<?php echo $_POST['sqluser'] ?>'></td></tr>
+					<tr><td class='sect'>SQL Password:</td><td class='sect'><input type='text' name='sqlpass' value='<?php echo $_POST['sqlpass'] ?>'></td></tr>
+				</table>
+				</center>
+			<?php
+	}
+	
+	/*
+		SQL Database info
+	*/			
+	else if ($step == 2) {
+
+		?>
+			The connection was successful!
+		<br>
+		<br>Enter the name of the database you're going to use.
+		<br>If it doesn't exist it will be created.
+		<br>
+		<br>NOTE: Creating a database will probably require root privileges, so it's recommended to specify an already existing empty database.
+		<center>
+		<table>
+			<tr><td class='sect'>SQL Database:</td><td class='sect'><input type='text' name='sqldb' value='<?php echo $_POST['sqldb'] ?>'></td></tr>
+		</table>
+		
+		<?php
+		
+	}
+	
+	/*
+		Post-database selection screen
+	*/			
+	else if ($step == 3) {
+		
+		if ($db) {
+			// DO YOU WANT TO DROP?!?!
+			$dropdbsel[$_POST['dropdb']] = "checked";
+			
+			?>
+				The database already exists. Select an action.
+				<br>
+				<center>
+				<table class='sel'>
+					<tr>
+						<td><input type='radio' name='dropdb' value=0 <?php echo filter_string($dropdbsel[0]) ?>></td>
+						<td>Use the existing database</td>
+					</tr>
+					<tr>
+						<td><input type='radio' name='dropdb' value=1 <?php echo filter_string($dropdbsel[1]) ?>></td>
+						<td>Drop the database before continuing</td>
+					</tr>
+				</table>
+				</center>
+				<div class='warn'>
+					WARNING: DROPPING THE DATABASE WILL PERMANENTLY DELETE ALL THE DATA!<br>
+					IF YOU DON'T KNOW WHAT YOU'RE DOING MAKE SURE TO HAVE BACKUPS
+				</div>
+				<br>
+				
+			<?php
+			
+		} else {
+			?>
+				The database '<?php echo $_POST['sqldb'] ?>' you have specified doesn't seem to exist.
+				<br>It will be created before importing the .SQL file.
+				<br>
+				<span class='highlight'>
+					NOTE: The SQL user must have permissions to create tables, otherwise this won't work.
+				</span>
+				<br>
+				<br>If this is correct you can continue; otherwise check the SQL Connection details.
+			
+			<?php
+			
+		}
+		
+	}
+	/*
+		HTML frontend for config.php
+	*/		
+	else if ($step == 4) {
+		/*
+			Not included:
+			deleted-user-id
+			trash-id
+			default-time-zone
+		*/
+		print "
+			Board Options
+			<br>Fill in the table. These options will be written in <span class='highlight'>'lib/config.php'</span>
+			<br>
+			<center>
+			<table style='padding: 20px'>
+				".set_heading('Layout options')."
+				".set_input("board-name", "Board name", 250, "BoardC")."
+				".set_input("board-title", "Header HTML", 550, "<img src='images/testboard.png' title='did you mean: BUGGY BOARD'>")."
+				".set_input("board-url", "Header Link", 500, "http://localhost/board/")."
+				".set_input("footer-title", "Footer Text", 250, "The Internet")."
+				".set_input("footer-url", "Footer Link", 300, "http://localhost/")."
+				".set_input("admin-email", "Support email", 250, "kak@nothing.null")."
+				
+				".set_heading("Board options")."
+				".set_radio('admin-board', 'Admin board', 'No|Yes')."
+				".set_radio('allow-rereggie', 'Allow reregistering', 'No|Yes')."
+				".set_radio('show-comments', 'Show HTML Comments', 'No|Yes')."
+				".set_radio('allow-thread-erase', 'Allow thread deletion', 'No|Yes', 1)."
+				".set_input('auth-salt', 'Token salt string', 300, 'silly string you should change')."
+				".set_input('post-break', 'Delay between posts', 20, 2, "seconds")."
+				".set_input('posts-to-get-title', 'Custom title requirements', 40, 100, "posts")."
+
+				".set_heading("RPG Elements")."				
+				".set_input('coins-multiplier', 'Coins multiplier', 40, 20)."
+				
+				".set_heading("File uploads")."
+				".set_radio('enable-file-uploads', 'Allow image uploads', 'No|Yes', 1)."
+				".set_input('max-icon-size-x', 'Max icon width', 50, 16, "px")."
+				".set_input('max-icon-size-y', 'Max icon height', 50, 16, "px")."
+				".set_input('max-icon-size-bytes', 'Max icon size', 70, 10000, "bytes")."
+				".set_input('max-avatar-size-x', 'Max avatar width', 50, 180, "px")."
+				".set_input('max-avatar-size-y', 'Max avatar height', 50, 180, "px")."
+				".set_input('max-avatar-size-bytes', 'Max avatar size', 70, 80000, "bytes");
+				
+				
+			if (defined('INTERNAL_VER')){
+				print "
+				".set_heading("Firewall")."
+				".set_radio('enable-firewall', 'Enable firewall', 'Disable|Enable', 1)."
+				".set_radio('pageview-limit-enable', 'Pageview limit...', 'Disable|Enable', 1)."
+				".set_input('pageview-limit', '...for users', 40, 0, "seconds to wait between each page")."
+				".set_input('pageview-limit-bot', '...for bots', 40, 120, "seconds to wait between each page");
+			}
+			
+			
+			print "
+				".set_heading("Defaults")."
+				".set_input('default-date-format', 'Default date format', 100, 'd/m/y')."
+				".set_input('default-time-format', 'Default time format', 100, 'H:i:s')."
+				
+				".set_heading("News engine")."
+				".set_radio('enable-news', 'Enable news', 'Disable|Enable', 1)."
+				".set_input("news-name", "News page name", 300, "News")."
+				".set_input("news-title", "News Header HTML", 500, "<font size=3>I 'see' News</font>")."
+				".set_input('max-preview-length', 'Character limit in preview', 40, 500)."
+				".set_powl('news-write-perm', 'Powerlevel required to add news', 1)."
+				".set_powl('news-admin-perm', 'Powerlevel required to moderate news', 4)."
+		
+				".set_heading("IRC Reporting (NOTE: Doesn't actually work)")."
+				".set_radio('enable-irc-reporting', 'Enable IRC Reporting', 'Disable|Enable', 1)."
+				".set_input('irc-server', "IRC Server", 230, "irc.badnik.zone")."
+				".set_input('public-chan', "Public channel", 160, "#powl0-grgrh")."
+				".set_input('private-chan', "Private channel", 160, "#powl1-bienf")."
+				
+				".set_heading("Development Options")."
+				".set_input('force-userid', 'Force user ID',  60, 0)."
+				".set_radio('force-sql-debug-on', 'Always show SQL Debugger', 'No|Yes', 0)."	
+				".set_radio('force-error-printer-on', 'Always show error reporter', 'No|Yes', 0)."
+				
+				".set_heading("Misc")."
+				".set_radio('replace-image-before-login', 'Hide header to guests', 'No|Yes', 0)."
+				".set_radio('test-ext', 'Test hidden MP3 player', 'No|Yes', 0)."
+				".set_radio('failed-attempt-at-irc', 'Use alternate thread layout', 'No|Yes', 0)."
+				".set_radio('force-modern-web-design', 'Force modern Web design', 'No|Yes (bad idea)', 0)."
+				".set_radio('super-private', 'Super private (requires Private option in admin.php)', 'No|Yes', 0)."
+				".set_radio('mention-the-mailbag', 'Mention mailbag in IP Ban page', 'No|Yes', 0)."
+				".set_radio('joke-faq', 'Use the joke FAQ', 'No|Yes', 0)."
+				
+			</table>
+			<br>
+			</center>
+		";
+	}
+	
+	/*
+		User credential for the first user
+	*/		
+	else if ($step == 5) {
+		
+		print "
+				Login information
+			<br>You will use this to login to the board.
+			<br>REMEMBER: Only alphanumerical characters and spaces are allowed for the username.
+			<br>
+			<center>
+			<table>
+				<input style='display:none' type='text'     name='__f__usernm__'>
+				<input style='display:none' type='password' name='__f__passwd__'>
+				".set_heading("Register")."
+				".set_input("username",  "Username", 250)."
+				".set_psw("pass1", "Password", 250)."
+				".set_psw("pass2", "Confirm password", 250)."				
+			</table>
+			</center>
+			<br>
+		";
+	}
+	
+	/*
+		Check if the username and password are valid
+	*/		
+	else if ($step == 6) {
+		
+		$user 		= filter_string($_POST['username']);
+		$pass 		= filter_string($_POST['pass1']);
+		$passchk 	= filter_string($_POST['pass2']);
+		
+		$message	= "";
+		if (!$user) $message = "You can't leave the username blank.";
+		else if (preg_replace('/[^\da-z ]/i', '', $user) != $user) $message = "The username contains invalid characters.";
+		else if ($pass != $passchk) $message = "The password and the retype don't match.";
+		
+		if ($message){
+			?>
+				Invalid registration info.
+			<br>
+			<br>Reason:
+			<div style='background: #000'><?php echo $message ?></div>
+			<br>Return to the previous page and enter valid registration info.
+			<br>
+			<input type='submit' class='submit' name='stepcmd' value='Back'>
+			<input type='hidden' name='step' value=6>
+			<?php
+			die;
+		}
+		
+		?>
+			The board will now be configured.
+			<div class='warn'>WARNING: IF YOU HAVE SELECTED TO DROP THE DATABASE, ALL DATA WILL BE DELETED</div>
+			<br>
+			<br>You can go back to review the choices, or click <span class='highlight'>'Next'</span> to start the installation.
+			<br>
+			<br>
+		<?php
+	}
+	
+	/*
+		Actually install the board	
+	*/
+	else if ($step == 7) {
+		
+		set_time_limit(0);
+		
+		//	Here we go
+		
+		echo "<span style='text-align: left'><pre>";
+		echo "Attempting to install...";
+		
+/*
+	LAYOUT OF CONFIG.PHP FILE
+	I wanted to leave the formatting intact including comments as (for now) you're expected to edit the file manually :/
+	maybe this will change in the future
+*/
+
+$configfile = "<?php
+/*
+	Configuration
+*/
+	
+	// Sql database options
+	\$sqlhost    = '".addslashes($_POST['sqlhost'])."'; // Database host
+	\$sqluser    = '".addslashes($_POST['sqluser'])."'; // Username
+	\$sqlpass    = '".addslashes($_POST['sqlpass'])."'; // Password
+	\$sqldb      = '".addslashes($_POST['sqldb'])."';   // Database
+	\$sqlpersist = true; // Persist connection
+	
+	// Root Admin IPs
+	\$adminips = array(
+//		'127.0.0.1',
+	);
+
+	// \$config options
+	
+	\$config = array(
+
+		// Board Options
+		".config_bool('admin-board')."
+		".config_bool('allow-rereggie')."
+		'deleted-user-id' => 2, // DO NOT CHANGE
+		'trash-id' 		  => 3, // DO NOT CHANGE
+		".config_bool('show-comments')."
+		".config_string('auth-salt')."
+		".config_int('post-break')." // 2 seconds to wait between posting consecutive posts / threads
+		".config_bool('allow-thread-erase')."
+		".config_int('posts-to-get-title')."
+		
+		// Layout
+		".config_string('board-name')."
+		".config_string('board-title')."
+		".config_string('board-url')."
+		".config_string('footer-title')."
+		".config_string('footer-url')."
+		".config_string('admin-email')."
+		
+		// RPG Elements
+		".config_int('coins-multiplier')." // Multiplier used to calculate the amount of coins. NOTE: CHANGING THIS WILL ALTER THE COIN COUNT OF EVERY USER
+		
+		// File uploads
+		
+		".config_bool('enable-file-uploads')."
+		
+		".config_int('max-icon-size-x')."
+		".config_int('max-icon-size-y')."
+		".config_int('max-icon-size-bytes')."
+		".config_int('max-avatar-size-x')."
+		".config_int('max-avatar-size-y')."
+		".config_int('max-avatar-size-bytes')."
+		
+		// Firewall
+		".config_bool('enable-firewall')."
+		".config_bool('pageview-limit-enable')."
+		".config_int('pageview-limit')." // Disable
+		".config_int('pageview-limit-bot')." // 1 each X seconds
+		
+		// Defaults
+		'default-time-zone' => 0, // Hours
+		".config_string('default-date-format')."
+		".config_string('default-time-format')."
+		
+		// News 'plugin'
+		".config_bool('enable-news')."
+		".config_string('news-name')."
+		".config_string('news-title')."
+		".config_int('max-preview-length')."
+		".config_int('news-write-perm')."
+		".config_int('news-admin-perm')."
+		
+		// IRC
+		".config_bool('enable-irc-reporting')." // like it's implemented or something
+		".config_string('irc-server')."
+		".config_string('public-chan')."
+		".config_string('private-chan')."
 		
 		
+		// Development stuff
+		
+		'dummy-name' => \"dummy variable\",
+		".config_bool('force-userid')."
+		".config_bool('force-sql-debug-on')."
+		".config_bool('force-error-printer-on')."
+
+	);
+	
+	//options for dumb stuff
+	\$hacks = array(
+		".config_bool('replace-image-before-login')."
+		".config_bool('test-ext')."
+		".config_bool('failed-attempt-at-irc')."
+		".config_bool('force-modern-web-design')."
+		".config_bool('super-private')."
+		".config_bool('mention-the-mailbag')."
+		".config_bool('joke-faq')."
+	);
+	
+?>";
+		
+		echo "\nWriting settings to lib/config.php...";
+		
+		$w = fopen("lib/config.php", "w");
+		$res = fwrite($w, $configfile);
+		fclose($w);
+		
+		echo checkres($res);
+		
+		
+		
+		if ($db && filter_bool($_POST['dropdb'])) {;
+			// Database doesn't exist, create it
+			echo "Dropping database `{$_POST['sqldb']}`...\n";
+			$sql->query("DROP DATABASE IF EXISTS `{$_POST['sqldb']}`");
+		}
+		
+		
+		// If the database already exists, well, nothing actually happens.
+		// So we do not bother checking that
+		
+		echo "Attempting to create database...";
+		
+		try{
+			$sql->query("CREATE DATABASE `{$_POST['sqldb']}`; DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+			echo checkres(true);
+		}
+		catch (PDOException $x){
+			if ($x->getCode() == 42000) {
+				echo checkres(false);
+				die("\nAccess denied. You have to create the database manually under phpMyAdmin.");
+			} else {
+				throw $x;
+			}
+		}
+		
+		// Before attempting to do anything, actually select the database
+		$sql->selectdb($_POST['sqldb']);
+		
+		$sql->start();
+		$c = array(); // Define the array with the results
+		
+		echo "Importing SQL files...";
+		$sql->import("install.sql");
+		if (defined('INTERNAL_VER')){
+			//die("WELP");
+			$sql->import("fw.sql");
+		}
+		
+		
+		$ctime = ctime();
+		
+		$c[] = $sql->query(
+			"INSERT INTO `events` (`id`, `user`, `time`, `text`, `private`) VALUES".
+			"(1, 1, $ctime, 'The board\'s anniversary!', 0);"
+		);
+		
+		$c[] = $sql->query(
+			"INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES".
+			"(1, '".prepare_string($_POST['username'])."','".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."','{$_SERVER['REMOTE_ADDR']}', $ctime, 5),".
+			"(2, 'Deleted user', 'rip','{$_SERVER['REMOTE_ADDR']}', $ctime, '-2');"
+		);
+		
+		
+		if ($sql->finish($c)){
+			echo checkres(true);
+			
+			if (!file_exists("userpic")) mkdir("userpic");
+			if (!file_exists("userpic/1")) mkdir("userpic/1");
+			
+			echo "Operation completed successfully.\n";
+			echo "You can (and <i>should</i>) delete this file and login <a href='login.php'>here</a>.";
+			$buttons = "";
+		
+		} else {
+			echo checkres(false);
+			echo $sql->errors." queries have failed.\nBroken queries:\n\n";
+			echo implode("\n", $sql->q_errors);
+			echo "\nPlease fix the problems that have occured. This may require dropping the partially-created tables, and trying again.";
+			echo "\n<font color=#e0e080>NOTE:</font> it is possible the installation was still successful, especially if you have only recieved '<font color=#FF8080>Table already exists</font>' errors.";
+			echo "\nHowever, it is far more likely you will need to redo the installation.";
+			echo "\nIf you would like to retry, you can return to the previous page and try again.</pre></span>";
+			
+			$buttons = 	"<input type='submit' class='submit' name='stepcmd' value='Return'>".
+						"<input type='hidden' name='step' value=7>";
+
+		}
+		
+		
+	}
 	
 	
-?>
+					?>
+					<!-- footer -->
+					<?php echo $buttons ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='header'>
+					Acmlmboard Installer v1.2 (13-09-16)
+				</td>
+			</tr>
+		</table>
+		
+	</center>
+	</form>
+	</body>
+</html><?php
+
+
+
+
+class mysql_mini{
+	
+	public $db 			= NULL;
+	public $queries 	= 0;
+	public $errors 		= 0;
+	public $q_errors 	= array();
+	
+	public function __construct(){
+		try {
+			$dsn 		= "mysql:host={$_POST['sqlhost']};charset=utf8";
+			$options 	= array(
+				PDO::ATTR_PERSISTENT 		 => true,
+				PDO::ATTR_ERRMODE 			 => PDO::ERRMODE_EXCEPTION,
+				PDO::ATTR_EMULATE_PREPARES   => true, // sigh
+				PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+			);
+			$this->db = new PDO($dsn, $_POST['sqluser'], $_POST['sqlpass'], $options);
+			return $this->db;
+		}
+		catch (PDOException $x){
+			global $step;
+			?>
+				<span class='warn'>
+				Error!<br>
+				Couldn't connect to the MySQL server
+				</span>
+				<br>Reason:
+				<br>
+				<span style='background: #000'><?php echo $x->getMessage() ?></span>
+				<br>
+				<br>Return to the previous page and enter correct login credentials to the database.
+				<br>
+				<input type='submit' class='submit' name='stepcmd' value='Back'>
+				<input type='hidden' name='step' value=<?php echo $step ?>>
+			<?php
+			die;
+		}
+	}
+	
+	public function selectdb(){
+		try {
+			$res = $this->db->query("USE {$_POST['sqldb']}");
+		}
+		catch (PDOException $x){
+			return false;
+		}
+		return true;
+	}
+	
+	public function query($q){
+		$this->queries++;
+		try {
+			$this->db->query($q);
+			$res = true;
+		}
+		catch (PDOException $x){
+			$res = false;
+			$this->errors++;
+			$this->q_errors[] = $q." | ".$this->db->errorInfo()[2];
+		}
+		return $res;
+	}
+	
+	// Import the SQL file line by line
+	// If a line ends with ; process the buffer		
+	public function import($file){
+		global $c;
+		$h = fopen($file, 'r');
+		$b = "";
+		while(($l = fgets($h, 256)) !== false){
+			$b   .= $l;
+			$cnt  = strlen($l) - 2;
+			// If the last character is ;, execute the query
+			if ($l[$cnt] == ';' || $l[$cnt-1] == ';'){ // sigh
+				//echo $b."<br>";
+				$c[] = $this->query($b);
+				$b = "";
+			}
+		}
+		fclose($h);
+	}
+	
+	public function start(){
+		return $this->db->beginTransaction();
+	}
+	
+	public function end(){
+		return $this->db->commit();
+	}
+	
+	public function undo(){
+		return $this->db->rollBack();
+	}
+	
+	public function finish($list = array(true)){
+		foreach ($list as $queryres){
+			if ($queryres === false && $queryres !== 0){
+				$this->undo();
+				return false;
+			}
+		}
+		$this->end();
+		return true;
+	}
+}
+	
+	
+	
+	
+	function set_heading($desc){
+		return "<tr><td class='secthead' colspan=2>$desc</td></tr>";
+	}
+	
+	function set_input($name, $desc, $width = 250, $default = "", $extra = ""){
+		if (!isset($_POST[$name])) $_POST[$name] = $default;
+		if ($extra) $extra = "&nbsp;$extra"; // I'm picky about this
+		
+		// NOTE THIS HAS TO BE ADDSLASHED BEFORE GOING IN CONFIG.PHP
+		return "
+			<tr>
+				<td class='sect'>$desc</td>
+				<td class='sect2'>
+					<input type='text' name='$name' style='width: {$width}px' value=\"{$_POST[$name]}\">$extra
+				</td>
+			</tr>";
+	}
+	
+	function set_radio($name, $desc, $vals, $default = 0){
+		if (!isset($_POST[$name])) $_POST[$name] = $default;
+		$sel[$_POST[$name]] = 'checked';
+		
+		$list 	= explode("|", $vals);
+		$txt 	= "";
+		
+		foreach($list as $i => $x)
+			$txt .= "<input type='radio' name='$name' value='$i' ".filter_string($sel[$i]).">&nbsp;$x ";
+		
+		return "
+			<tr>
+				<td class='sect'>$desc</td>
+				<td class='sect2'>
+					$txt
+				</td>
+			</tr>";
+	}
+	
+	function set_powl($name, $desc, $default = 0){
+		if (!isset($_POST[$name])) $_POST[$name] = $default;
+		
+		
+		return "
+			<tr>
+				<td class='sect'>$desc</td>
+				<td class='sect2'>
+					".powerList($_POST[$name], $name, true)."
+				</td>
+			</tr>";
+	}
+	
+	function set_psw($name, $desc, $width = 250){		
+		if (!isset($_POST[$name])) $_POST[$name] = '';
+		
+		return "
+			<tr>
+				<td class='sect'>$desc</td>
+				<td class='sect2'>
+					<input type='password' name='$name' style='width: {$width}px' value=\"{$_POST[$name]}\">
+				</td>
+			</tr>";
+	}
+	
+	// Formatting of config.php, str_pad'd to keep a clean layout
+	function config_bool  ($name){return str_pad("'$name'", CONFIG_LENGTH)."=> ".(filter_bool($_POST[$name]) ? (string) "true" : (string) "false").",";}
+	function config_int   ($name){return str_pad("'$name'", CONFIG_LENGTH)."=> ".filter_int($_POST[$name]).",";}
+	function config_string($name){return str_pad("'$name'", CONFIG_LENGTH)."=> \"".str_replace("\"", "\\\"", filter_string($_POST[$name]))."\",";}
+	function checkres($r){return $r ? "<span class='ok'>OK!</span>\n" : "<span class='warn'>ERROR!</span>\n";}

@@ -1,51 +1,64 @@
 <?php
-
-	// Common board actions are now done here
-	//error_reporting(0);	// Suppress everything, including fatal errors (the integrated error handler will be used instead)
+	
+	/*
+		Common board actions
+	*/
+	
+	define('BOARDC_VERSION', "(13/09/16) v0.30");
+	
+	error_reporting(0);	// Suppress everything, including fatal errors (the integrated error handler will be used instead)
 	ini_set("default_charset", "UTF-8");
-
+	header("Content-Type: text/html; charset=utf-8");
+	
+	// The cache is bad (and should feel bad)
+	header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+	header("Pragma: no-cache");
+	
 	
 	$startingtime 	= microtime(true);
 	$errors 		= array();
-	$userfields 	= "u.name, u.displayname, u.sex, u.powerlevel, u.namecolor, u.icon, u.id"; // consistency is god
+	$userfields 	= "u.name, u.displayname, u.sex, u.powerlevel, u.namecolor, u.id"; // consistency is god
 	
+	// Quick and dirty sanity check
+	if (!function_exists("password_hash"))
+		die("This board uses features like password_hash and array dereferencing.<br>Please update to at least PHP 5.5");
+	
+	if (!file_exists("lib/config.php")){
+		// Normally we don't load layout.php first as it requires config and helpers
+		// but the dialog function just happens to not need any
+		require "lib/layout.php";
+		dialog(	"Error - BoardC",
+			"Board not installed",
+			"The board has to be configured before it can be used.<br><br>Click <a href='install.php'>here</a> to install the board.");
+	}
 	require "lib/config.php";
 	require "lib/mysql.php";
 	require "lib/helpers.php";
 	require "lib/rpg.php";
 	require "lib/layout.php";
 	
-	/* Do not uncomment yet
-	if ((int) date('Gi')<5)
-		dialog("BoardC", "Midnight backup time", "<center>A backup of the board is in progress.<br><br>Please wait for five minutes.");	
+	/* Do not uncomment, as backups aren't actually being done yet
+	if ((int) date('Gi') < 5){
+		header("HTTP/1.1 503 Service Unavailable", true);
+		dialog(
+			"{$config['board-name']} -- Temporarily down",
+			"It's Midnight Backup Time Again",
+			"The daily backup is in progress. Check back in about five minutes.
+				<br>
+				<br>Feel free to drop by IRC:
+				<br><b>irc.badnik.zone</b> &mdash; <b>#nktest</b>"
+		);
+	}
 	*/
 	require "lib/threadpost.php";
 	
 	// Database connection. It handles the give up message by itself.
-	$sql = new mysql;
-	$connection = $sql->connect($sqlhost,$sqluser,$sqlpass,$sqlpersist);
-	$sql->selectdb($sqldb);
+	$sql 			= new mysql;
+	$connection 	= $sql->connect($sqlhost,$sqluser,$sqlpass,$sqldb,$sqlpersist);
 	unset($sqlhost,$sqluser,$sqlpass,$sqldb,$sqlpersist);
 	
 
 	set_error_handler('error_reporter');
-
-	if (ini_get("register_globals"))
-		die("Please update your PHP version.");
-	
-	if (get_magic_quotes_gpc())
-		die("If the magic quotes are turned on, it's likely the PHP version you're using is too low for the board to run.");
-	
-	
-	// fuck it
-	if (!function_exists("password_hash"))
-		die("NO NO NO NO! Update to a PHP version that supports password_hash()");
-		//function password_hash($source, $dumb="insecure"){return sha1($source);}
-	
-	
-	//cache is bad
-	header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-	header("Pragma: no-cache");
 	
 	// Stop this nonsense, leave $loguser available from here
 	$loguser = array(
@@ -63,20 +76,35 @@
 		'rankset'		=> 1
 	);
 	
-	//update timed bans
+	// Update timed user bans
 	$sql->query("
-	UPDATE users
-	SET ban_expire=0,powerlevel=0
-	WHERE ban_expire <> 0
-	AND powerlevel='-1'
-	AND ban_expire-".ctime()."<0");
+		UPDATE users
+		SET ban_expire = 0, powerlevel = 0
+		WHERE ban_expire != 0 AND powerlevel = '-1'	AND ban_expire < ".ctime()."
+	");
+	
+	// Update timed IP Bans before attempting to check if we're ip banned
+	$sql->query("
+		DELETE FROM ipbans
+		WHERE ban_expire != 0 AND ban_expire < ".ctime()."
+	");
 
-	$ipbanned = $sql->fetchq("SELECT id, reason FROM `ipbans` WHERE `ip` = '{$_SERVER['REMOTE_ADDR']}'");
+	// Check if we're IP Banned from the board.
+	// The checks below are for special reasons given by certain board auto-bans, in order to print a proper description of the ban.
+	// Remember: http://php.net/manual/en/filter.filters.validate.php
+	$xforward = filter_var(filter_string($_SERVER['HTTP_X_FORWARDED_FOR']) , FILTER_VALIDATE_IP);
+	
+	$ipbanned = $sql->fetchq("
+		SELECT id, reason
+		FROM ipbans
+		WHERE INSTR('{$_SERVER['REMOTE_ADDR']}', ip) > 0
+		".($xforward ? "OR INSTR('$xforward', ip) > 0" : "")."
+	");
 	if (filter_int($ipbanned['id'])){
 		
 		$reason = filter_string($ipbanned['reason']);
 
-		if ($reason == "Password"){
+		if ($reason == "Recovery"){
 			dialog(	"Board message",
 					"Password recovery",
 					"<center>It seems you have failed 5 login attempts.<br><br>If you have lost your password, send an email at {$config['admin-email']} for password recovery.");
@@ -99,97 +127,114 @@
 		else if (!$reason)
 			$reason = "Unspecified reason";
 		
-		dialog("Board message","You are banned.","<center>You have been banned from the board for the following reason:<br>$reason");
+		dialog("
+			Board message",
+			"You are banned.",
+			"<center>
+				You have been banned from the board for the following reason:<br>
+				$reason<br>
+				<br>
+				Contact {$config['admin-email']} ".($hacks['mention-the-mailbag'] ? "to appear in the mailbag to be laughed at" : "for more info")."
+			</center>");
 	}
-
+	
+	// Get current script name. This used to be a function, but it's better to get it here once and reference $scriptname instead.
+	$path 			= explode("/", $_SERVER['SCRIPT_NAME']);
+	$scriptname 	= $path[count($path)-1];
+	unset($path);
+	
+	/*
+		Load the firewall if it exists
+	*/
 	$tor = $proxy = $bot = 0;
 	
-	if (!filter_bool($pmeta['nofw'])){
-		if (file_exists("lib/firewall.php") && $config['enable-firewall']){
-			require "lib/firewall.php";
-			$fw_error = "";
-		}
-		else{
-			$fw_error = "<div style=\"text-align: center; color: #f00; padding: 3px; border: 5px dashed red; background: #000;\"><b>WARNING: Firewall missing or disabled</b></div>";
-			class firewall{public function __call($a=null,$b=null){return false;} public function __get($a=null){return false;}}
-		}
-		
-		$fw = new firewall;
 	
-		if ($fw->dead || isset($_GET['sec']))
-			$fw->minilog();
+	if (file_exists("lib/firewall.php")){
+		// We assume that the extra sql data in fw.sql got imported
+		// to make some features working even with firewall disabled
+		// Note to potential dumbasses: don't bother putting this define elsewhere as it will break several queries
+		define('FW_LOADED', true);
 	}
 	
-	if (strpos(strtolower(filter_string($_SERVER['HTTP_X_REQUESTED_WITH'])),'xmlhttprequest')!== false)
-		$misc['ajax_request'] = true;
-	else $misc['ajax_request'] = false;
+	if (file_exists("lib/firewall.php") && $config['enable-firewall'] && !filter_bool($meta['nofw'])){
+		require "lib/firewall.php";
+	} else {
+		class firewall{public function __call($a=null,$b=null){return false;} public function __get($a=null){return false;}}
+	}
 	
+	$fw = new firewall;
+	if ($fw->dead || isset($_GET['sec'])){
+		$fw->minilog();
+	}
+	$fw_error = "";
+	
+	if (filter_bool($meta['allorigin'])) {
+		header("Access-Control-Allow-Origin: *");
+	}
+	
+	$isproxy = ($bot || $proxy || $tor);
+	
+	// Filter out any control codes for these variables
+
+	$_SERVER['QUERY_STRING'] 	= filter_string($_SERVER['QUERY_STRING'],		true);
+	$_SERVER['HTTP_REFERER'] 	= filter_string($_SERVER['HTTP_REFERER'],		true);
+	$_SERVER['HTTP_USER_AGENT'] = filter_string($_SERVER['HTTP_USER_AGENT'],	true);
 	
 
-	foreach ($_POST as $sgname => $sgval)
-		$_POST[$sgname] = sgfilter($sgval);
-		
-	unset($sgname, $sgval);
-	
-	$_SERVER['QUERY_STRING'] 	= sgfilter($_SERVER['QUERY_STRING']);
-	$_SERVER['HTTP_REFERER'] 	= sgfilter($_SERVER['HTTP_REFERER']);
-	$_SERVER['HTTP_USER_AGENT'] = sgfilter($_SERVER['HTTP_USER_AGENT']);
-
-	# Load user
-	
-	// Guest perms moved up
+	// Get everything from the misc table
 	$miscdata = $sql->fetchq("SELECT * FROM misc");
-		
-	$views = $miscdata['views']+1;
-	if (!$bot && !$proxy && !$tor)
-		$sql->query("UPDATE misc SET views=$views");
 	
+	// Increase the views only if you're a valid user. Maybe I should consider proxy and tor users valid.
+	$views = $miscdata['views'] + 1;
+	if (!$isproxy) $sql->query("UPDATE misc SET views = views + 1");
 	
+	// Authentication check
 	if (filter_int($_COOKIE['id']) && filter_string($_COOKIE['verify'])){
 		
 		$userdata = $sql->fetchq("
-		SELECT u.*,r.*
-		FROM users u
-		LEFT JOIN users_rpg r
-		ON u.id = r.id
-		WHERE u.id = ".intval($_COOKIE['id']), true)[0];
+			SELECT u.*, r.*
+			FROM users u
+			LEFT JOIN users_rpg r ON u.id = r.id
+			WHERE u.id = ".intval($_COOKIE['id'])
+		, true)[0];
 		
 		if ($_COOKIE['verify'] == $userdata['password']){
 			$loguser = $userdata;
+			
+			// Check if the current IP is different to the IP used to login
+			// As this shouldn't normally happen, force log off the user.
 			if ($loguser['lastip'] != $_SERVER['REMOTE_ADDR']){
 				
-				trigger_error("User ".$loguser['name']." (ID #".$loguser['id']." changed IP from ".$loguser['lastip']." to ".$_SERVER['REMOTE_ADDR'], E_USER_NOTICE);
+				irc_reporter("WARNING - Attempted access to {$loguser['name']} (ID #{$loguser['id']}, lastip {$loguser['lastip']}) from {$_SERVER['REMOTE_ADDR']}", 1);
 				if ($sql->resultq("SELECT 1 FROM ipbans WHERE ip = ".$loguser['lastip'])){ // Just in case
-					trigger_error("Previous IP address was IP banned - updated IP bans list.", E_USER_NOTICE);
-					ipban("Auto - IP ban evasion", false);
+					irc_reporter("Previous IP address was IP banned - updated IP bans list.", 1);
+					ipban("IP Ban Evasion", false);
 					header("Location: index.php");
+					x_die();
 				}
-				// Clear the cookies and request login
+				// Clear the cookies and request login.
 				setcookie('id', NULL);
 				setcookie('verify', NULL);
 				errorpage("It seems your IP has changed. Please login again."); // TODO: This message is for testing. Eventually comment this to enable auto refresh.
-				header("Location: ?{$_SERVER['QUERY_STRING']}");
+				redirect("?{$_SERVER['QUERY_STRING']}");
 			}
+
 		}
 		else {
+			// If the password hashes doesn't match, clear the cookies and refresh the page.
 			setcookie('id', NULL);
 			setcookie('verify', NULL);
-		//	$fw->minilog();
-		}
-		
-		if (!powlcheck(5) && ($bot || $tor || $proxy)){
-			setcookie('id', NULL);
-			setcookie('verify', NULL);
-			setcookie('fid', filter_int($_COOKIE['fid'])+1, 2147483647);
-			errorpage("What do you think you're doing?");
+			irc_reporter("IP {$_SERVER['REMOTE_ADDR']} tried to login using a wrong cookie pass as {$userdata['name']}", 1);
+			redirect("?{$_SERVER['QUERY_STRING']}");
 		}
 		
 		unset($userdata);
 	}
 
-
 	if ($config['force-userid'])
 		$loguser = $sql->fetchq("SELECT * FROM users WHERE id = ".$config['force-userid'], true)[0];
+	
+	// Special Auto-Admin cases
 	
 	if ($config['admin-board'])
 		$loguser['powerlevel'] = 5;
@@ -203,18 +248,43 @@
 	if ($loguser['powerlevel'] == 5)
 		$config['show-comments'] = true;
 	
+	// No more redundant powlcheck calls
+	$sysadmin 		= ($loguser['powerlevel'] >= 5);
+	$isadmin 		= ($loguser['powerlevel'] >= 4);
+	$ismod			= ($loguser['powerlevel'] >= 3);
+	// Local mod definition skipped. This is calculated based on current forum
+	$isprivileged 	= ($loguser['powerlevel'] >= 1);
+	$isbanned 		= ($loguser['powerlevel'] <	 0);
+	$ispermabanned	= ($loguser['powerlevel'] == '-2');
+	
 	// with the powerlevels set up, register now the shutdown function
-	register_shutdown_function('error_printer', false, powlcheck(5), $GLOBALS['errors']);
+	register_shutdown_function('error_printer', false, $sysadmin, $GLOBALS['errors']);
 	
 	if (!$loguser['timeformat'])
 		$loguser['timeformat'] = $config['default-time-format'];
 	if (!$loguser['dateformat'])
 		$loguser['dateformat'] = $config['default-date-format'];
-
+	
+	// Bots, proxy and tor users should never be allowed to login. Cookies will be erased.
+	if (!$sysadmin && $loguser['id'] && $isproxy){
+		setcookie('id', NULL);
+		setcookie('verify', NULL);
+		setcookie('fid', filter_int($_COOKIE['fid'])+1, 2147483647);
+		header("Location: ?{$_SERVER['QUERY_STRING']}");
+		die;
+	}
+	
+	/*
+		Is the board disabled?
+		If so, only admins can browse the board, everybody else gets the "board is disabled" page.
+	*/
 	if ($miscdata['disable']){
-		if (powlcheck(4))
-			$fw_error = "<div style=\"text-align: center; color: #0f0; padding: 3px; border: 5px dotted #0f0; background: #000;\"><b>Notice: This board has been disabled.</b></div>$fw_error";
-		
+		if ($isadmin){
+			$fw_error = "
+				<div style='text-align: center; color: #0f0; padding: 3px; border: 5px dotted #0f0; background: #000;'>
+					<b>Notice: This board has been disabled.</b>
+				</div>$fw_error";
+		}
 		else
 			dialog(
 			"The board is offline",
@@ -227,75 +297,114 @@
 					<small><li> Testing if the ACP works properly</small>
 				</ul>
 				
-				<center>In the mean time, join <b>#nktest</b> on <b>irc.badnik.zone</b>.</center>"
+				<center>In the mean time, join <b>{$config['public-chan']}</b> on <b>{$config['irc-server']}</b>.</center>"
 			);
 	}
+	
+	// Private board: If you're not logged in you can't view the forums / do other stuff
+	// It fits well with the regkey option
+	if ($miscdata['private'] && !$loguser['id']){
+		
+		// herp derp welp
+		if ($hacks['super-private']){
+			if ($scriptname == "login.php"){
+				
+				if (!isset($_POST['action'])){
+					?>
+					<form method='POST' action='login.php'>
+						Username: <input type='text' name='user'><br>
+						Password: <input type='password' name='pass'><br>
+						<input type='submit' value='Login' name='action'>
+					</form>
+					<?php
+					x_die();
+				}
+			}
+			else {
+				header("HTTP/1.1 404 Not Found");
+				include("errors/404.html");
+				x_die();
+			}
+			
+		}
+		
+		if (!in_array($scriptname, ['login.php', 'register.php'])){
+			
+			pageheader("401");
+			?>
+			<br>
+			<center>
+				<table class='main c'>
+					<tr>
+						<td class='head'>
+							401 Unauthorized
+						</td>
+					</tr>
+					<tr>
+						<td class='light'>
+							This is a private board.<br>
+							You aren't able to view the forums unless you login.<br>
+							<br>
+							Please select a link below the board image.
+						</td>
+					</tr>
+					
+				</table>
+			</center>
+			<?php
+			pagefooter();
+			
+		}
+	}
 
-	// Generate a token
+	// Generate a token for all POST actions.
 	$token = gettoken();
 	
 	// RPG Stuff
-	$q = getuseritems($loguser);
-	
-	if (!empty($q)){
-		$itemdb = $sql->query("
-		SELECT hp, mp, atk, def, intl, mdf, dex, lck, spd, special
-		FROM shop_items
-		WHERE id IN (".implode(", ", $q).")
-		");
+	if ($loguser['id']){
 		
-		while ($item = $sql->fetch($itemdb))
+		// Generate coins through AB1.92's function
+		$loguser['coins'] = coins($loguser['posts'], (ctime() - $loguser['since']) / 86400);
+		
+		$itemdb = getuseritems($loguser['id']);
+		
+		foreach($itemdb as $item){
+			//if ($item['special'] == 2); // This should insert meow in the name / display name somewhere.
+			// also note that the previous line should go elsewhere, as an effect like that
+			// should be noticeable by every user
 			if ($item['special'] == 3) $config['show-comments'] = true;
-		
-		unset($itemdb, $q);
+		}
+		unset($itemdb); // Most of the time we don't need this after here.
 	}
-
 	
-	// First character is always /
-	if (!stripos($_SERVER['PHP_SELF'], "forum.php") && !stripos($_SERVER['PHP_SELF'], "thread.php") && !stripos($_SERVER['PHP_SELF'], "admin-showlogs.php"))
+
+	// Delete obsolete online views entries (2+ days)
+	$sql->query("DELETE FROM hits WHERE time < ".(ctime()-86400*2));
+	
+	/*
+		Don't update online views when browsing these pages.
+		the first three set the the forum / thread id before calling the function, while the other doesn't set it at all
+	*/
+	if (!in_array($scriptname, ["forum.php", "thread.php", "new.php", "admin-showlogs.php"])){
 		update_hits();
+	}
 	
-	// Specific signature type
+	// Define signature separators
 	switch ($loguser['signsep']){
-		case 1:  $sep = "<br>--------------------<br>"; break;
-		case 2:  $sep = "<br>____________________<br>"; break;
-		case 3:  $sep = "<br><hr><br>"; break;
-		default: $sep = "";
+		case 1:  $sep = "<br><br>--------------------<br>"; break;
+		case 2:  $sep = "<br><br>____________________<br>"; break;
+		case 3:  $sep = "<br><br><hr>"; break;
+		default: $sep = "<br><br>";
 	}
-
-	/*
-	don't uncomment, uses old format
 	
-	if (isset($_GET['pupd'])){
-		
-		$i = $sql->query("SELECT id FROM posts");
-		
-		while ($id = $sql->fetch($i))
-			$sql->query("INSERT INTO new_posts (id) VALUES (".$id['id'].")");
-
-		$i = $sql->query("SELECT id FROM announcements");
-		
-		while ($id = $sql->fetch($i))
-			$sql->query("INSERT INTO new_announcements (id) VALUES (".$id['id'].")");
-		
-		x_die("Done.");
-		
+	// Cookie status message
+	if (isset($_COOKIE['msg'])) {
+		$message = filter_string($_COOKIE['msg'], true);
+		$message = messagebar('Message', input_filters($message));
+		setcookie('msg', NULL);
+	} else {
+		$message = '';
 	}
-	*/
-
-	/*
-	if (isset($_GET['pupd2'])){
-		$x = $sql->query("SELECT id FROM threads");
-		while ($y = $sql->fetch($x))
-			$sql->query("INSERT INTO threads_read (id, user1) VALUES ({$y['id']}, ".ctime().")");
-		
-		$x = $sql->query("SELECT id FROM announcements");
-		while ($y = $sql->fetch($x))
-			$sql->query("INSERT INTO announcements_read (id, user1) VALUES ({$y['id']}, ".ctime().")");
-		
-		x_die("OK");
-	}
-	*/
 	
 	
 ?>

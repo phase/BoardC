@@ -21,33 +21,28 @@
 
 		// Board Options
 		
-		
 		'admin-board' =>			false,
 		'allow-rereggie' =>			false,		
 		'deleted-user-id' => 		2,
 		'trash-id' 		  => 		3,
 		'show-comments'		=>		false,
-		'pending-users-mode' =>		false,
-		'auth-salt' => "silly salt string you should change",
-		
-		// Max allowed
-		'post-limit' =>				0,
+		'auth-salt' => 				"silly salt string you should change",
+		'post-break' =>				2, // 2 seconds to wait between posting consecutive posts / threads
+		'allow-thread-erase' =>		true,
 		'posts-to-get-title' =>		100,
 		
 
 		// Layout
 		
 		'board-name' =>				"BoardC",	
-		'board-title' =>			"<img src='images/sampletitle3.png' title='Does this remind you of anything?'>",
-		'board-version' =>			"Development Build 0.28",
+		'board-title' =>			"<img src='images/testboard.png' title='did you mean: BUGGY BOARD'>",
 		'board-url' =>				"http://localhost/board/",
+		'footer-title' =>			"The Internet",
+		'footer-url' =>				"http://localhost",
 		'admin-email' =>			"kak@nothing.null",
 		
 		// RPG Elements
-		
-		'coins-rand-min' =>			150, // $config variables for easy testing and consistency
-		'coins-rand-max' =>			500,
-		'coins-bonus-newthread' =>	100,
+		'coins-multiplier'	=>		10, // Multiplier used to calculate the amount of coins. NOTE: CHANGING THIS WILL ALTER THE COIN COUNT OF EVERY USER
 		
 		// File uploads
 		
@@ -65,10 +60,10 @@
 		'enable-firewall' => 		true,
 		'pageview-limit-enable' =>	true,
 		'pageview-limit' => 		0,	// Disable
-		'pageview-limit-bot' =>		10, // 1 each 10 seconds
+		'pageview-limit-bot' =>		120, // 1 each 120 seconds
 		
 		// Defaults
-		'default-time-zone' => 		0,// Hours (also, this was always set wrong since the beginning)
+		'default-time-zone' => 		0, // Hours
 		'default-date-format' => 	"d/m/y",
 		'default-time-format' =>	"H:i:s",
 		
@@ -79,6 +74,12 @@
 		'max-preview-length' =>		500, // Max characters before text is shrunk
 		'news-write-perm' =>		1, // Powerlevel required to add news
 		'news-admin-perm' =>		4, // Powerlevel required to erase news
+		
+		// IRC
+		'enable-irc-reporting' =>	true, // like it's implemented or something
+		'irc-server' =>				'irc.badnik.zone',
+		'public-chan' =>			'#powl0-fdsgs',
+		'private-chan' =>			'#powl1-dfhjkd',
 		
 		
 		// Development stuff
@@ -94,10 +95,12 @@
 	//options for dumb stuff
 	$hacks = array(
 		'replace-image-before-login' => false,
-		'correct-board-name'		 => false,
 		'test-ext'					 => false,
 		'failed-attempt-at-irc'		 => false,
 		'force-modern-web-design'	 => false,
+		'super-private'				 => false,
+		'mention-the-mailbag'		 => false,
+		'joke-faq'					 => false,
 	);
 	
 

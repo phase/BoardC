@@ -7,10 +7,8 @@
 	
 	require "lib/function.php";
 	
-	// Powerlevel required for viewing all ranks
-	$isadmin = powlcheck(4);
-	
-	$threshold = ctime()-(365*86400);
+	// Amount of time since last view before considering an user inactive
+	$threshold = ctime() - (365 * 86400); // 1 year
 	
 	pageheader("Ranks");
 	
@@ -38,9 +36,9 @@
 	// Build rank selection listbox
 	$ranksets 			= $sql->query("SELECT name FROM ranksets");
 	$rankset_txt 		= "";
-	for($i = 1; $x = $sql->fetch($ranksets); $i++)
+	for($i = 1; $x = $sql->fetch($ranksets); $i++){
 		$rankset_txt .= "<option value='$i' ".filter_string($rankset_sel[$i]).">{$x['name']}</option>";
-	
+	}
 	
 	// Build table
 
@@ -58,6 +56,7 @@
 
 		// Check if we have got to the next rank with the post requirement
 		$x = $sql->fetch($userlist);
+		$unstyle = $isadmin ? "dim fonts" : "light c";
 		
 		if (!$x || $x['rank'] > $ranks[$j]['posts']){ // bigger rank
 		
@@ -65,9 +64,9 @@
 				$txt .= "
 				<tr>
 						<td class='dim fonts' width='200'>{$ranks[$j]['text']}</td>
-						<td class='light c' width='60'>{$ranks[$j]['posts']}</td>
-						<td class='light c' width='60'>".($totalusers)."</td>
-						<td class='light c' width='30'>".($totalusers-$ranking)."</td>
+						<td class='light c'   width='60'>{$ranks[$j]['posts']}</td>
+						<td class='light c'   width='60'>".($totalusers)."</td>
+						<td class='light c'   width='30'>".($totalusers-$ranking)."</td>
 						<td class='dim fonts c' width='*'>".implode(", ", $usertmp).($usertmp && $inactive ? ", " : "").($inactive ? "$inactive inactive" : "")."</td>
 				</tr>";
 				$j++;
@@ -80,11 +79,11 @@
 			while ($x && $x['rank'] > $ranks[$j]['posts']){
 				$txt .= "
 				<tr>
-						<td class='dim fonts' width='200'>".($isadmin ? $ranks[$j]['text'] : "? ? ?")."</td>
+						<td class='$unstyle' width='200'>".($isadmin ? $ranks[$j]['text'] : "? ? ?")."</td>
 						<td class='light c' width='60'>".($isadmin ? $ranks[$j]['posts'] : "? ? ?")."</td>
 						<td class='light c' width='60'>".($isadmin ? "$ranking" : "?")."</td>
 						<td class='light c' width='30'>".($isadmin ? "0" : "?")."</td>
-						<td class='dim fonts c' width='*'>".($isadmin ? "Nobody" : "?")."</td>
+						<td class='light fonts c' width='*'>".($isadmin ? "Nobody" : "?")."</td>
 				</tr>";
 				$j++; // Increase rank
 			}
@@ -93,22 +92,22 @@
 				for($j; $j < $ranks_cnt; $j++)
 					$txt .= "
 					<tr>
-							<td class='dim fonts' width='200'>".($isadmin ? $ranks[$j]['text'] : "? ? ?")."</td>
+							<td class='$unstyle' width='200'>".($isadmin ? $ranks[$j]['text'] : "? ? ?")."</td>
 							<td class='light c' width='60'>".($isadmin ? $ranks[$j]['posts'] : "? ? ?")."</td>
 							<td class='light c' width='60'>".($isadmin ? "$ranking" : "?")."</td>
 							<td class='light c' width='30'>".($isadmin ? "0" : "?")."</td>
-							<td class='dim fonts c' width='*'>".($isadmin ? "Nobody" : "?")."</td>
+							<td class='light fonts c' width='*'>".($isadmin ? "Nobody" : "?")."</td>
 					</tr>";	
 				break;
 			}
 		}
 		
 		// Add to set
-		if ($x['inactive'])
+		if ($x['inactive']) {
 			$inactive++;
-		else
+		} else {
 			$usertmp[] = makeuserlink(false, $x);
-
+		}
 		$ranking--;
 	}
 	
@@ -120,12 +119,12 @@
 							<td class='light c' width='60'>".($totalusers)."</td>
 							<td class='light c' width='30'>".($totalusers-$ranking)."</td>
 							<td class='dim fonts c' width='*'>".implode(", ", $usertmp).($usertmp && $inactive ? ", " : "").($inactive ? "$inactive inactive" : "")."</td>
-		</tr>";
+					</tr>";
 		$j++;
 	}
 	
-	print "
-	<a href='index.php'>{$config['board-name']}</a> - Ranks</td>
+	?>
+	<a href='index.php'><?php echo $config['board-name'] ?></a> - Ranks</td>
 	
 	<form action='ranks.php' method='POST'>
 		<table class='main w'>
@@ -140,7 +139,7 @@
 				
 				<td class='dim'>
 					<select name='rankset'>
-						$rankset_txt
+						<?php echo $rankset_txt ?>
 					</select>
 				</td>
 			</tr>
@@ -151,9 +150,9 @@
 				</td>
 				
 				<td class='dim'>
-					<input type='radio' name='showall' value='0' ".filter_string($show_sel[0])."> Selected rank set only
+					<input type='radio' name='showall' value='0' <?php echo filter_string($show_sel[0]) ?>> Selected rank set only
 					&nbsp; &nbsp;
-					<input type='radio' name='showall' value='1' ".filter_string($show_sel[1])."> All users
+					<input type='radio' name='showall' value='1' <?php echo filter_string($show_sel[1]) ?>> All users
 				</td>
 			</tr>
 			
@@ -174,9 +173,9 @@
 			<td class='head c' width='60'>Ranking</td>
 			<td class='head c' colspan='2'>Users on that rank</td>
 		</tr>
-		$txt
+		<?php echo $txt ?>
 	</table>
-	";
+	<?php
 	
 	pagefooter();
 

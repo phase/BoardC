@@ -2,53 +2,84 @@
 
 	require "lib/function.php";
 	
-	if (!powlcheck(4))
-		errorpage("I honestly could let everybody access this page like AB2 did, but this is still an admin tool.<br/>So, return to the <a href='index.php'>index</a>");
+	admincheck();
 	
-	function bmsg($msg){
-		x_die("$msg\n<a href='index.php' style='background: #fff;'>Click here to return</a>");
-	}
-
-	if (isset($_POST['go'])){
+	if (isset($_POST['go'])) {
 		
-		print "<!doctype html><title>Update themes</title><body style='background: #008; color: #fff;'>
-		<pre><b style='background: #fff; color: #008'>Themes update</b>\n\n";
+		checktoken();
+		pageheader("Update themes");
+		print adminlinkbar();
+		
+		?>
+		<center>
+		<table class='main'>
+			<tr>
+				<td class='head c'>
+					Update themes
+				</td>
+			<tr>
+				<td class='dim' style='padding: 5px'>
+					<pre><?php
 		
 		$themes = fopen('themes.dat', 'r');
 		
-		if (!$themes)
-			bmsg("ERROR: Couldn't find themes.dat in the board root directory.");
-		
-		$sql->start();
-		$sql->query("TRUNCATE themes");
-		$in = $sql->prepare("INSERT INTO themes (name, file, special) VALUES (?,?,?)");
-		
-		while(($x = fgetcsv($themes, 128, ";")) !== false){
-			print "$x[0] - $x[1]\n";
-			$sql->execute($in, array($x[0], $x[1], filter_int($x[2])));
+		if ($themes) {
+			
+			$sql->start();
+			$sql->query("TRUNCATE themes");
+			
+			$in = $sql->prepare("INSERT INTO themes (name, file, special) VALUES (?,?,?)");
+			
+			for($cnt = 0; ($x = fgetcsv($themes, 128, ";")) !== false; $cnt++){
+				print "$x[0] - $x[1]\n";
+				$sql->execute($in, [$x[0], $x[1], filter_int($x[2])]);
+			}
+			
+			fclose($themes);
+			
+			$sql->end();
+			
+			print "$cnt themes found.";
+			
+		}
+		else {
+			print "ERROR: Couldn't open themes.dat in the board root directory.";
 		}
 		
-		fclose($themes);
-		$sql->end();
-		
-		bmsg("\n\nOperation completed!");
+					?></pre>
+				</td>
+			</tr>
+		</table>
+		</center>
+		<?php
 	}
+	else {
 	
-	
-	pageheader("Update themes");
-	
-	print adminlinkbar()."<br/>
-	<form method='POST' action='admin-updatethemes.php'>
-	<table class='main w'>
-		<tr><td class='head c'>Update Themes</td></tr>
+		pageheader("Update themes");
 		
-		<tr><td class='light c'>
-			This will recreate the themes table in the database based on the contents of themes.dat.<br/>
-			If you proceed, the table will be truncated.
-		</tr></tr>
-		<tr><td class='dim'>Press the button to start -> <input type='submit' value='Start' name='go'></td></tr></table>
-	</form>	
-	";
+		print adminlinkbar();
+		?>
+		<br>
+		<form method='POST' action='admin-updatethemes.php'>
+		<input type='hidden' name='auth' value='<?php echo $token ?>'>
+		
+		<table class='main w'>
+			<tr><td class='head c'>Update Themes</td></tr>
+			
+			<tr>
+				<td class='light c'>
+					This will recreate the themes table in the database based on the contents of themes.dat.<br>
+					If you proceed, the table will be truncated.
+				</td>
+			</tr>
+			
+			<tr><td class='dim'>Press the button to start -> <input type='submit' value='Start' name='go'></td></tr>
+		</table>
+		
+		</form>	
+		<?php
+		
+	}
 	
 	pagefooter();
 

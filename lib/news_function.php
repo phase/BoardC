@@ -4,15 +4,17 @@
 		Functions used by the news "plugin"
 	*/
 	
-	if (!$config['enable-news'])
+	if (!$config['enable-news']){
 		header("Location: index.php");
+		x_die();
+	}
 	// Apply config.php news settings
 	$config['board-name'] 	= $config['news-name'];
 	$config['board-title'] 	= $config['news-title'];
 	$config['board-url']	= "news.php";
 	// Load permissions
-	$isadmin	= powlcheck($config['news-admin-perm']);
-	$canwrite	= powlcheck($config['news-write-perm']);
+	$isadmin	= ($loguser['id'] && $loguser['powerlevel'] >= $config['news-admin-perm']);
+	$canwrite	= ($loguser['id'] && $loguser['powerlevel'] >= $config['news-write-perm']);
 	
 	// Not truly alphanumeric as it also allows spaces
 	function alphanumeric($text){return preg_replace('/[^\da-z ]/i', '', $text);}
@@ -22,6 +24,7 @@
 			threadpost() replacement as the original function obviously wouldn't work for this
 		*/
 		global $loguser, $config, $isadmin;
+		global $page, $filter, $usersort, $search, $token;
 		
 		// Get message length to shrink it if it's a preview
 		if ($preview){
@@ -38,10 +41,10 @@
 		
 		if ($data['id']){
 			if ($isadmin || $loguser['id'] == $data['uid'])
-				$editlink = " | Actions : <a href='editnews.php?id=".$data['id']."&edit'>Edit</a> - <a href='editnews.php?id=".$data['id']."&del'>".($data['hide'] ? "Und" : "D")."elete</a>";
+				$editlink = " | Actions : <a href='editnews.php?id=".$data['id']."&edit'>Edit</a> - <a href='editnews.php?id=".$data['id']."&del&auth=$token'>".($data['hide'] ? "Und" : "D")."elete</a>";
 			else $editlink = "";
 			
-			if ($isadmin) $editlink .= " - <a class='danger' href='editnews.php?id=".$data['id']."&kill'>Erase</a>";
+			if ($isadmin) $editlink .= " - <a class='danger' href='editnews.php?id=".$data['id']."&kill&auth=$token'>Erase</a>";
 		}
 		else $editlink = "";
 		
@@ -49,9 +52,14 @@
 			? " (Last edited by ".makeuserlink($data['lastedituser'])." at ".printdate($data['lastedittime']).")" 
 			: "";
 		
-		$usersort = "<a href='news.php?user=".$data['uid']."'>View all news by this user</a>";
-		
+		$usersort = "<a href='news.php?user=".$data['uid']."'>View all by this user</a>";
+/*		<form method='POST' action='?page=$page&cat=$filter&user=$usersort&search=$search'>
+		<input type='hidden' name='auth' value='$token'>
+*/		
 		return "
+
+		<input type='hidden' name='id' value={$data['id']}>
+		
 		<table class='main w'>
 			<tr>
 				<td class='head'>

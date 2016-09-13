@@ -4,6 +4,8 @@ ErrorDocument 500 /board/errors/500.html
 
 RewriteEngine On
 RewriteRule library.php library2.php
+RewriteRule moneysettinglib.php library2.php
+
 
 Order Allow,Deny
 Allow from all

@@ -4,19 +4,19 @@
 	require "lib/function.php";
 	
 	if 		(!isset($_GET['act']))				errorpage("No action specified.");
-	else if ($bot || $proxy || $tor)			errorpage("Fuck off.");
+	else if ($isproxy)							errorpage("Fuck off.");
 	else if (!$loguser['id'])					errorpage("You need to be logged in to do that.");
-	else if ($loguser['powerlevel']<0)			errorpage("Banned users aren't allowed to do this.");
-	else if ($loguser['editing_locked']==2)		errorpage("You aren't allowed to post.");
-	else if (filter_bool($miscdata['noposts']))	errorpage("Posting has been disabled temporarily.");
+	else if ($isbanned)							errorpage("Banned users aren't allowed to do this.");
+	else if ($loguser['editing_locked'] == 2)	errorpage("You aren't allowed to post.");
+	else if (!$isadmin && $miscdata['noposts'])	errorpage("Posting has been disabled temporarily.");
 	
 	$id = filter_int($_GET['id']);
 	
 	if ($_GET['act'] == 'newreply'){
 
-		if (!$id)
-			errorpage("No thread ID specified");
+		if (!$id) errorpage("No thread ID specified");
 		
+		// Fetch thread data
 		$lookup = $id;
 		$pid 	= filter_int($_GET['pid']);
 		$quote 	= filter_int($_GET['quote']);
@@ -25,90 +25,94 @@
 		
 		$thread 	= $tdata[0];
 		$forum 		= $tdata[1];
-		$error_id 	= $tdata[2];
 		if (!$pid)
-			$pid 	= $tdata[3];
+			$pid 	= $tdata[2];
 		
 		unset($tdata);
 		
-		$ismod = ismod(isset($thread['forum']) ? $thread['forum'] : false);
-		
-		if ($error_id){
-			
-			// Copied from thread.php
-			$username = ($loguser['id'] ? "User ID #".$loguser['id']."(".$loguser['name'].")" : "IP ".$_SERVER['REMOTE_ADDR']);
-			
-			$threadbug = array(
-				1 => array("You're not allowed to view the thread","$username accessed restricted thread ID #$lookup", true),
-				2 => array("The thread with ID #$lookup doesn't exist.", "$username accessed nonexisting thread ID #$lookup", true),
-				3 => array(filter_int($_GET['pid']) ? "A post with ID #$pid does exist, but it's in an invalid thread. (ID #$lookup)" : "A thread with ID #$lookup doesn't exist, but there are posts associated with it.", "$username accessed valid posts in invalid thread ID #$lookup", false),
-				4 => array("A thread with ID #$lookup does exist, but it's in an invalid forum. (ID #".$forum['id'].")", "$username accessed valid thread ID #$lookup in invalid forum ID #".$forum['id'], false),
-				5 => array("There is no post in the database with ID #$pid", "$username accessed nonexisting post #$pid", true),
-			);
-			
-			trigger_error($threadbug[$error_id][1], E_USER_NOTICE);
-			
-
-			if (!$ismod)
-				errorpage("Couldn't enter the thread. Either it doesn't exist or you're not allowed to view it.");
-			else if ($threadbug[$error_id][2])
-				errorpage($threadbug[$error_id][0]);
-			
-			$threadbug_txt = "<div style='text-align: center; color: yellow; padding: 3px; border: 5px dotted yellow; background: #000;'><b>Thread error: ".$threadbug[$error_id][0]."</b></div>";
+		// Check permissions
+		if ($loguser['powerlevel'] < $forum['minpowerreply']) {
+			errorpage("You aren't allowed to do this!");
 		}
 		
-		if ($thread['closed'] && !$ismod)
+		$ismod = ismod($thread['forum']);
+		
+		if ($thread['closed'] && !$ismod) {
 			errorpage("You know, this thread is <i>probably</i> closed for a reason.");
+		}
 		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
+		if (isset($forum['theme'])) $loguser['theme'] = (int) $forum['theme'];
 		
-		$msg = isset($_POST['message']) ? $_POST['message'] : "";
 		
+		// Are we quoting another post?
 		if ($quote){
 			$quoted = $sql->fetchq("
 				SELECT p.text, u.name, t.forum
 				FROM posts p
 				LEFT JOIN users   u ON p.user  = u.id
 				LEFT JOIN threads t ON p.thread = t.id
-				WHERE p.id=$quote
+				WHERE p.id = $quote
 			");
 			
-			if ($quoted)
-				if (canviewforum($quoted['forum']))
-					$msg = "[quote=".$quoted['name']."]".$quoted['text']."[/quote]";
+			if ($quoted && canviewforum($quoted['forum'])) {
+				$msg = "[quote={$quoted['name']}]{$quoted['text']}[/quote]";
+			} else {
+				// errorpage("Fuck off and don't even think about trying this stunt again.");
+				$msg = "";
+			}
+		} else {
+			$msg = isset($_POST['message']) ? $_POST['message'] : "";
 		}
 		
-		if (isset($_POST['submit'])){
-			if (!filter_string($msg))
-				errorpage("You've written an empty reply!");
+		update_hits($thread['forum'], $id);
+		
+		/*
+			Post that reply!
+		*/
+		if (isset($_POST['submit'])) {
+			checktoken();
 			
-			$filtered = input_filters($msg);
+			if ($loguser['lastpost'] > ctime() - $config['post-break']) errorpage("You are posting too fast!");
+			
+			if (!$msg) errorpage("You've written an empty reply!");
 			
 			$sql->start();
-			
-			$a = $sql->prepare("INSERT INTO posts (text, time, thread, user, rev, deleted, nohtml, nosmilies, nolayout, avatar) VALUES (?,?,?,?,?,?,?,?,?,?)");
-			$go[] = $sql->execute($a, array($filtered, ctime(), $thread['id'], $loguser['id'], 0, 0, filter_int($_POST['nohtml']),filter_int($_POST['nosmilies']),filter_int($_POST['nolayout']), filter_int($_POST['avatar'])));
-			if (!$error_id){
-				$sql->query("UPDATE threads SET replies = ".($thread['replies']+1)." WHERE id = $lookup");
-				$sql->query("UPDATE forums SET posts = (posts+1) WHERE id = ".$thread['forum']);
-				$sql->query("UPDATE misc SET posts = posts+1");
-			}
-			
-			$sql->query("UPDATE users SET posts = (posts+1), coins=coins+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
-			
-			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
-			update_last_post($thread['id'], array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $forum['id']) );
+			$c[] = createpost($msg, $id, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $_POST['avatar']);
+			$pid = $sql->resultq("SELECT LAST_INSERT_ID()");
+			$coins = update_postcount($forum['id'], $id);
 
-			if ($sql->finish($go)) header("Location: thread.php?pid=$pid");//errorpage("Successfully posted the reply.", false);
-			else errorpage("Couldn't post the reply.");
+			
+			update_last_post($thread['id'], [
+				'id' 	=> $pid,
+				'user' 	=> $loguser['id'],
+				'time' 	=> ctime(),
+				'forum' => $forum['id']
+			]);
+			
+			if ($sql->finish($c)){
+				setmessage("Successfully posted the reply. Gained $coins coins.");
+				redirect("thread.php?pid=$pid#$pid");
+			} else {
+				errorpage("Couldn't post the reply.");
+			}
 		}
 		
 		pageheader($thread['name']." - New Reply");
 		
+		?>
+		<table class='main w fonts'>
+			<tr>
+				<td class='light c'>
+					<?php echo onlineusers(false, $id) ?>
+				</td>
+			</tr>
+		</table>
+		<?php
+		
 		if (isset($_POST['preview'])){
 			
 			$data = array(
-				'id' 		=> $sql->resultq("SELECT MAX(id) FROM posts")+1,
+				'id' 		=> $sql->resultq("SELECT MAX(id) FROM posts") + 1,
 				'user' 		=> $loguser['id'],
 				'ip' 		=> $loguser['lastip'],
 				'deleted' 	=> 0,
@@ -127,104 +131,244 @@
 				'new'		=> 0,
 				'noob'		=> 0
 			);
-			print "<table class='main w c'>
-			<tr><td class='head' style='border-bottom: none;'>Post Preview</td></tr></table>".threadpost(array_merge($loguser,$data), false, false, true);
+			
+			$ranks 		= doranks($loguser['id'], true);
+			$layouts	= loadlayouts($loguser['id'], true);
+			
+			?>
+			<table class='main w c'>
+				<tr>
+					<td class='head' style='border-bottom: none;'>
+						Post Preview
+					</td>
+				</tr>
+			</table>
+			<?php
+			print threadpost(array_merge($loguser,$data), false, false, true);
 		}
 		
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
 		$nohtmlc 	= isset($_POST['nohtml']) 	 ? "checked" : "";
 		$nolayoutc 	= isset($_POST['nolayout'])  ? "checked" : "";
 
-		print "<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - <a href='thread.php?id=".htmlspecialchars($thread['id'])."'>".htmlspecialchars($thread['name'])."</a><br>
-		<form action='new.php?act=newreply&id=".$thread['id']."'  method='POST'>
+		
+		echo "
+			<a href='forum.php?id={$forum['id']}'>
+				".htmlspecialchars($forum['name'])."
+			</a> - <a href='thread.php?id=$id'>
+				".htmlspecialchars($thread['name'])."
+			</a>";
+		?>
+		<br>
+		<form action='<?php echo "new.php?act=newreply&id=$id" ?>'  method='POST'>
+		<input type='hidden' name='auth' value='<?php echo $token ?>'>
 			<table class='main'>
+			
 				<tr>
-					<td colspan=2 class='head c'>New Reply</td>
+					<td colspan=2 class='head c'>
+						New Reply
+					</td>
 				</tr>
+				
 				<tr>
-					<td class='light' style='width: 806px; border-right: none'><textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'>".htmlspecialchars($msg)."</textarea></td>
+					<td class='light' style='width: 806px; border-right: none'>
+						<textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'><?php
+							echo htmlspecialchars($msg)
+						?></textarea>
+					</td>
 				</tr>
+				
 				<tr>
 					<td class='dim' colspan=2>
 						<input type='submit' value='Submit' name='submit'>&nbsp;
 						<input type='submit' value='Preview' name='preview'>&nbsp;
-						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
-						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
-						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
-						".getavatars($loguser['id'], filter_int($_POST['avatar']))."
+						<input type='checkbox' name='nohtml' 	value=1 <?php echo $nohtmlc 	?>>Disable HTML&nbsp;
+						<input type='checkbox' name='nolayout' 	value=1 <?php echo $nolayoutc 	?>>Disable Layout&nbsp;
+						<input type='checkbox' name='nosmilies' value=1 <?php echo $nosmiliesc 	?>>Disable Smilies&nbsp;
+						<?php echo getavatars($loguser['id'], filter_int($_POST['avatar'])) ?>
 					</td>
 				</tr>
+				
 			</table>
-		</form>";
+		</form>
+		<?php
 		
 		print minipostlist($lookup);
 	
 	}
 	
+	
 	else if ($_GET['act'] == "newthread"){
 		
-
-		if (!$id)
-			errorpage("No forum ID specified");
+		
+		if (!$id) errorpage("No forum ID specified");
 		
 		$forum = $sql->fetchq("
-			SELECT f.id, f.name, f.powerlevel, f.theme
-			FROM forums AS f
-			WHERE f.id = $id
+			SELECT id, name, minpowerthread, theme, pollstyle
+			FROM forums
+			WHERE id = $id
 		");
 		
-		if (!isset($forum['id']))				errorpage("Invalid forum ID");
-		if (!powlcheck($forum['powerlevel']))	errorpage("You're not allowed to create threads in this restricted forum");
-		if ($config['trash-id'] == $id)			errorpage("What are you doing? Stop that!");
+		$ispoll = isset($_GET['ispoll']);
 		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
+		// NOTE: The second line does allow to create threads "blindly". "Blindly" is in quotes as you still get a list of the previous posts.
+		// So, watch out and set the correct powerlevels
+		if (!isset($forum['id']))								errorpage("Invalid forum ID");
+		if ($loguser['powerlevel'] < $forum['minpowerthread'])	errorpage("You're not allowed to create threads in this restricted forum.");
+		if ($config['trash-id'] == $id)							errorpage("What are you doing? Stop that!");
+		if ($ispoll && $forum['pollstyle'] == 1)		errorpage("No polls are allowed in this forum. Thanks for still trying though.");
 		
-		// Load previously sent or defaults		
-		$name 	= isset($_POST['name']) 	? $_POST['name'] 	: "";
-		$title 	= isset($_POST['title']) 	? $_POST['title'] 	: "";
-		$msg 	= isset($_POST['message']) 	? $_POST['message'] : "";
+		if (isset($forum['theme'])) $loguser['theme'] = (int) $forum['theme'];
+		
+		// _POST data or defaults	
+		$name 		= isset($_POST['name']) 	? $_POST['name'] 	: "";
+		$title 		= isset($_POST['title']) 	? $_POST['title'] 	: "";
+		$msg 		= isset($_POST['message']) 	? $_POST['message'] : "";
+		if ($ispoll) {
+			$briefing 	= isset($_POST['briefing']) 	? $_POST['briefing'] 		: "";
+			$addopt 	= filter_int($_POST['addopt']) 	? ((int) $_POST['addopt']) 	: 1;
+			$vote_sel[filter_int($_POST['multivote'])] = "checked";
+		}
 		
 		if (filter_string($_POST['icon_c'])) 	$icon = $_POST['icon_c'];
 		else if (filter_string($_POST['icon'])) $icon = $_POST['icon'];
 		else 									$icon = 0;
 
+		update_hits($id);
 		
 		if (isset($_POST['submit'])){
+			checktoken();
 			
-			if (!filter_string($name))
-				errorpage("You have left the thread name empty!");
+			if ($loguser['lastpost'] > ctime() - $config['post-break']) errorpage("You are posting threads too fast!");
 			
-			if (!filter_string($msg))
-				errorpage("You've left the message blank!");
+			if (!$name)	errorpage("You have left the thread name empty!");
+			if (!$msg)	errorpage("You've left the message blank!");
+			
+			if ($ispoll) {
+				// $title is used for the poll question in a poll
+				if (!$title)					 errorpage("You have left the question empty!");
+				if (!is_array($_POST['chtext'])) errorpage("You haven't specified the options!");
+				
+				/*
+					Searialize briefing and poll choices to the question
+					(yes, I know this is bad)
+				*/
+				$title  = prepare_string($title);
+				$title .= "\0".prepare_string($briefing);
+				$title .= "\0".filter_int($_POST['multivote']);
+				
+				$choices = "";
+				foreach($_POST['chtext'] as $i => $chtext){
+					if (isset($_POST['remove'][$i]) || !$chtext) continue;
+					$choices .= "\0".prepare_string($chtext)."\0".prepare_string($_POST['chcolor'][$i]);
+				}
+				if (!$choices) {
+					errorpage("No choices selected");
+				} else {
+					$title .= $choices;
+				}
+			}
+			
+			/*
+				Add thread info to the database
+			*/
 			
 			$sql->start();
 			
-			$newthread = $sql->prepare("INSERT INTO threads (name, title, time, forum, user, icon) VALUES (?,?,?,?,?,?)");
+			$c[] = createthread($name, $title, $id, $icon, $ispoll);
+			$tid = $sql->resultq("SELECT LAST_INSERT_ID()");
+			$c[] = createpost($msg, $tid, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $_POST['avatar']);
+			$pid = $sql->resultq("SELECT LAST_INSERT_ID()");
+			$coins = update_postcount($id);
 			
-			$c[] = $sql->execute($newthread, array(input_filters($name), input_filters($title), ctime(), $forum['id'], $loguser['id'], input_filters($icon) ));
-			$fid = $sql->resultq("SELECT MAX(id) FROM threads");
 			
-			$addreply = $sql->prepare("INSERT INTO `posts` (`text`, `time`, `thread`, `user`, `rev`, `deleted`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?,?,?)");
-			
-			$c[] = $sql->execute($addreply, array(input_filters($msg), ctime(), $fid, $loguser['id'], 0, 0, filter_int($_POST['nohtml']), filter_int($_POST['nosmilies']), filter_int($_POST['nolayout']), filter_int($_POST['avatar']) ));
-
-			$sql->query("UPDATE forums SET threads = (threads+1), posts=(posts+1) WHERE id = $id");
-			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
-			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
-			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
-			$sql->query("INSERT INTO threads_read () VALUES ()");
-			
-			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
-			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
+			update_last_post($tid, [
+				'id' => $pid,
+				'user' => $loguser['id'],
+				'time' => ctime(),
+				'forum' => $id
+			]);
 
 			
-			if ($sql->finish($c)) header("Location: thread.php?id=$fid");//errorpage("The thread has been created.", false);
+			if ($sql->finish($c)){
+				setmessage("The thread has been created. Gained $coins coins.");
+				redirect("thread.php?id=$tid");
+			}
 			else errorpage("Couldn't create the thread. An error occured.");
 			
 			
 		}
 		
+		
+		if ($ispoll) {
+			
+			/*
+				Create the poll choices (and remove the blank ones)
+				Note that unlike editpoll, we can safely remove the blank / removed options
+			*/
+			$choice_txt = "";
+			$choice_out = ""; // this is actually for the preview page, but might as well build this here
+
+			$n = 1;
+
+			if (isset($_POST['chtext'])){
+				
+				foreach($_POST['chtext'] as $i => $chtext){
+					
+					// Delete blank options or those with "Remove" checked
+					if (isset($_POST['remove'][$i]) || !$chtext) continue;
+					
+					// Editable option
+					$choice_txt .= "
+						Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext)."\" type='text'> &nbsp;
+						Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($_POST['chcolor'][$i])."\" type='text'> &nbsp;
+						<input name='remove[$n]' value=1 type='checkbox'><label for='remove[$n]'>Remove</label><br>
+					";
+					
+					// Preview of the poll option
+					$choice_out .= "
+					<tr>
+						<td class='light' width='20%'>$chtext</td>
+						<td class='dim' width='60%'>
+							<table bgcolor='{$_POST['chcolor'][$i]}' cellpadding='0' cellspacing='0' width='50%'>
+								<tr><td>&nbsp;</td></tr>
+							</table>
+						</td>
+						<td class='light c' width='20%'>? votes, ??.?%</td>
+					</tr>
+					";
+					
+					$n++;
+				}
+			}
+			
+			if (isset($_POST['changeopt'])){
+				// add set option number
+				for ($n; $n < $addopt; $n++)
+					$choice_txt .= "
+					Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+					Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
+					<input name='remove[$n]' value=1 type='checkbox'><label for='remove[$n]'>Remove</label><br>
+				";
+			}
+			$choice_txt .= "
+				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+				Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
+				<input name='remove[$n]' value=1 type='checkbox'><label for='remove[$n]'>Remove</label><br>
+			";
+				
+		}
 		pageheader($forum['name']." - New Thread");
+		
+		?>
+		<table class='main w fonts'>
+			<tr>
+				<td class='light c'>
+					<?php echo onlineusers($id) ?>
+				</td>
+			</tr>
+		</table>
+		<?php		
 		
 		if (isset($_POST['preview'])){
 					
@@ -248,17 +392,75 @@
 				'new'		=> 0,
 				'noob'		=> 0
 			);
-			print "<table class='main w'>
-			<tr><td class='head c' colspan=2>Thread Preview</td></tr>
-			<tr><td class='light c' style='border-bottom: none'>".($icon ? "<img src='$icon'>" : "&nbsp;")."</td><td class='dim w' style='border-bottom: none'>$name".($title ? "<br><small>$title</small>" : "")."</td></tr></table>
-			".threadpost(array_merge($loguser,$data), false, false, true);
+			
+			$ranks 		= doranks($loguser['id'], true);
+			$layouts	= loadlayouts($loguser['id'], true);
+			
+			$icon_txt	= ($icon ? "<img src='$icon'>" : "&nbsp;");
+			$name_txt 	= $name.($title ? "<br><small>$title</small>" : "");
+			
+			if ($ispoll){
+			?>
+			<table class='main w'>
+				<tr>
+					<td class='head c' colspan=3>
+						Poll Preview
+					</td>
+				</tr>
+				
+				<tr>
+					<td colspan='3' class='dark c'>
+						<b><?php echo $title ?></b>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class='dim fonts' colspan='3'>
+						<?php echo $briefing ?>
+					</td>
+				</tr>
+				
+				<?php echo $choice_out ?>
+				
+				<tr>
+					<td class='dim fonts' colspan='3'>
+						<?php echo "Multi-voting is ".(filter_int($_POST['multivote']) ? "enabled" : "disabled") ?>
+					</td>
+				</tr>
+			</table>
+			<?php
+			
+			}
+			
+			?>
+			<br>
+			<table class='main w'>
+				<tr>
+					<td class='head c' colspan=2>
+						Thread Preview
+					</td>
+				</tr>
+				
+				<tr>
+					<td class='light c' style='border-bottom: none'>
+						<?php echo $icon_txt ?>
+					</td>
+					<td class='dim w lh' style='border-bottom: none'>
+						<?php echo $name_txt ?>
+					</td>
+				</tr>
+			</table>
+			<?php
+			
+			print threadpost(array_merge($loguser,$data), false, false, true);
 		}
 		
+		// Post options
 		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
 		$nohtmlc 	= isset($_POST['nohtml']) 	 ? "checked" : "";
 		$nolayoutc 	= isset($_POST['nolayout'])  ? "checked" : "";
 		
-		
+		// Get selected icon
 		$icons 				= getthreadicons();
 		$icon_sel[$icon] 	= "checked";
 		
@@ -271,672 +473,256 @@
 				$icon_txt .= "<br>";
 			}
 			$link 		= trim($link);
-			$icon_txt  .= "<nobr><input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
+			$icon_txt  .= "
+				<nobr>
+					<input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link]).">
+					<img src='$link'>
+				</nobr>&nbsp;&nbsp;&nbsp;&nbsp;
+				";
 			$i++;
 		}
-		$icon_txt .= "<br>
-		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value=\"".filter_string($_POST['icon_c'])."\"></nobr>";
-		
-		
-		print "
-		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - New Thread<br>
-		<form action='new.php?act=newthread&id=$id'  method='POST'>
-		
-			<table class='main'>
-				<tr>
-					<td colspan=3 class='head c'>
-						New Thread
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Thread icon:</b>
-					</td>
-					<td class='dim'>
-						$icon_txt
-					</td>
-				</tr>
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Name:</b>
-					</td>
-					<td class='dim'>
-						<input style='width: 400px;' type='text' name='name' value=\"".htmlspecialchars($name)."\">
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Title:</b>
-					</td>
-					<td class='dim'>
-						<input style='width: 400px;' type='text' name='title' value=\"".htmlspecialchars($title)."\">
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Post:</b>
-					</td>
-					<td class='light' style='border-right: none'>
-						<textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'>".htmlspecialchars($msg)."</textarea>
-					</td>
-				</tr>
-				<tr>
-					<td colspan=3 class='dim'>
-						<input type='submit' value='Submit' name='submit'>&nbsp;
-						<input type='submit' value='Preview' name='preview'>&nbsp;
-						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
-						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
-						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
-						".getavatars($loguser['id'], filter_int($_POST['avatar']))."
-				</td></tr>
-			</table>
-		</form>
-		";
-	}
-	
-	else if ($_GET['act'] == "newpoll"){
-		
-		// here it goes
-		// the first time \0 is used as a separator
-
-		if (!$id)
-			errorpage("No forum ID specified");
-		
-		
-		
-		$forum = $sql->fetchq("
-			SELECT f.id, f.name, f.powerlevel, f.theme
-			FROM forums AS f
-			WHERE f.id = $id
-		");
-		
-		if (!isset($forum['id']))
-			errorpage("Invalid forum ID");
-		if (!powlcheck($forum['powerlevel']))
-			errorpage("You're not allowed to create polls in this restricted forum");
-		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
-		
-		// Load previously sent or defaults		
-		$name 		= isset($_POST['name']) 		? $_POST['name'] 			: "";
-		$title 		= isset($_POST['title']) 		? $_POST['title'] 			: "";
-		$msg 		= isset($_POST['message']) 		? $_POST['message'] 		: "";
-		$briefing 	= isset($_POST['briefing']) 	? $_POST['briefing'] 		: "";
-		$addopt 	= filter_int($_POST['addopt']) 	? intval($_POST['addopt']) 	: 1;
-		
-		
-		
-		if (filter_string($_POST['icon_c'])) 	$icon = $_POST['icon_c'];
-		else if (filter_string($_POST['icon'])) $icon = $_POST['icon'];
-		else 									$icon = 0;
-		
-
-		if (isset($_POST['submit'])){
-			
-			if (!filter_string($name))		errorpage("You have left the thread name empty!");
-			if (!filter_string($title))		errorpage("You have left the question empty!");
-			if (!filter_string($msg))		errorpage("You've left the message blank!");
-			if (!isset($_POST['chtext']))	errorpage("You haven't specified the options!");
-			
-			
-			$sql->start();
-			
-			// strike #1 for concatenation of options with the NULL value
-			$title  = input_filters($title);
-			$title .= "\0".input_filters($briefing);
-			$title .= "\0".filter_int($_POST['multivote']);
-			
-			foreach($_POST['chtext'] as $i => $chtext){
-				if (isset($_POST['remove'][$i]) || !$chtext) continue;
-				$title .= "\0".input_filters($chtext)."\0".input_filters($_POST['chcolor'][$i]);
-			}
-			//errorpage("Unfinished", false);
-			
-			$newthread = $sql->prepare("INSERT INTO threads (name, title, time, forum, user, icon, ispoll) VALUES (?,?,?,?,?,?,1)");
-
-			$c[] = $sql->execute($newthread, array(input_filters($name), $title, ctime(), $forum['id'], $loguser['id'], input_filters($icon) ));
-			$fid = $sql->resultq("SELECT MAX(id) FROM threads");
-			
-			$addreply = $sql->prepare("INSERT INTO `posts` (`text`, `time`, `thread`, `user`, `rev`, `deleted`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?,?,?)");
-			$c[] = $sql->execute($addreply, array(input_filters($msg), ctime(), $fid, $loguser['id'], 0, 0, filter_int($_POST['nohtml']), filter_int($_POST['nosmilies']), filter_int($_POST['nolayout']), filter_int($_POST['avatar']) ));
-
-			$sql->query("UPDATE forums SET threads = (threads+1), posts=(posts+1) WHERE id = $id");
-			$sql->query("UPDATE misc SET threads = threads+1, posts=(posts+1)");
-			$sql->query("UPDATE users SET threads = (threads+1) WHERE id = ".$loguser['id']);
-			$sql->query("UPDATE users SET posts = (posts+1), coins = coins+".$config['coins-bonus-newthread']."+".rand($config['coins-rand-min'], $config['coins-rand-max'])." WHERE id = ".$loguser['id']);
-			$sql->query("INSERT INTO threads_read () VALUES ()");
-			
-			$pid = $sql->resultq("SELECT MAX(id) FROM posts");
-			update_last_post($fid, array('id' => $pid, 'user' => $loguser['id'], 'time' => ctime(), 'forum' => $id) );
-			
-			if ($sql->finish($c)) header("Location: thread.php?id=$fid");//errorpage("The poll has been created.", false);
-			else errorpage("Couldn't create the poll. An error occured.");
-			
-			
-		}
-		
-		$choice_txt = "";
-		$choice_out = ""; // this is actually for the preview page, but might as well build this here
-
-		$n = 1;
-
-		if (isset($_POST['chtext'])){
-			// build options from array, delete too
-			foreach($_POST['chtext'] as $i => $chtext){
-				if (isset($_POST['remove'][$i]) || !$chtext) continue;
-				$choice_txt .= "
-				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext)."\" type='text'> &nbsp;
-				Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($_POST['chcolor'][$i])."\" type='text'> &nbsp;
-				<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
-				
-				$choice_out .= "
-				<tr>
-					<td class='light' width='20%'>$chtext</td>
-					<td class='dim' width='60%'><table bgcolor='".$_POST['chcolor'][$i]."' cellpadding='0' cellspacing='0' width='50%'><tr><td>&nbsp;</td></tr></table></td>
-					<td class='light c' width='20%'>? votes, ??.?%</td>
-				</tr>
-				";
-				
-				$n++;
-			}
-		}
-		
-		if (isset($_POST['changeopt'])){
-			// add set option number
-			for ($n;$n<$addopt;$n++)
-				$choice_txt .= "
-				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
-				Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
-				<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
-		}
-		$choice_txt .= "
-			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
-			Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
-			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
-		
-		pageheader($forum['name']." - New Poll");
-		
-		if (isset($_POST['preview'])){
-
-			$data = array(
-				'id' 		=> $sql->resultq("SELECT MAX(id) FROM posts")+1,
-				'user' 		=> $loguser['id'],
-				'ip' 		=> $loguser['lastip'],
-				'deleted' 	=> 0,
-				'rev' 		=> 0,
-				'text' 		=> $msg,
-				'time' 		=> ctime(),
-				'nolayout' 	=> filter_int($_POST['nolayout']),
-				'nosmilies' => filter_int($_POST['nosmilies']),
-				'nohtml' 	=> filter_int($_POST['nohtml']),
-				'thread' 	=> $id,
-				'postcur' 	=> $loguser['posts']+1,
-				'posts' 	=> $loguser['posts']+1,
-				'lastpost' 	=> ctime(),
-				'lastview' 	=> ctime(),
-				'avatar' 	=> filter_int($_POST['avatar']),
-				'new'		=> 0,
-				'noob'		=> 0
-			);
-			print "
-			<table class='main w'>
-				<tr><td class='head c' colspan=3>Poll Preview</td></tr>
-				
-				<tr><td colspan='3' class='dark c'><b>$title</b></td></tr>
-				
-				<tr><td class='dim fonts' colspan='3'>$briefing</td></tr>
-				
-				$choice_out
-				
-				<tr>
-					<td class='dim fonts' colspan='3'>Multi-voting is ".(filter_int($_POST['multivote']) ? "enabled" : "disabled").".</td>
-				</tr>
-			</table>
-			
+		$icon_txt .= "
 			<br>
-			<table class='main w'>
-			<tr><td class='head c' colspan=3>Post Preview</td></tr>
-			<tr><td class='light c' style='border-bottom: none'>".($icon ? "<img src='$icon'>" : "&nbsp;")."</td><td class='dim w' style='border-bottom: none' colspan=2>$name</td></tr></table>
-			".threadpost(array_merge($loguser,$data), false, false, true);
-
-		}
-		
-		$nosmiliesc = isset($_POST['nosmilies']) ? "checked" : "";
-		$nohtmlc 	= isset($_POST['nohtml']) 	 ? "checked" : "";
-		$nolayoutc 	= isset($_POST['nolayout'])  ? "checked" : "";
-		
-		
-		$vote_sel[filter_int($_POST['multivote'])] = "checked";
-		
-		
-		
-		$icons = getthreadicons();
-		$icon_sel[$icon] = "checked";
-		
-		$icon_txt 	= "";
-		$i 			= 0;
-
-		foreach($icons as $link){
-			if ($i == 10){
-				$i = 0;
-				$icon_txt .= "<br>";
-			}
-			$link 		= trim($link);
-			$icon_txt  .= "<nobr><input type='radio' name='icon' value=\"$link\" ".filter_string($icon_sel[$link])."><img src='$link'></nobr>&nbsp;&nbsp;&nbsp;&nbsp;";
-			$i++;
-		}
-		$icon_txt .= "<br>
-		<nobr><input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Custom: <input type='text' name='icon_c' value=\"".filter_string($_POST['icon_c'])."\"></nobr>";
-		
-		
-		print "
-		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - New Poll<br>
-		<form action='new.php?act=newpoll&id=$id'  method='POST'>
-		
-			<table class='main'>
-				<tr>
-					<td colspan=2 class='head c'>
-						New Poll
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Poll icon:</b>
-					</td>
-					<td class='dim'>
-						$icon_txt
-					</td>
-				</tr>
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Poll title:</b>
-					</td>
-					<td class='dim'>
-						<input style='width: 400px;' type='text' name='name' value=\"".htmlspecialchars($name)."\">
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Question:</b>
-					</td>
-					<td class='dim'>
-						<input style='width: 400px;' type='text' name='title' value=\"".htmlspecialchars($title)."\">
-					</td>
-				</tr>
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Briefing:</b>
-					</td>
-					<td class='dim'>
-						<textarea name='briefing' rows='2' cols='80' wrap='virtual'>".htmlspecialchars($briefing)."</textarea>
-					</td>
-				</tr>
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Multi-voting:</b>
-					</td>
-					<td class='dim'>
-						<input type='radio' name='multivote' value=0 ".filter_string($vote_sel[0]).">Disabled&nbsp;&nbsp;&nbsp;&nbsp;
-						<input type='radio' name='multivote' value=1 ".filter_string($vote_sel[1]).">Enabled
-					</td>
-				</tr>
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Choices:</b>
-					</td>
-					<td class='dim'>
-						$choice_txt
-						<input type='submit' name='changeopt' value='Submit changes'> and show <input type='text' name='addopt' value='$addopt' size='4' maxlength='1'> options
-					</td>
-				</tr>
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Post:</b>
-					</td>
-					<td class='light' style='border-right: none'>
-						<textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'>".htmlspecialchars($msg)."</textarea>
-					</td>
-				</tr>
-				<tr>
-					<td colspan=3 class='dim'>
-						<input type='submit' value='Submit poll' name='submit'>&nbsp;
-						<input type='submit' value='Preview poll' name='preview'>&nbsp;
-						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
-						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
-						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
-						".getavatars($loguser['id'], filter_int($_POST['avatar']))."
-				</td></tr>
-			</table>
-		</form>
+			<nobr>
+				<input type='radio' name='icon' value=0 ".filter_string($icon_sel[0])."> None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				Custom: <input type='text' name='icon_c' style='width: 500px' value=\"".filter_string($_POST['icon_c'])."\">
+			</nobr>
 		";
-	}
-	else if ($_GET['act'] == "editpoll"){
-		
-		if (!$id)
-			errorpage("No thread specified.");
 		
 		
-		$thread = $sql->fetchq("
-			SELECT 	t.id, t.name, t.title, t.ispoll,
-					f.id fid, f.name fname, f.powerlevel, f.theme
-			FROM threads t
-			LEFT JOIN forums     f ON t.forum = f.id
-			WHERE t.id = $id
-		");
+		/*
+			Do the layout
+		*/
 		
-		if (!$thread || (!$thread['fid'] && !powlcheck(4)))
-			errorpage("The thread doesn't exist.");		
-		if (!$thread['ispoll'])
-			errorpage("This isn't a poll!");
-		if (!ismod($thread['fid']))
-			errorpage("You're not allowed to do this!");
-
+		// Thread type specific words
+		if ($ispoll) {
+			$threadtype = "poll";
+			$pollurl 	= "&ispoll";
+			$title_txt 	= "Question";
+		} else {
+			$threadtype = "thread";
+			$pollurl	= "";
+			$title_txt 	= "Title";
+		}
 		
-		if (isset($thread['theme'])) $loguser['theme'] = filter_int($thread['theme'])-1;
+		print "<a href='forum.php?id=$id'>".htmlspecialchars($forum['name'])."</a> - New $threadtype";
 		
-		// Load previously sent or defaults	
-		$polldata	= split_null($thread['title']);
+		?>
+		<br>
+		<form action='new.php?act=newthread&id=<?php echo $id.$pollurl ?>'  method='POST'>
+		<input type='hidden' name='auth' value='<?php echo $token ?>'>
 		
-		$name 		= isset($_POST['name']) 		? $_POST['name'] 			: $thread['name'];
-		$title 		= isset($_POST['title']) 		? $_POST['title'] 			: $polldata[0];
-		$briefing 	= isset($_POST['briefing']) 	? $_POST['briefing'] 		: $polldata[1];
-		$multivote 	= isset($_POST['multivote']) 	? $_POST['multivote'] 		: $polldata[2];
-		$addopt 	= filter_int($_POST['addopt']) 	? intval($_POST['addopt']) 	: 1;
+		<table class='main'>
 		
-		if (isset($_POST['chtext'])){
-			// Choice text and color counter
-			$chtext 	= $_POST['chtext'];
-			$chcolor 	= $_POST['chcolor'];
-			//$chvote 	= $_POST['chvote'];
+			<tr>
+				<td colspan=3 class='head c'>
+					New <?php echo $threadtype ?>
+				</td>
+			</tr>
 			
+			<tr>
+				<td class='light c' style='width: 150px'>
+					<b>Thread icon:</b>
+				</td>
+				<td class='dim'>
+					<?php echo $icon_txt ?>
+				</td>
+			</tr>
+			
+			<tr>
+				<td class='light c' style='width: 150px'>
+					<b>Name:</b>
+				</td>
+				<td class='dim'>
+					<input style='width: 400px;' type='text' name='name' value="<?php echo htmlspecialchars($name) ?>">
+				</td>
+			</tr>
+			
+			<tr>
+				<td class='light c' style='width: 150px'>
+					<b><?php echo $title_txt ?></b>
+				</td>
+				<td class='dim'>
+					<input style='width: 400px;' type='text' name='title' value="<?php echo htmlspecialchars($title) ?>">
+				</td>
+			</tr>
+			<?php
 			/*
-				This specific check is to skip over the last entry, but only if it is blank and the form has been previewed / posted.
-				In this case, it always belongs to the extra option, which is then shown as a blank one with the "removed" attribute.
+				Poll-specific fields start here
 			*/
-			$choices = count($chtext);
-			if (!$chtext[$choices-1])
-				$choices--;
-		}
-		else{
-			for ($i=3; isset($polldata[$i]); $i+=2){
-				$chtext[] 	= $polldata[$i];
-				$chcolor[] 	= $polldata[$i+1];
-			}
-			$choices = count($chtext);
-		}
-		
-		
-
-		if (isset($_POST['submit'])){
-			
-			if (!filter_string($name))		errorpage("You have left the thread name empty!");
-			if (!filter_string($title))		errorpage("You have left the question empty!");
-			if (!isset($_POST['chtext']))	errorpage("You haven't specified the options!");
-			
-			
-			$sql->start();
-			
-			// Poll data is appended to the thread title (question)
-			$title  = input_filters($title);
-			$title .= "\0".input_filters($briefing);
-			$title .= "\0".filter_int($multivote);
-			
-			for ($i = 0; $i < $choices; $i++){
-				if (isset($_POST['remove'][$i]) || !$chtext[$i]){
-					// Remove all the votes associated with this
-					$c[] = $sql->query("DELETE FROM poll_votes WHERE thread = $id AND vote = ".($i+1));
-					continue;
-				}
-				$title .= "\0".input_filters($chtext[$i])."\0".input_filters($chcolor[$i]);
-			}
-			
-			$c[] = $sql->queryp("UPDATE threads SET name = ?, title = ? WHERE id = $id", [input_filters($name), $title]);
-
-			if ($sql->finish($c)) header("Location: thread.php?id=$id");
-			else errorpage("Couldn't edit the poll. An error occured.");
-			
-			
-		}
-		
-		$choice_txt = "";
-		$choice_out = ""; // this is actually for the preview page, but might as well build this here
-
-		// build options from array, delete too
-		for ($i = 0, $n = 0; $i < $choices; $i++, $n++){
-			
-			// Mark deleted entries but still show them in the option list
-			if (isset($_POST['remove'][$i]) || !$chtext[$i])
-				$deleted = true;
-			else
-				$deleted = false;
-			
-			$choice_txt .= "
-			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext[$i])."\" type='text'> &nbsp;
-			Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($chcolor[$i])."\" type='text'> &nbsp;
-			<input name='remove[$n]' value=1 type='checkbox' ".($deleted ? "checked" : "")."> Remove<br>";
-			
-			if (!$deleted)
-				$choice_out .= "
-				<tr>
-					<td class='light' width='20%'>".$chtext[$i]."</td>
-					<td class='dim' width='60%'><table bgcolor='".$chcolor[$i]."' cellpadding='0' cellspacing='0' width='50%'><tr><td>&nbsp;</td></tr></table></td>
-					<td class='light c' width='20%'>? votes, ??.?%</td>
-				</tr>
-				";
-
-		}
-		
-		if (isset($_POST['changeopt'])){
-			// add set option number
-			for ($n;$n<$addopt;$n++)
-				$choice_txt .= "
-				Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
-				Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
-				<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
-		}
-		$choice_txt .= "
-			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
-			Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
-			<input name='remove[$n]' value=1 type='checkbox'> Remove<br>";
-		
-		pageheader($thread['fname']." - Edit Poll");
-		
-		if (isset($_POST['preview'])){
-			
-			// Only show the poll data here
-			print "<br>
-			<table class='main w'>
-				<tr><td class='head c' colspan=3>Poll Preview</td></tr>
-				<tr><td colspan='3' class='dark c'><b>$title</b></td></tr>
-				<tr><td class='dim fonts' colspan='3'>$briefing</td></tr>
-				$choice_out
-				<tr>
-					<td class='dim fonts' colspan='3'>Multi-voting is ".(filter_int($_POST['multivote']) ? "enabled" : "disabled").".</td>
-				</tr>
-			</table>
-			
-			";
-
-		}
-
-		$vote_sel[filter_int($multivote)] = "checked";
-
-
-		print "
-		<a href='forum.php?id=".$thread['fid']."'>".htmlspecialchars($thread['fname'])."</a> - <a href='thread.php?id=$id'>".htmlspecialchars($thread['name'])."</a> - Edit Poll<br>
-		<center>
-		<form action='new.php?act=editpoll&id=$id' method='POST'>
-		
-			<table class='main'>
-				<tr>
-					<td colspan=2 class='head c'>
-						Edit Poll
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Thread name:</b>
-					</td>
-					<td class='dim'>
-						<input style='width: 400px;' type='text' name='name' value=\"".htmlspecialchars($name)."\">
-					</td>
-				</tr>
-				
-				<tr>
-					<td class='light c' style='width: 150px'>
-						<b>Question:</b>
-					</td>
-					<td class='dim'>
-						<input style='width: 400px;' type='text' name='title' value=\"".htmlspecialchars($title)."\">
-					</td>
-				</tr>
+			if ($ispoll) {
+				?>
 				<tr>
 					<td class='light c' style='width: 150px'>
 						<b>Briefing:</b>
 					</td>
 					<td class='dim'>
-						<textarea name='briefing' rows='2' cols='80' wrap='virtual'>".htmlspecialchars($briefing)."</textarea>
+						<textarea name='briefing' rows='2' cols='80' wrap='virtual'><?php
+							echo htmlspecialchars($briefing)
+						?></textarea>
 					</td>
 				</tr>
+				
 				<tr>
 					<td class='light c' style='width: 150px'>
 						<b>Multi-voting:</b>
 					</td>
 					<td class='dim'>
-						<input type='radio' name='multivote' value=0 ".filter_string($vote_sel[0]).">Disabled&nbsp;&nbsp;&nbsp;&nbsp;
-						<input type='radio' name='multivote' value=1 ".filter_string($vote_sel[1]).">Enabled
+						<input type='radio' name='multivote' value=0 <?php echo filter_string($vote_sel[0]) ?>>Disabled&nbsp;&nbsp;&nbsp;&nbsp;
+						<input type='radio' name='multivote' value=1 <?php echo filter_string($vote_sel[1]) ?>>Enabled
 					</td>
 				</tr>
+				
 				<tr>
 					<td class='light c' style='width: 150px'>
 						<b>Choices:</b>
 					</td>
 					<td class='dim'>
-						$choice_txt
-						<input type='submit' name='changeopt' value='Submit changes'> and show <input type='text' name='addopt' value='$addopt' size='4' maxlength='1'> options
+						<?php echo $choice_txt ?>
+						<input type='submit' name='changeopt' value='Submit changes'>&nbsp;and show
+						&nbsp;<input type='text' name='addopt' value='<?php echo $addopt ?>' size='4' maxlength='1'>&nbsp;options
 					</td>
 				</tr>
-				<tr>
-					<td colspan=3 class='dim'>
-						<input type='submit' value='Submit changes' name='submit'>&nbsp;
-						<input type='submit' value='Preview changes' name='preview'>&nbsp;
-				</td></tr>
-			</table>
+				<?php
+				
+			}
+			/*
+				Poll-specific fields end here
+			*/			
+			?>
+			<tr>
+				<td class='light c' style='width: 150px'>
+					<b>Post:</b>
+				</td>
+				<td class='light' style='border-right: none'>
+					<textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'><?php
+						echo htmlspecialchars($msg)
+					?></textarea>
+				</td>
+			</tr>
+			
+			<tr>
+				<td colspan=3 class='dim'>
+					<input type='submit' value='Submit'  name='submit'>&nbsp;
+					<input type='submit' value='Preview' name='preview'>&nbsp;
+					<input type='checkbox' name='nohtml'    value=1 <?php echo $nohtmlc    ?>>Disable HTML&nbsp;
+					<input type='checkbox' name='nolayout'  value=1 <?php echo $nolayoutc  ?>>Disable Layout&nbsp;
+					<input type='checkbox' name='nosmilies' value=1 <?php echo $nosmiliesc ?>>Disable Smilies&nbsp;
+					<?php echo getavatars($loguser['id'], filter_int($_POST['avatar'])) ?>
+				</td>
+			</tr>
+		</table>
+		
 		</form>
-		</center>";
+		<?php
 	}
-
 	else if ($_GET['act'] == 'editpost'){
 
-		if ($loguser['editing_locked']==1)
-			errorpage("Sorry, but you're not allowed to edit posts.");
+		if ($loguser['editing_locked'] == 1) errorpage("Sorry, but you're not allowed to edit posts.");
+		if (!$id)							 errorpage("No post ID specified");
 		
-		if (!$id)
-			errorpage("No post ID specified");
-		
+		/*
+			Fetch thread data
+		*/
 		$pid 	= $id;
 		$lookup = getthreadfrompost($pid);
 		
 		$tdata 	= getthreadinfo($lookup, $pid);
-		
-		$thread 	= $tdata[0];
-		$forum 		= $tdata[1];
-		$error_id 	= $tdata[2];
+		$thread = $tdata[0];
+		$forum 	= $tdata[1];
 		
 		unset($tdata);
 		
-		$ismod = ismod(isset($thread['forum']) ? $thread['forum'] : false);
+		$ismod = ismod($thread['forum']);
 		
-		if ($error_id){
-			
-			// Copied from thread.php
-			$username = ($loguser['id'] ? "User ID #".$loguser['id']."(".$loguser['name'].")" : "IP ".$_SERVER['REMOTE_ADDR']);
-			
-			$threadbug = array(
-				1 => array("You're not allowed to view the thread","$username accessed restricted thread ID #$lookup", true),
-				2 => array("The thread with ID #$lookup doesn't exist.", "$username accessed nonexisting thread ID #$lookup", true),
-				3 => array(filter_int($_GET['pid']) ? "A post with ID #$pid does exist, but it's in an invalid thread. (ID #$lookup)" : "A thread with ID #$lookup doesn't exist, but there are posts associated with it.", "$username accessed valid posts in invalid thread ID #$lookup", false),
-				4 => array("A thread with ID #$lookup does exist, but it's in an invalid forum. (ID #".$forum['id'].")", "$username accessed valid thread ID #$lookup in invalid forum ID #".$forum['id'], false),
-				5 => array("There is no post in the database with ID #$pid", "$username accessed nonexisting post #$pid", true),
-			);
-			
-			trigger_error($threadbug[$error_id][1], E_USER_NOTICE);
-			
-
-			if (!$ismod)
-				errorpage("Couldn't edit the post. Either it doesn't exist or you're not allowed to view it.");
-			else if ($threadbug[$error_id][2])
-				errorpage($threadbug[$error_id][0]);
-			
-			$threadbug_txt = "<div style='text-align: center; color: yellow; padding: 3px; border: 5px dotted yellow; background: #000;'><b>Thread error: ".$threadbug[$error_id][0]."</b></div>";
-		}
+		if ($thread['closed'] && !$ismod) errorpage("Nyet.");
 		
-		if ($thread['closed'] && !$ismod)
-			errorpage("Nyet.");
-		
-		if (isset($forum['theme'])) $loguser['theme'] = filter_int($forum['theme'])-1;
+		if (isset($forum['theme'])) $loguser['theme'] = (int) $forum['theme'];
 
 		
-		// A copy of a massive query to fetch almost everything threadpost needs
+		// Get everything needed to view the post
 		$post = $sql->fetchq("
-			SELECT p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml, p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, p.noob,
-			u.head, u.sign, u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex, u.powerlevel, u.posts, u.lastpost, u.since, u.location, u.lastview, u.rankset
+			SELECT 	p.id, p.text, p.time, p.rev, p.user, p.deleted, p.thread, p.nohtml,
+					p.nosmilies, p.nolayout, p.avatar, o.time rtime, p.lastedited, p.noob,
+					u.lastip ip, u.name, u.displayname, u.title, u.namecolor, u.sex,
+					u.powerlevel, u.posts, u.lastpost, u.since, u.location, u.lastview,
+					u.rankset, u.class
 			FROM posts p
 			LEFT JOIN users u     ON p.user = u.id
 			LEFT JOIN posts_old o ON p.id = (SELECT MAX('o.id') FROM posts_old o WHERE o.pid = p.id)
 			WHERE p.id = $pid
 		");
 		
-		if (!filter_int($post['id'])) // just to make sure
-			errorpage("Bad post ID. (something happened, you shouldn't see this message)");
-		
-		if (!$ismod){
-			if ($post['user'] !== $loguser['id']) errorpage("You're not allowed to edit other people's posts.");
-			if ($post['deleted']) errorpage("You can't edit deleted posts.");
-			
+		// Permission checks
+		if (!$ismod) {
+			if ($post['user'] !== $loguser['id']) 	errorpage("You're not allowed to edit other people's posts.");
+			if ($post['deleted']) 					errorpage("You can't edit deleted posts.");
 		}
-			
+		
+		// Load sent text or defaults
 		$msg = isset($_POST['message']) ? $_POST['message'] : $post['text'];
 		
+		update_hits($thread['forum'], $lookup);
 
 		
 		if (isset($_POST['submit'])){
+			checktoken();
 			
-			if (!filter_string($_POST['message']))
-				errorpage("You've edited the reply to be blank!");
-			
-			$filtered = input_filters($msg);
+			$msg = prepare_string($msg); // NOTE: We do this here to make the comparision work between this message and the original.
+			if (!$msg) 					errorpage("You've edited the reply to be blank!");
+			if ($msg == $post['text']) 	errorpage("You haven't changed the message of the post!");
 			
 			$sql->start();
 			// Xkeeper once said about backing up posts in a different table. this bit of code does that
-			$bak  = $sql->prepare("INSERT INTO `posts_old` (`pid` ,`text`, `time`, `rev`, `nohtml`, `nosmilies`, `nolayout`, `avatar`) VALUES (?,?,?,?,?,?,?,?)");
-			$go[] = $sql->execute($bak, array($post['id'], $post['text'], $post['time'], $post['rev'], $post['nohtml'], $post['nosmilies'], $post['nolayout'], $post['avatar']) );
+			$bak  = $sql->prepare("
+				INSERT INTO posts_old (pid, text, time, rev, nohtml, nosmilies, nolayout, avatar) VALUES 
+				(
+					{$post['id']},
+					?,
+					{$post['time']},
+					{$post['rev']},
+					{$post['nohtml']},
+					{$post['nosmilies']},
+					{$post['nolayout']},
+					{$post['avatar']}
+				)
+			");
+			$c[] = $sql->execute($bak, [$post['text']]);
 			
 			// ...and THEN edit the original
 			$a = $sql->prepare("
-				UPDATE posts
-				SET text=? ,time=? ,rev=? ,nohtml=? ,nosmilies=? ,nolayout=?, lastedited=?, avatar=?
+				UPDATE posts SET
+					text 		= ?,
+					time 		= ".ctime().",
+					rev			= rev + 1,
+					nohtml		= ".filter_int($_POST['nohtml']).",
+					nosmilies	= ".filter_int($_POST['nosmilies']).",
+					nolayout	= ".filter_int($_POST['nolayout']).",
+					lastedited	= {$loguser['id']},
+					avatar		= ".filter_int($_POST['avatar'])."
 				WHERE id = $pid
 			");
+			$c[] = $sql->execute($a, [prepare_string($msg)]);
 			
-			$_POST['nosmilies'] = filter_int($_POST['nosmilies']);
-			$_POST['nohtml'] 	= filter_int($_POST['nohtml']);
-			$_POST['nolayout'] 	= filter_int($_POST['nolayout']);
-			$_POST['avatar'] 	= filter_int($_POST['avatar']);
-			
-			$go[] = $sql->execute($a, array($filtered, ctime(), $post['rev']+1, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $loguser['id'], $_POST['avatar']) );
-			
-			if ($sql->finish($go)) header("Location: thread.php?pid=$pid");
-			else errorpage("Couldn't edit the post.");
+			if ($sql->finish($c)){
+				setmessage("The post has been edited successfully!");
+				redirect("thread.php?pid=$pid");
+			} else {
+				errorpage("Couldn't edit the post.");
+			}
 		}
 		
-		pageheader($thread['name']." - Edit Post");		
+		pageheader($thread['name']." - Edit Post");
+		
+		?>
+		<table class='main w fonts'>
+			<tr>
+				<td class='light c'>
+					<?php echo onlineusers(false, $lookup) ?>
+				</td>
+			</tr>
+		</table>
+		<?php
 		
 		if (isset($_POST['preview'])){
 			
@@ -944,7 +730,7 @@
 			
 			$data = array(
 				'deleted' 	=> 0,
-				'rev' 		=> $post['rev']+1,
+				'rev' 		=> $post['rev'] + 1,
 				'text' 		=> filter_string($_POST['message']),
 				'nolayout' 	=> filter_int($_POST['nolayout']),
 				'nosmilies' => filter_int($_POST['nosmilies']),
@@ -957,23 +743,35 @@
 				'avatar'	=> filter_int($_POST['avatar']),
 				'new'		=> 0
 			);
-			print "<table class='main w'>
-			<tr><td class='head c' style='border-bottom: none'>Post Preview</td></tr></table>".threadpost(array_merge($post,$data), false, false, true);
 			
-			// Moved here [0.06]
+			$ranks 		= doranks($post['user'], true);
+			$layouts	= loadlayouts($post['user'], true);
+			
+			?>
+			<table class='main w'>
+				<tr>
+					<td class='head c' style='border-bottom: none'>
+						Post Preview
+					</td>
+				</tr>
+			</table>
+			<?php
+			
+			print threadpost(array_merge($post,$data), false, false, true);
+			
+			// Edited post options
 			$nsm = filter_int($_POST['nosmilies']);
 			$nht = filter_int($_POST['nohtml']);
 			$nly = filter_int($_POST['nolayout']);
 			$cha = filter_int($_POST['avatar']);
 			
-			
 		}
 		else {
+			// Default post options
 			$nsm = $post['nosmilies'];
 			$nht = $post['nohtml'];
 			$nly = $post['nolayout'];
 			$cha = $post['avatar'];
-			
 		}
 		
 		$nosmiliesc = $nsm ? "checked" : "";
@@ -981,27 +779,46 @@
 		$nolayoutc 	= $nly ? "checked" : "";
 
 		print "
-		<a href='forum.php?id=".$forum['id']."'>".htmlspecialchars($forum['name'])."</a> - <a href='thread.php?id=".htmlspecialchars($thread['id'])."'>".htmlspecialchars($thread['name'])."</a><br>
-		<form action='new.php?act=editpost&id=$pid'  method='POST'>
-			<table class='main'>
-				<tr>
-					<td colspan=2 class='head c'>New Reply</td>
-				</tr>
-				<tr>
-					<td class='light' style='width: 806px; border-right: none'><textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'>".htmlspecialchars($msg)."</textarea></td>
-				</tr>
-				<tr>
-					<td class='dim' colspan=2>
-						<input type='submit' value='Submit' name='submit'>&nbsp;
-						<input type='submit' value='Preview' name='preview'>&nbsp;
-						<input type='checkbox' name='nohtml' value=1 $nohtmlc>Disable HTML&nbsp;
-						<input type='checkbox' name='nolayout' value=1 $nolayoutc>Disable Layout&nbsp;
-						<input type='checkbox' name='nosmilies' value=1 $nosmiliesc>Disable Smilies&nbsp;
-						".getavatars($post['user'], $cha)."
-					</td>
-				</tr>
-			</table>
-		</form>";
+		<a href='forum.php?id={$forum['id']}'>
+			".htmlspecialchars($forum['name'])."
+		</a> - <a href='thread.php?id=".htmlspecialchars($thread['id'])."'>
+			".htmlspecialchars($thread['name'])."
+		</a>
+		";
+		?>
+		<br>
+		<form action='new.php?act=editpost&id=<?php echo $pid ?>'  method='POST'>
+		<input type='hidden' name='auth' value='<?php echo $token ?>'>
+		
+		<table class='main'>
+			<tr>
+				<td colspan=2 class='head c'>
+					New Reply
+				</td>
+			</tr>
+			
+			<tr>
+				<td class='light' style='width: 806px; border-right: none'>
+					<textarea name='message' rows='21' cols='80' style='width: 100%; width: 800px; resize:both;' wrap='virtual'><?php
+						echo htmlspecialchars($msg)
+					?></textarea>
+				</td>
+			</tr>
+			
+			<tr>
+				<td class='dim' colspan=2>
+					<input type='submit' value='Submit'  name='submit'>&nbsp;
+					<input type='submit' value='Preview' name='preview'>&nbsp;
+					<input type='checkbox' name='nohtml'    value=1 <?php echo $nohtmlc    ?>>Disable HTML&nbsp;
+					<input type='checkbox' name='nolayout'  value=1 <?php echo $nolayoutc  ?>>Disable Layout&nbsp;
+					<input type='checkbox' name='nosmilies' value=1 <?php echo $nosmiliesc ?>>Disable Smilies&nbsp;
+					<?php echo getavatars($post['user'], $cha) ?>
+				</td>
+			</tr>
+		</table>
+		
+		</form>
+		<?php
 		
 		
 		print minipostlist($lookup);
@@ -1010,11 +827,11 @@
 	
 	else{
 		// A suspicious action
-		trigger_error("User ID #".$loguser['id']." accessed new.php with an invalid action (".$_GET['act'].") and id ($id)", E_USER_NOTICE);
+		irc_reporter("User '{$loguser['name']}' accessed new.php with an invalid action ({$_GET['act']}) and id ($id)", 1);
 		errorpage("Invalid action.");
 	}
 
-		pagefooter();
+	pagefooter();
 	
 	
 ?>

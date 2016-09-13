@@ -2,93 +2,116 @@
 
 	require "lib/function.php";
 	
-	/*
-	this page is confusing but it works
-	
-	also for whatever reason I made it so you can create your own item categories as long as you are an admin
-	in retrospect, it just made this page more confusing
-	that, and deleting a whole category is the equivalent of erasing a thread (a bad thing)
-	
-	for consistency with Jul, Normal+ users can access the shop editor
-	but only to create/delete/edit items
-	*/
-	
-	if (!powlcheck(1))
-		errorpage("You're not a privileged user!");
-	
-
-	$isadmin = powlcheck(4);	
+	if (!$isprivileged)	errorpage("No.");
 	
 	$txt = "";
 	
-	// Lazy function and shoped.php specific formatting
-	function q(&$x){return htmlspecialchars(input_filters($x));}
-	function i(&$x){
-		if (!in_array($x[0],array('+','-','x','/'))) $x = "+$x";
-		$res = $x[0].((float)(trim($x, '+-x/ '))); // not filter_int to prevent E_STRICT
-		if ($res != "/0") return $res;
-		else errorpage("Division by zero in one of the items.");
+	/*
+		We are mostly doing batch replaces, so errors have to be silently fixed
+	*/
+	function filter_stat(&$x){
+		$x = str_replace('X', 'x', $x); // Just in case, as the uppercase X isn't checked
+		
+		// If the operator isn't allowed, the value is blank or attempts to divide by 0, return +0
+		static $oper 	= array('+','-','x','/');
+		if (!in_array($x[0], $oper) || $x == '/0') return "+0";
+		
+		
+		$val = substr($x, 1);
+		// The input is a decimal value for these, but is stored like this in the db
+		if ($x[0] == 'x' || $x[0] == '/') {
+			$val = (float) $val; // Just in case
+			$val = floor($val * 100);
+		}
+		
+		// Filter the value properly
+		$val = (int) $val;
+		return "'".$x[0].$val."'";
 	}
 	
 
 	/*
-	id, name, title, cat, ord, hp, mp, atk, def, intl, mdf, dex, lck, spd, coins, gcoins, special
-	
-	stored as varchar
-	first character text, describes operator (+,-,x,/)
-	remainder is a number
+		ITEM FORMAT:
+		First character: operator (+,-,x,/)
+		The rest: an integer. On x and / it's divided by 100 for extra precision
 	*/
-	
 	$id = filter_int($_GET['cat']);
 	
+
+	
 	if (isset($_POST['new'])){
+		checktoken();
 		
-		if (!filter_string($_POST['newname']))
-			errorpage("Name is a required field!");
+		if (!filter_string($_POST['newname'])) errorpage("The name cannot be blank!");
 		
 		if ($id){
-			// New Item
-			if (filter_int($_POST['newcoins'])<0 || filter_int($_POST['newgcoins'])<0){
-					trigger_error($loguser['name']." likes taking unnecessary risks by creating an item with negative cost.", E_USER_NOTICE);
-					errorpage("Uh no, I did say that didn't work.");
-			}
+			/*
+				New Item
+			*/
+			$valid = $sql->resultq("SELECT 1 FROM shop_categories WHERE id = $id");
+			if (!$valid) errorpage("This category doesn't exist.");
 			
+			$coins 	= filter_int($_POST['newcoins']);
+			$gcoins = filter_int($_POST['newgcoins']);
+			
+			if ($coins < 0 || $gcoins < 0){
+				irc_reporter($loguser['name']." tried to be funny by creating an item with a negative cost.", 1);
+				errorpage("You don't pay warnings much heed, do you?");
+			}
 			
 			$sql->queryp("
 			INSERT INTO shop_items
-			(name, title, cat, ord, hp, mp, atk, def, intl, mdf, dex, lck, spd, coins, gcoins, special)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-			array(
-				q($_POST['newname']),
-				q($_POST['newtitle']),
-				filter_int($_POST['newcat']),
-				filter_int($_POST['neword']),
-				i($_POST['newhp']),
-				i($_POST['newmp']),
-				i($_POST['newatk']),
-				i($_POST['newdef']),
-				i($_POST['newint']),
-				i($_POST['newmdf']),
-				i($_POST['newdex']),
-				i($_POST['newlck']),
-				i($_POST['newspd']),
-				filter_int($_POST['newcoins']),
-				filter_int($_POST['newgcoins']),
-				filter_int($_POST['newspecial'])
-			));
+			(name, title, cat, ord, sHP, sMP, sAtk, sDef, sInt, sMDf, sDex, sLck, sSpd, coins, gcoins, special)
+			VALUES
+			(
+				?,
+				?,
+				".filter_int($_POST['newcat']).",
+				".filter_int($_POST['neword']).",
+				".filter_stat($_POST['newhp']).",
+				".filter_stat($_POST['newmp']).",
+				".filter_stat($_POST['newatk']).",
+				".filter_stat($_POST['newdef']).",
+				".filter_stat($_POST['newint']).",
+				".filter_stat($_POST['newmdf']).",
+				".filter_stat($_POST['newdex']).",
+				".filter_stat($_POST['newlck']).",
+				".filter_stat($_POST['newspd']).",
+				".filter_int($_POST['newcoins']).",
+				".filter_int($_POST['newgcoins']).",
+				".filter_int($_POST['newspecial'])."
+			)",
+			[
+				prepare_string($_POST['newname']),
+				prepare_string($_POST['newtitle'])
+			]);
 			
-			header("Location: shoped.php?cat=$id");
-			
+			setmessage("Added new item '{$_POST['newname']}'");
+			redirect("shoped.php?cat=$id");
 			
 		}
-		
-		else if ($isadmin){
+		else {
+			/*
+				New Category
+			*/
+			admincheck();
 			
-			// New category
-			$sql->queryp("INSERT INTO shop_categories (name, title, ord) VALUES (?,?,?)", array(q($_POST['newname']), q($_POST['newtitle']), filter_int($_POST['neword'])));
-			$sql->query("ALTER TABLE users_rpg ADD COLUMN item".filter_int($sql->resultq("SELECT MAX(id) FROM shop_categories"))." int(32) NOT NULL DEFAULT '0'");
-			$msg = "Added new category '".$_POST['newname']."'";
-			header("Location: shoped.php");
+			$sql->queryp("
+				INSERT INTO shop_categories (name, title, ord) VALUES
+				(
+					?,
+					?,
+					".filter_int($_POST['neword'])."
+				)",
+				[
+					prepare_string($_POST['newname']),
+					prepare_string($_POST['newtitle'])
+				]);
+			$newid = $sql->lastInsertId();
+			$sql->query("ALTER TABLE users_rpg ADD COLUMN eq$newid int(32) NOT NULL DEFAULT '0'");
+			
+			setmessage("Added new category '{$_POST['newname']}'");
+			redirect("shoped.php");
 			
 		}
 		
@@ -98,146 +121,187 @@
 		
 		if ($id){
 			
+			$valid = $sql->resultq("SELECT 1 FROM shop_categories WHERE id = $id");
+			if (!$valid) errorpage("This category doesn't exist.");
+			
+			$lolcount = 0;
 			
 			// Item update or delete
 			$sql->start();
 			
-			foreach($_POST['id'] as $i){
+			foreach($_POST['idx'] as $i){
 				
-				if (filter_int($_POST["coins$i"])<0 || filter_int($_POST["gcoins$i"])<0){
-					trigger_error($loguser['name']." likes taking unnecessary risks by creating an item with negative cost.", E_USER_NOTICE);
-					errorpage("Uh no, I did say that didn't work.");
+				$coins 	= filter_int($_POST["coins$i"]);
+				$gcoins = filter_int($_POST["gcoins$i"]);
+				
+				if ($coins < 0 || $gcoins < 0){
+					$lolcount++;
 				}
 				
-				else if (!filter_string($_POST["name$i"])) errorpage("You have edited one of the name fields (ID #$i) to be blank!");
+				if (!filter_string($_POST["name$i"])) {
+					errorpage("You have edited one of the name fields (ID #$i) to be blank!");
+				}
 				
-				
+				/*
+					Edit the current item
+				*/
 				if (!filter_int($_POST["del$i"])){
-					$sql->queryp("
-					UPDATE shop_items 
-					SET
-					name=?, title=?, cat=?, ord=?, hp=?, mp=?, atk=?, def=?, intl=?, mdf=?, dex=?, lck=?, spd=?, coins=?, gcoins=?, special=?
-					WHERE id = $i",
-					array(
-						q($_POST["name$i"]),
-						q($_POST["title$i"]),
-						filter_int($_POST["cat$i"]),
-						filter_int($_POST["ord$i"]),
-						i($_POST["hp$i"]),
-						i($_POST["mp$i"]),
-						i($_POST["atk$i"]),
-						i($_POST["def$i"]),
-						i($_POST["int$i"]),
-						i($_POST["mdf$i"]),
-						i($_POST["dex$i"]),
-						i($_POST["lck$i"]),
-						i($_POST["spd$i"]),
-						filter_int($_POST["coins$i"]),
-						filter_int($_POST["gcoins$i"]),
-						filter_int($_POST["special$i"])
-					));
+					$c[] = $sql->queryp("
+						UPDATE shop_items SET
+							name    = ?,
+							title   = ?,
+							cat     = ".filter_int($_POST["cat$i"]).",
+							ord     = ".filter_int($_POST["ord$i"]).",
+							sHP     = ".filter_stat($_POST["HP$i"]).",
+							sMP     = ".filter_stat($_POST["MP$i"]).",
+							sAtk    = ".filter_stat($_POST["Atk$i"]).",
+							sDef    = ".filter_stat($_POST["Def$i"]).",
+							sInt    = ".filter_stat($_POST["Int$i"]).",
+							sMDf    = ".filter_stat($_POST["MDf$i"]).",
+							sDex    = ".filter_stat($_POST["Dex$i"]).",
+							sLck    = ".filter_stat($_POST["Lck$i"]).",
+							sSpd    = ".filter_stat($_POST["Spd$i"]).",
+							coins   = $coins,
+							gcoins  = $gcoins,
+							special = ".filter_int($_POST["special$i"])."
+						WHERE id = $i
+					",
+					[
+						prepare_string($_POST["name$i"]),
+						prepare_string($_POST["title$i"])
+					]);
 					
+				} else {
+					// Or delete it
+					$c[] = $sql->query("DELETE from shop_items WHERE id = $i");
+					// Remove references to deleted item (sorry, users)
+					$c[] = $sql->query("UPDATE users_rpg SET eq$id = 0 WHERE eq$id = $i");
 				}
-				
-				else $sql->query("DELETE from shop_items WHERE id = $i");
 			}
 			
-			$sql->end();
-			header("Location: shoped.php?cat=$id");
+			if ($sql->finish($c)){
+				if (!$lolcount) {
+					redirect("shoped.php?cat=$id");
+				} else {
+					irc_reporter($loguser['name']." tried to be funny and edited $lolcount item(s) to have negative cost.", 1);
+					errorpage("Thank you for editing the items, except for the part about the negative cost.");
+				}
+			} else {
+				errorpage("An unknown error occurred while editing the items.");
+			}
 			
 		}
-
 		
-		else if ($isadmin){
+		else {
 			// Category update or delete
+			admincheck();
 			
-			$sql->start();
-			
-			foreach ($_POST['id'] as $i){
+			foreach ($_POST['idx'] as $i){
 				
 				if (!filter_string($_POST["name$i"])) errorpage("You have edited one of the name fields (ID #$i) to be blank!");
-				if (!filter_int($_POST["del$i"])) $sql->queryp("UPDATE shop_categories SET name=?, title=?, ord=? WHERE id = $i", array(q($_POST["name$i"]), q($_POST["title$i"]), filter_int($_POST["ord$i"])));
-				else{
+				
+				if (!filter_int($_POST["del$i"])) {
+					$sql->queryp("
+						UPDATE shop_categories SET
+							name  = ?,
+							title = ?,
+							ord   = ".filter_int($_POST["ord$i"])."
+						WHERE id = $i
+					", [prepare_string($_POST["name$i"]), prepare_string($_POST["title$i"])]
+					);
+				} else {
 					$sql->query("DELETE from shop_categories WHERE id = $i");
-					$sql->query("ALTER TABLE users_rpg DROP COLUMN item$i");
+					$sql->query("DELETE from shop_items WHERE cat = $i");
+					$sql->query("ALTER TABLE users_rpg DROP COLUMN eq$i");
 				}
 			}
 			
-			$sql->end();
-			header("Location: shoped.php");
+			redirect("shoped.php");
 			
 		}
 		
 	}
 	else $msg = "";
 	
-	// hacky array to make it work under dolist() without changes
+	// hacky array to make it work under dropdownList() without changes
 	$special_list = array(
-		array('id' => 0, 'name' => "None"),
-		array('id' => 1, 'name' => "Forces female gender"),
-		array('id' => 2, 'name' => "Forces catgirl status"),
-		array('id' => 3, 'name' => "Shows HTML comments"),
-		array('id' => 4, 'name' => "Maxes out coins"),
-		array('id' => 5, 'name' => "Forces male gender"),
+		['id' => 0, 'name' => "None"],
+		['id' => 1, 'name' => "Forces female gender"],
+		['id' => 2, 'name' => "Forces catgirl status"],
+		['id' => 3, 'name' => "Shows HTML comments"],
+		['id' => 4, 'name' => "Maxes out coins"],
+		['id' => 5, 'name' => "Forces male gender"],
 	);
 	
 	
 	
-	pageheader("Shop editor");
+	pageheader("Shop Editor");
 
 	// category fetching always done as it's also needed for the listbox
-	$cat = $sql->query("SELECT * FROM shop_categories ORDER BY ord ASC, id ASC");
-	if ($cat) $catlist = $sql->fetch($cat, true);
-	else $catlist = false;
+	$catlist = $sql->fetchq("SELECT * FROM shop_categories ORDER BY ord ASC, id ASC", true);
 	
-	
-	// id, name, title, ord
+	/*
+		Catehgory selection
+	*/
 	if (!$id){
 		
-		if (!$isadmin){ // only admins can edit categories
-			foreach($catlist as $cat)
-				$txt .= "<tr><td class='dark'><a href='shoped.php?cat=".$cat['id']."'>".$cat['name']."</a></td></tr>";
-			print "<br/><center>
-			<table class='main c'>
-				<tr><td class='head'>Shop editor</td></tr>
-				<tr><td class='light'>Select an item category to edit the respective items.</td></tr>
-				".($txt ? $txt : "<tr><td class='dark'>There are no categories yet. Cannot edit items.</td></tr>")."
-				</table></center>
-			";
+		if (!$isadmin) {
+			print shoplinkbar($catlist);
 			pagefooter();
 		}
 		
-		if ($catlist)
-			foreach ($catlist as $cat)
-				$txt .= "
+		foreach($catlist as $cat) {
+			$txt .= "
+			<tr>
+				<td class='dim c'>
+					{$cat['id']} | ".
+					"<a href='shoped.php?cat={$cat['id']}'>
+						(View items)
+					</a>".
+					" | ".
+					"<input type='checkbox' name='del{$cat['id']}' value='{$cat['id']}'>".
+					"<label for='del{$cat['id']}'>Delete</label>".
+					"<input type='hidden' name='idx[]' value='{$cat['id']}'>
+				</td>
+				<td class='light'>
+					<input type='text' name='name{$cat['id']}' value=\"".htmlspecialchars($cat['name'])."\">
+				</td>
+				<td class='dim'>
+					<input type='text' name='title{$cat['id']}' style='width: 600px' value=\"".htmlspecialchars($cat['title'])."\">
+				</td>
+				<td class='light'>
+					<input type='text' name='ord{$cat['id']}' style='width: 40px' value='{$cat['ord']}'>
+				</td>
+			</tr>
+			";
+		}
+		if (!$txt) {
+			$txt = "
 				<tr>
-					<td class='dim c'>
-					".$cat['id']." | <a href='shoped.php?cat=".$cat['id']."'>(View items)</a> | <input type='checkbox' name='del".$cat['id']."' value='".$cat['id']."'> Delete<input type='hidden' name='id[]' value='".$cat['id']."'>
+					<td class='light c' colspan=4>
+						There are no categories defined.<br>
+						You won't be able to create items unless you create one.
 					</td>
-					<td class='light'>
-						<input type='text' name='name".$cat['id']."' value=\"".$cat['name']."\">
-					</td>
-					<td class='dim'>
-						<input type='text' name='title".$cat['id']."' style='width: 600px' value=\"".$cat['title']."\">
-					</td>
-					<td class='light'>
-						<input type='text' name='ord".$cat['id']."' style='width: 40px' value='".$cat['ord']."'>
-					</td>
-				</tr>
-				";
+				</tr>";
+		}
+		?>
+		<br>
+		<form method='POST' action='shoped.php'>
+		<input type='hidden' name='auth' value='<?php echo $token ?>'>
+		<center>
 		
-		else $txt = "<tr><td class='light c' colspan=4>There are no categories defined.<br/>You won't be able to create items unless you create one</td></tr>";
+		<table class='main'>
 		
-		
-		print "<br/><form method='POST' action='shoped.php'>
-		<center><table class='main'>
 			<tr><td class='head c' colspan=4>Shop editor - Main</td></tr>
+			
 			<tr>
 				<td class='light c' colspan=4>
 					View, create and edit categories.
 				</td>
 			</tr>
-			<tr><td class='dark c' colspan=4>New category</td></tr>		
+			
+			<tr><td class='dark c' colspan=4>New category</td></tr>
+			
 			<tr class='c'>
 				<td class='head'>&nbsp;</td>
 				<td class='head'>Name</td>
@@ -245,11 +309,8 @@
 				<td class='head' style='width: 40px'>Order</td>
 			</tr>
 			
-	
 			<tr>
-				<td class='dim'>
-					&nbsp;
-				</td>
+				<td class='dim'>&nbsp;</td>
 				<td class='light'>
 					<input type='text' name='newname'>
 				</td>
@@ -259,14 +320,12 @@
 				<td class='light'>
 					<input type='text' name='neword' value='0' style='width: 40px'>
 				</td>
-				
 			</tr>
-			
 			
 			<tr><td class='dim c' colspan=4><input type='submit' name='new' value='Create'></td></tr>
 			
-			
 			<tr><td class='dark c' colspan=4>Existing categories:</td></tr>
+			
 			<tr class='c'>
 				<td class='head'>Actions</td>
 				<td class='head'>Name</td>
@@ -274,71 +333,124 @@
 				<td class='head'>Order</td>
 			</tr>
 
-			$txt
-			<tr><td class='dim c' colspan=4><input type='submit' name='update' value='Update'></td></tr>
-		</table></center></form>
+			<?php echo $txt ?>
+			
+						
+			<tr>
+				<td class='dim c' colspan=4>
+					<input type='submit' name='update' value='Save Changes'>
+				</td>
+			</tr>
+
+		</table>
 		
-		";
+		</center>
+		</form>
+		
+		<?php
 		
 		pagefooter();
 	}
 	
+	
 	/*
-	Items editor
+		Items editor
 	*/
-	function dolist($list, $name, $sel = false){
-		$txt = "";
-		if ($sel) $x[$sel] = "selected";
-		foreach ($list as $cat)
-			$txt .= "<option value='".$cat['id']."' ".filter_string($x[$cat['id']]).">".$cat['name']."</option>";
-		return "<select name='$name'>$txt</select>";
-	}	
+	
+	$valid = $sql->resultq("SELECT 1 FROM shop_categories WHERE id = $id");
+	if (!$valid) errorpage("This category doesn't exist.", false);
+	
+	?>
+	<center>
+	<table class='main c'>
+		<tr>
+			<td class='head'>
+				<b>WARNING</b>
+			</td>
+		</tr>
+		<tr>
+			<td class='dark'>
+				MAKE AN ITEM WITH A NEGATIVE COST AND YOU <span style="border-bottom: 1px dotted #f00;font-style:italic" title="did you mean: won't really (but don't try it anyway, it won't work)">WILL</span> GET BANNED
+			</td>
+		</tr>
+	</table>
+	</center>
+	<?php
 	
 	$items = $sql->query("SELECT * FROM shop_items WHERE cat = $id ORDER by ord ASC, id ASC");
 	
-	while ($item = $sql->fetch($items))
+	/*
+		Rows for the current items in the category
+	*/
+	while ($item = $sql->fetch($items)) {
 		$txt .= "
 			<tr>
-				<td class='dim'><input type='checkbox' name='del".$item['id']."' value='".$item['id']."'><input type='hidden' name='id[]' value='".$item['id']."'></td>
-				<td class='light'><input type='text' name='name".$item['id']."' style='width: 150px' value=\"".($item['name'])."\"></td>
-				<td class='dim'>  <input type='text' name='title".$item['id']."' style='width: 300px' value=\"".($item['title'])."\"></td>
-				<td class='light'>".dolist($catlist, "cat".$item['id'], $item['cat'])."</td>
-				<td class='light'><input type='text' name='ord".$item['id']."' value='".$item['ord']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='hp".$item['id']."' value='".$item['hp']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='mp".$item['id']."' value='".$item['mp']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='atk".$item['id']."' value='".$item['atk']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='def".$item['id']."' value='".$item['def']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='int".$item['id']."' value='".$item['intl']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='mdf".$item['id']."' value='".$item['mdf']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='dex".$item['id']."' value='".$item['dex']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='lck".$item['id']."' value='".$item['lck']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='spd".$item['id']."' value='".$item['spd']."' style='width: 40px'></td>
-				<td class='light'><input type='text' name='coins".$item['id']."' value='".$item['coins']."' style='width: 60px'></td>
-				<td class='light'><input type='text' name='gcoins".$item['id']."' value='".$item['gcoins']."' style='width: 60px'></td>
-				<td class='light'>".dolist($special_list, "special".$item['id'], $item['special'])."</td>
+				<td class='dim'>
+					<input type='checkbox' name='del{$item['id']}' value='{$item['id']}'>
+					<input type='hidden' name='idx[]' value='{$item['id']}'>
+				</td>
+				<td class='light'>
+					<input type='text' name='name{$item['id']}' style='width: 150px' value=\"".htmlspecialchars($item['name'])."\">
+				</td>
+				<td class='dim'>
+					<input type='text' name='title{$item['id']}' style='width: 300px' value=\"".htmlspecialchars($item['title'])."\">
+				</td>
+				<td class='light'>".dropdownList($catlist, $item['cat'], "cat".$item['id'])."</td>
+				<td class='light'><input type='text' name='ord{$item['id']}' value='{$item['ord']}' style='width: 40px'></td>
+			";
+		// RPG Statuses
+		foreach ($stat as $x) {
+			$oper = substr($item["s$x"], 0, 1);
+			
+			if ($oper == 'x' || $oper == '/') {
+				$item["s$x"] = "$oper".number_format(substr($item["s$x"], 1)  / 100, 2); // Decimal numbers
+			}
+			
+			$txt .= "
+				<td class='light'>
+					<input type='text' name='$x{$item['id']}' value='".$item["s$x"]."' style='width: 40px'>
+				</td>";
+		}
+		$txt .= "
+				<td class='light'><input type='text' name='coins{$item['id']}' value='{$item['coins']}' style='width: 60px'></td>
+				<td class='light'><input type='text' name='gcoins{$item['id']}' value='{$item['gcoins']}' style='width: 60px'></td>
+				<td class='light'>".dropdownList($special_list, $item['special'], "special".$item['id'])."</td>
 			</tr>
 		";
-	if (!$txt) $txt = "<tr><td class='light c' colspan=17>There are no items in this category.</td></tr>";
+	}
+	
+	if (!$txt) {
+		$txt = "<tr><td class='light c' colspan=17>There are no items in this category.</td></tr>";
+	}
+	
+	$catname = $sql->resultq("SELECT name FROM shop_categories WHERE id = $id");
+	
+	print shoplinkbar($catlist, $id);
 
-	print "<br/><table class='main w c'><tr><td class='dim'><a href='shoped.php'>Select a different category</a></td></tr></table>
-	<br/><form method='POST' action='shoped.php?cat=$id'>
-		<center><table class='main'>
-			<tr><td class='head c' colspan=17>Shop editor - ".$sql->resultq("SELECT name FROM shop_categories WHERE id=$id")."</td></tr>
+	?>
+
+	<form method='POST' action='shoped.php?cat=<?php echo $id ?>'>
+	<input type='hidden' name='auth' value='<?php echo $token ?>'>
+	
+	<center>
+	<table class='main'>
+			<tr><td class='head c' colspan=17>Editing <?php echo $catname ?></td></tr>
 			<tr>
 				<td class='light c' colspan=17>
-					You can create or edit items here. Nothing too special.<br/>
-					Just, don't even think about creating an item with a negative cost, as it doesn't work.<br/>
-					Doing so won't grant you with an IP ban, but <i>seriously</i> don't try. >_><br/><br/>
-					
-					For the RPG values, enter a valid sign (+,-,x,/) and then a number.
+					Enter one of the four allowed operators (+,-,x,/) and then a number.<br>
+					Decimal numbers are only allowed for x and / operations.<br>
+					<br>
+					THE OPERATOR IS ALWAYS <b>MANDATORY</b> WITHOUT EXCEPTIONS. THE VALUE WILL BE REMOVED OTHERWISE.<br>
+					(the same goes for invalid operators)
 				</td>
 			</tr>
+			
 			<tr><td class='dark c' colspan=17>New item</td></tr>
 			
 			<tr class='c'>
 				<td class='head'>&nbsp;</td>
 				<td class='head'>Name</td>
-				<td class='head'>Title</td>
+				<td class='head'>Description</td>
 				<td class='head'>Category</td>
 				<td class='head'>Order</td>
 				<td class='head'>HP</td>
@@ -352,7 +464,7 @@
 				<td class='head'>Spd</td>
 				<td class='head'><img src='images/coin.gif'></td>
 				<td class='head'><img src='images/coin2.gif'></td>
-				<td class='head'>Special effect</td>
+				<td class='head nobr'>Special effect</td>
 			</tr>
 			
 	
@@ -360,7 +472,7 @@
 				<td class='dim'>&nbsp;</td>
 				<td class='light'><input type='text' name='newname' style='width: 150px'></td>
 				<td class='dim'>  <input type='text' name='newtitle' style='width: 300px'></td>
-				<td class='light'>".dolist($catlist, "newcat", $id)."</td>
+				<td class='light'><?php echo dropdownList($catlist, $id, "newcat") ?></td>
 				<td class='light'><input type='text' name='neword' value='0' style='width: 40px'></td>
 				<td class='light'><input type='text' name='newhp' value='0' style='width: 40px'></td>
 				<td class='light'><input type='text' name='newmp' value='0' style='width: 40px'></td>
@@ -373,14 +485,13 @@
 				<td class='light'><input type='text' name='newspd' value='0' style='width: 40px'></td>
 				<td class='light'><input type='text' name='newcoins' value='0' style='width: 60px'></td>
 				<td class='light'><input type='text' name='newgcoins' value='0' style='width: 60px'></td>
-				<td class='light'>".dolist($special_list, "newspecial")."</td>
+				<td class='light'><?php echo dropdownList($special_list, 0, "newspecial") ?></td>
 			</tr>
-			
 			
 			<tr><td class='dim c' colspan=17><input type='submit' name='new' value='Create'></td></tr>
 			
-			
 			<tr><td class='dark c' colspan=17>Existing items:</td></tr>
+			
 			<tr class='c'>
 				<td class='head'><b>DEL</b></td>
 				<td class='head'>Name</td>
@@ -398,14 +509,76 @@
 				<td class='head'>Spd</td>
 				<td class='head'><img src='images/coin.gif'></td>
 				<td class='head'><img src='images/coin2.gif'></td>
-				<td class='head'><nobr>Special effect</nobr></td>
+				<td class='head nobr'>Special effect</td>
 			</tr>
 
-			$txt
-			<tr><td class='dim c' colspan=17><input type='submit' name='update' value='Update'></td></tr>
-		</table></center></form>
-		";
+			<?php echo $txt ?>
+			
+			<tr>
+				<td class='dim c' colspan=17>
+					<input type='submit' name='update' value='Save Changes'>
+				</td>
+			</tr>
+			
+		</table>
+		</center>
+		
+		</form>
+		<?php
 	
 	pagefooter();
+	
+	
+	function shoplinkbar($cats, $sel = 0){
+		global $sql, $isadmin;
+		
+		$txt 	= "";
+		$cnt	= $sql->resultq("SELECT COUNT(id) FROM categories");
+		$width 	= floor(1 / $cnt * 100);
+		
+		foreach ($cats as $cat){
+			
+			if ($cat['id'] == $sel){
+				$txt .= "
+				<td class='dark' style='width: $width%'>
+					<a class='notice' href='?cat={$cat['id']}'>
+						{$cat['name']}
+					</a>
+				</td>";
+			} else {
+				$txt .= "
+					<td class='light' style='width: $width%'>
+						<a href='?cat={$cat['id']}'>
+							{$cat['name']}
+						</a>
+					</td>";
+			}
+			
+		}
+		
+		if ($isadmin) {
+			$editcat = "
+			<tr>
+				<td class='dark' colspan=$cnt>
+					[<a href='shoped.php'>Edit categories</a>]
+				</td>
+			</tr>";
+		} else {
+			$editcat = "";
+		}
+		
+		return "
+		<br>
+		<table class='main w c'>
+			<tr>
+				<td class='head' colspan=$cnt>
+					Item Categories
+				</td>
+			</tr>
+			$editcat
+			$txt
+		</table>
+		<br>";
+	}
 
 ?>

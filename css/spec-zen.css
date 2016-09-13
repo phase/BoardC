@@ -1,8 +1,3 @@
-/* META
-The Zen
-<img src="images/themes/zen/zentitle.png" title="no it's a test forum you idiot">
-*/
-
 body {
 	background: #010;
 	font-family: Verdana, Geneva, sans-serif;
@@ -31,11 +26,21 @@ body, table {
 .c{
 	text-align: center;
 }
-
+.r{
+	text-align: right;
+}
 .w{
 	width: 100%;
 }
-
+.nobr{
+	white-space: nowrap;
+}
+.lh{
+	line-height: 100%;
+}
+.lh5{
+	line-height: 50%;
+}
 
 .nmcol-20{color: #666666 !important;} .nmcol-21{color: #666666 !important;} .nmcol-22{color: #666666 !important;}
 .nmcol-10{color: #888888 !important;} .nmcol-11{color: #888888 !important;} .nmcol-12{color: #888888 !important;}

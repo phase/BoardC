@@ -1,146 +1,209 @@
 <?php
-
-	require "lib/function.php";
 	
-	if (!powlcheck(4))
-		errorpage("You wouldn't know how to fix threads.");
+	require_once "lib/function.php";
 	
-	function lazy($text){
-		global $sql, $c, $count;
-		if ($count){
-			print "\nFound $count error(s).\nSaving changes...\n";
-			
-			if ($sql->finish($c)) print "Operation completed successfully!";
-			else print "Couldn't save!";
-		}
-		else{
-			print "\n$text counters are correct.";
-			$sql->undo();
-		}		
-	}
+	admincheck();
 	
-	if (filter_string($_POST['go'])){
-		print "<!doctype html><title>Thread Fix</title><body style='background: #008; color: #fff;'>
-		<pre><b style='background: #fff; color: #008'>Thread Counter Fixer v2</b>\n\n=Thread Replies=\n";
-
+	/*
+		Hopefully the thread fixing is a lot more straightforward now
+	*/
+	
+	$windowtitle = "Thread Fix";
+	
+	if (isset($_POST['go'])){
+		checktoken();
+		
+		pageheader("$windowtitle - Now Running");
+		
+		print adminlinkbar();
+		
+		?>
+		<center>
+		<table class='main'>
+			<tr>
+				<td class='head c' colspan=3>
+					Thread Repair System - Now running
+				</td>
+			<tr>
+				<td class='dark c'>
+					Thread errors
+				</td>
+				<td class='dark c'>
+					Forum Errors
+				</td>
+				<td class='dark c'>
+					Global Counters
+				</td>
+			</tr>
+			<tr>
+				<td class='dim' style='padding: 5px'>
+					<pre><?php
+		
 		$sql->start();
-		$threads = $sql->query("SELECT id, replies, forum FROM threads");
 		
-		$fix = $sql->prepare("UPDATE threads SET replies=? WHERE id = ?");
-		$count = 0;
+		$threads = $sql->query("
+			SELECT t.id, (t.replies + 1) posts, COUNT(p.id) realposts
+			FROM threads t
+			LEFT JOIN posts p ON p.thread = t.id
+			GROUP BY t.id
+			ORDER BY t.id ASC
+		");
+		
 
-		//Save time on the second phase. Build these in the first
-		$posts = array();
-		
+		$fix 	= $sql->prepare("UPDATE threads SET replies = ? WHERE id = ?");
+		$del	= $sql->prepare("DELETE FROM threads WHERE id = ?");
+		$count 	= 0;
+
+
 		while ($thread = $sql->fetch($threads)){
 			
-			$real = ($sql->resultq("SELECT COUNT('id') FROM posts WHERE thread = ".$thread['id']))-1;
-			
-			if (!isset($posts[$thread['forum']]))
-				$posts[$thread['forum']] = 0;
-			
-			$posts[$thread['forum']]+=($real+1);
-			
-			if ($thread['replies'] != $real){
-				print "Thread ID ".$thread['id']." [Replies: ".$thread['replies']."; Expected: $real]\n";
-				$c[] = 	$sql->execute($fix, array($real, $thread['id']));
-			
+			// EXTRA: Delete threads with no posts
+			if (!$thread['realposts']){
+				print "ID #{$thread['id']} [Thread DELETED - It had 0 posts]\n";
+				$c[] = $sql->execute($del, [$thread['id']]);
+				$count++;
+			}
+			else if ($thread['posts'] != $thread['realposts']){
+				print "ID #{$thread['id']} [Posts: {$thread['posts']}; Real: {$thread['realposts']}]\n";
+				$c[] = 	$sql->execute($fix, [$thread['realposts'] - 1, $thread['id']]);
 				$count++;
 			}
 
 		}
 		
-		lazy("Thread reply");
-		unset($thread, $threads, $real, $c, $fix);
-		
-		
-		
-		
-		print "\n\n=Forum Counters=\n";
+		savechanges();
+		unset($threads, $fix, $del);	
+					?></pre>
+				</td>
+				<td class='dim' style='padding: 5px'>
+					<pre><?php
+
 		
 		$sql->start();
+		
+		$forums = $sql->query("
+			SELECT f.id, f.name, f.threads, f.posts, (SUM(t.replies) + COUNT(t.id)) realposts, COUNT(t.id) realthreads
+			FROM forums f
+			LEFT JOIN threads t ON t.forum = f.id
+			GROUP BY f.id
+			ORDER BY id ASC
+		");
+		
+		
 		$count = 0;
 		
-		$ncheckp = 0; // Post
-		$ncheckt = 0; // Thread
 		
-
-		$forums = $sql->query("SELECT id, threads, posts FROM forums ORDER BY id ASC");
-		
-		$fixp = $sql->prepare("UPDATE forums SET posts=? WHERE id=?");
-		$fixt = $sql->prepare("UPDATE forums SET threads=? WHERE id=?");
+		$fixp = $sql->prepare("UPDATE forums SET posts   = ? WHERE id = ?");
+		$fixt = $sql->prepare("UPDATE forums SET threads = ? WHERE id = ?");
 		
 		
 
 		
 		while ($forum = $sql->fetch($forums)){
 			
-			$real = filter_int($sql->resultq("SELECT COUNT('id') FROM threads WHERE forum = ".$forum['id']));
+			$forum['realposts'] = intval($forum['realposts']);
 			
-			$ncheckt+=$real;
-			$ncheckp+=filter_int($posts[$forum['id']]);
-			
-			if ($forum['threads'] != $real){
-				print "Forum ID ".$forum['id']." [Threads: ".$forum['threads']."; Expected: $real]\n";
-				$c[] = $sql->execute($fixt, array($real, $forum['id']));
+			if ($forum['threads'] != $forum['realthreads']){
+				print "ID #{$forum['id']} [Threads: {$forum['threads']}; Real: {$forum['realthreads']}]\n";
+				$c[] = $sql->execute($fixt, [$forum['realthreads'], $forum['id']]);
 				$count++;
 			}	
 			
-			if ($forum['posts'] != filter_int($posts[$forum['id']])){
-				print "Forum ID ".$forum['id']." [Posts: ".$forum['posts']."; Expected: ".filter_int($posts[$forum['id']])."]\n";
-				$c[] = $sql->execute($fixp, array($posts[$forum['id']], $forum['id']));
+			if ($forum['posts'] != $forum['realposts']){
+				print "ID #{$forum['id']} [Posts: {$forum['threads']}; Real: {$forum['realposts']}]\n";
+				$c[] = $sql->execute($fixp, [$forum['realposts'], $forum['id']]);
 				$count++;
 			}	
 		}
 		
-		lazy("Forum");
+		
+		savechanges();
+		unset($forums, $fixp, $fixt);	
+					?></pre>
+				</td>
+				<td class='dim' style='padding: 5px'>
+					<pre><?php
 		
 		
-		unset($count, $forums, $forum, $fixp, $fixt, $real, $c);
+		$sql->start();
 		
+		$count = 0;
 		
+		$realposts 		= $sql->resultq("SELECT COUNT(id) FROM posts");
+		$realthreads 	= $sql->resultq("SELECT COUNT(id) FROM threads");
 		
-		print "\n\n=Misc Counters=\n";
-		
-		$data = $sql->fetchq("SELECT threads, posts FROM misc");
-		
-
-		
-		if ($data['threads'] != $ncheckt){
-			print "Total threads [Current: ".$data['threads'].", Expected: $ncheckt]\n";
-			$sql->query("UPDATE misc SET threads=$ncheckt");
-			$x = true;
+		if ($miscdata['threads'] != $realthreads){
+			print "Total threads [Current: {$miscdata['threads']}; Real: $realthreads]\n";
+			$c[] = $sql->query("UPDATE misc SET threads = $realthreads");
+			$count++;
 		}
-		if ($data['posts'] != $ncheckp){
-			print "Total posts [Current: ".$data['posts'].", Expected: $ncheckp]\n";
-			$sql->query("UPDATE misc SET posts=$ncheckp");
-			$x = true;
+		if ($miscdata['posts'] != $realposts){
+			print "Total posts [Current: {$miscdata['posts']}; Real: $realposts]\n";
+			$c[] = $sql->query("UPDATE misc SET posts = $realposts");
+			$count++;
 		}
 		
-		if (isset($x)) print "\nFixed!";
-		else print "\nTotal counters are correct.\n";
+		savechanges();
 		
-		x_die("\n<a href='index.php' style='background: #fff;'>Click here to return</a>");
+				?></pre>
+				</td>
+			</tr>
+		</table>
+		</center>
+		<br>
+		<?php
+		
 		
 	}
-	
-	pageheader("Thread Fix");
-	
-	print adminlinkbar()."<br/>
-	<form method='POST' action='admin-threadfix.php'>
-	<table class='main w'>
-		<tr><td class='head c'>Thread fix</td></tr>
+	else{
 		
-		<tr><td class='light c'>
-			This page is meant to fix broken thread/post/reply counters.<br/>
-			Currently, it's needed after moving posts to different threads.
-		</tr></tr>
-		<tr><td class='dim'>Press the button to start -> <input type='submit' value='Start' name='go'></td></tr></table>
-	</form>	
-	";
-	
+		pageheader("$windowtitle");
+		
+		
+		print adminlinkbar();
+		
+		?>
+		<br>
+		<form method='POST' action='admin-threadfix.php'>
+		<input type='hidden' name='auth' value='<?php echo $token ?>'>
+		
+		<table class='main w'>
+		
+			<tr><td class='head c'>Thread Repair System</td></tr>
+			
+			<tr>
+				<td class='light c'>
+					<br>This page is intended to repair threads and forums with broken reply counts. Please don't flood it with requests.
+					<br>This problem causes "phantom pages" (e.g., too few or too many pages displayed).
+					<br>&nbsp;
+					<br><input type='submit' value='Start' name='go'>
+					<br>&nbsp;
+				</td>
+			</tr>
+			
+		</table>
+		</form>	
+		<?php
+	}
 	
 	
 	pagefooter();
+	
+	
+	function savechanges(){
+		global $sql, $c, $count;
+		if ($count){
+			print "\nFound $count error".($count == 1 ? "" : "s").".\n";
+			
+			if ($sql->finish($c)) 	print "The errors have been fixed.";
+			else 					print "[WARNING] The errors couldn't be fixed.";
+			
+			unset($GLOBALS['c']);
+		}
+		else{
+			print "\nNo errors found.";
+			$sql->undo();
+		}		
+	}
 
 ?>

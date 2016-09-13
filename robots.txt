@@ -1,4 +1,6 @@
 # a generic robots.txt
 
 User-agent: *
+Crawl-delay: 120
 Disallow: library.php
+

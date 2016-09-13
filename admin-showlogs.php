@@ -3,41 +3,40 @@
 	require "lib/function.php";
 	
 	/*
-		[0.26] Board logs
-		
-		Notice - Hits aren't updated when visiting this page.
+		[0.26] Board logs / Exploit attempts
 	*/
 	
-	if (!powlcheck(4)){
-		update_hits();
-		errorpage("Go away.");
-	}
-	
-	$sysadmin 	= powlcheck(5); // Can edit / ban
+	admincheck();
 	
 	$table 		= filter_string($_GET['mode']);
 	$ord		= filter_int($_GET['ord']);
 	$page		= filter_int($_GET['page']);
 	
-	$allowed = array("minilog", "log", "jstrap", "hits");
-	if (!in_array($table, $allowed)) $table = "minilog";
+	if (defined('FW_LOADED')){
+		$allowed = array("minilog", "log", "jstrap", "hits");
+		$default = "minilog";
+	} else {
+		$allowed = array("jstrap", "hits");
+		$default = "hits";
+	}
+	
+	if (!in_array($table, $allowed)) $table = $default;
 	
 	if ($sysadmin){
-		if (isset($_GET['ban'])){
+		
+		if (isset($_POST['ipban'])){
+			checktoken();
 			/*
 				Permaban + IP Ban
-				(The valid check goes by the IP as it's guaranteed one is sent, unlike the user ID)
 			*/
 			$ip 	= filter_string($_GET['bi']);
 			$user 	= filter_string($_GET['bu']);
-			// Is it valid?
-			if (md5($ip) != $_GET['ban'] || !$ip)
-				errorpage("Sorry, but the choice is invalid (or the md5 hash screwed up)");
 			
 			if ($user) userban($user, false, true, "Thanks for playing!", "Added permanent ban to User ID #$user");
-			ipban("Abusive/Malicious Behaviour", "Added IP ban for $ip", $ip, true);
+			ipban("Abusive/Malicious Behaviour", "Added IP ban for $ip", $ip, 0, true);
 			
 			header("Location: admin-showlogs.php?mode=$table&ord=$ord&page=$page");
+			x_die();
 		}
 		
 		if (isset($_GET['trim'])){
@@ -45,25 +44,35 @@
 				Truncate specified table
 			*/
 			if (isset($_POST['doit'])){
+				checktoken();
 				$sql->query("TRUNCATE $table");
-				header("Location: admin-showlogs.php?mode=$table");
+				setmessage("$table has been truncated.");
+				redirect("admin-showlogs.php?mode=$table");
 			}
 			
 			pageheader("Trim $table");
 			print adminlinkbar()."
 			<center>
 				<table class='main c'>
+				
 					<tr><td class='head'>Warning</td></tr>
 					
-					<tr><td class='light'>
-						Are you sure you want to trim the table '$table'?<br>
-						<br>
-						You cannot undo this action!
-					</td></tr>
+					<tr>
+						<td class='light'>
+							Are you sure you want to trim the table '$table'?<br>
+							<br>
+							You cannot undo this action!
+						</td>
+					</tr>
+					
 					<form method='POST' action='?mode=$table&trim'>
-						<tr><td class='head'>
-							<a href='?mode=$table&ord=$ord&page=$page'>Return</a> - <input type='submit' name='doit' value='Truncate'>
-						</td></tr>
+						<tr>
+							<td class='dark'>
+								<a href='?mode=$table&ord=$ord&page=$page'>Return</a> - 
+								<input type='submit' name='doit' value='Truncate'>
+								<input type='hidden' name='auth' value='$token'>
+							</td>
+						</tr>
 					</form>
 					
 				</table>
@@ -73,16 +82,23 @@
 		}
 	}
 	
-	$total 		= $sql->resultq("SELECT COUNT(id) FROM $table");
+	// Page numbers
+	$total 		= $sql->resultq("SELECT COUNT(*) FROM $table");
 	$limit		= 100;
 	$pagectrl	= dopagelist($total, $limit, "admin-showlogs", "&mode=$table&ord=$ord");
 	
+	/*
+		Minilog and log are basically the same table
+		The detailed view should be available to both "modes"
+	*/
 	if ($table == 'minilog' || $table == 'log'){
-		// Detailed view
+		
 		$view = filter_int($_GET['view']);
 		if ($view){
+			
 			pageheader("Request #$view");
 			
+			// Get everything from the log table, as it's important
 			$all 	= $sql->fetchq("
 				SELECT l.*, $userfields user, i.ip ipbanned
 				FROM log l
@@ -90,6 +106,7 @@
 				LEFT JOIN ipbans i ON l.ip  = i.ip
 				WHERE l.id = $view
 			");
+			
 			// Snip
 			$user 	= $all['user'] ? makeuserlink($all['user'], $all) : "Guest";
 			
@@ -97,14 +114,15 @@
 			$reason 	= "";
 			$banflags 	= explode(";", $all['banflags']);
 			
-			foreach($banflags as $flagset)
+			foreach($banflags as $flagset){
 				$reason .= $fw->get_reason_id($flagset)." (".filter_int($flagset).")\n";
+			}
 			$requests = str_replace("\0", "\n", $all['requests']);
 			// End snip
 			
 			// Next / Previous controls
 			$max = $sql->resultq("SELECT MAX(id) FROM log");
-			$prev_txt = "<a href='?mode=$table&view=".($view <= 1 ? 1 : $view + 1)."'>&lt;</a>";
+			$prev_txt = "<a href='?mode=$table&view=".($view <= 1 ? 1 : $view - 1)."'>&lt;</a>";
 			$next_txt = "<a href='?mode=$table&view=".($view == $max ? $max : $view + 1)."'>&gt;</a>";
 			
 			print adminlinkbar()."
@@ -120,7 +138,7 @@
 				</tr>
 				
 				<tr>
-					<td class='light' style='width: 50%'><b>IP Address</b><br><a href='admin-ipsearch.php?ip={$all['ip']}'>{$all['ip']}</a>".banformat($all)."</td>
+					<td class='light' style='width: 50%'><b>IP Address</b><br>".ipformat($all)."</td>
 					<td class='light' style='width: 50%'><b>Date</b><br>".printdate($all['time'])."</td>
 				</tr>
 				<tr>
@@ -157,14 +175,14 @@
 			
 		}
 	}
+	
+	// Per-table layouts
+	
 	if ($table == 'minilog'){
 		/*
 			Excerpts from the log flagged as malicious (banflags != 0)
 		*/
 		
-		//if (!file_exists("lib/firewall.php"))
-		//	errorpage("Sorry, but this page requires the firewall to be loaded.");
-	
 		$colspan 	= 6;
 		$tablename 	= "Denied requests";
 
@@ -198,9 +216,10 @@
 			$reason = "";
 			$banflags 	= explode(";", $x['banflags']);
 			
-			foreach($banflags as $flagset)
-				$reason .= "<nobr>".$fw->get_reason_id($flagset)."</nobr><br>";
-
+			foreach($banflags as $flagset){
+				$reason .= $fw->get_reason_id($flagset)."<br>";
+			}
+			
 			// Requests are merged with the null value, convert to <br> for a prettier view
 			$requests = str_replace("\0", "<br>", $x['requests']);
 
@@ -210,21 +229,18 @@
 					<td class='light c'><a href='?mode=$table&view={$x['id']}'>{$x['id']}</a></td>
 					<td class='light c'>$user</td>
 					<td class='dim fonts c'>".printdate($x['time'])."</td>
-					<td class='light fonts c'>$reason</td>
+					<td class='light fonts c nobr'>$reason</td>
 					<td class='dim fonts c'>$requests</td>
-					<td class='light c'><nobr><a href='admin-ipsearch.php?ip={$x['ip']}'>{$x['ip']}</a>".banformat($x)."</nobr></td>
+					<td class='light c'><center>".ipformat($x)."</center></td>
 				</tr>
 				";
 		}
 	}
 	else if ($table == 'log'){
 		/*
-			Log viewer
+			Board logs
 		*/
 		
-		//if (!file_exists("lib/firewall.php"))
-		//	errorpage("Sorry, but this page requires the firewall to be loaded.");
-	
 		$colspan 	= 6;
 		$tablename 	= "Requests";
 		
@@ -269,7 +285,7 @@
 					<td class='dim fonts c'>".printdate($x['time'])."</td>
 					<td class='light fonts c'>".htmlspecialchars($x['page'])."?".htmlspecialchars($x['get'])."</td>
 					<td class='dim fonts c'>$requests</td>
-					<td class='light c'><nobr><a href='admin-ipsearch.php?ip={$x['ip']}'>{$x['ip']}</a>".banformat($x)."</nobr></td>
+					<td class='light c'><center>".ipformat($x)."</center></td>
 				</tr>
 				";
 		}
@@ -305,25 +321,27 @@
 					<td class='light c'>{$x['id']}</td>
 					<td class='dim c'>".makeuserlink($x['uid'], $x)."</td>
 					<td class='dim fonts c'>{$x['filtered']}</td>
-					<td class='light c'><a href='admin-ipsearch.php?ip={$x['ip']}'>{$x['ip']}</a>".banformat($x)."</td>
+					<td class='light c'><center>".ipformat($x)."</center></td>
 				</tr>
 				";
 		
 	}
 	else if ($table == 'hits'){
+		
 		/*
-			Board logs
+			Online Users
 		*/
-		$colspan = 8;
-		$tablename = "Board logs";
+		$colspan = 9;
+		$tablename = "Online users";
 		
 		$list = $sql->query("
-			SELECT h.*, $userfields uid, i.ip ipbanned, f.name fname
+			SELECT h.*, $userfields uid, i.ip ipbanned, f.name fname, t.name tname
 			FROM hits h
-			LEFT JOIN users  u ON h.user  = u.id
-			LEFT JOIN ipbans i ON h.ip    = i.ip
-			LEFT JOIN forums f ON h.forum = f.id
-			ORDER BY h.id ".($ord ? "ASC" : "DESC")."
+			LEFT JOIN users   u ON h.user   = u.id
+			LEFT JOIN ipbans  i ON h.ip     = i.ip
+			LEFT JOIN forums  f ON h.forum  = f.id
+			LEFT JOIN threads t ON h.thread = t.id
+			ORDER BY u.lastip ".($ord ? "ASC" : "DESC")."
 			LIMIT ".($limit*$page).", $limit
 		");
 		
@@ -334,44 +352,52 @@
 				<td class='head c'>Time</td>
 				<td class='head c'>Page</td>
 				<td class='head c'>Forum</td>
+				<td class='head c'>Thread</td>
 				<td class='head c'>User Agent</td>
 				<td class='head c'>Referer</td>
 				<td class='head c'>IP</td>
 			</tr>
 			";
 		
-		while($x = $sql->fetch($list)){
+		for($i = 1; $x = $sql->fetch($list); $i++){
 			$user 	= $x['uid'] 	? makeuserlink($x['uid'], $x) : "Guest";
 			$forum 	= $x['forum'] 	? "<a href='forum.php?id={$x['forum']}'>{$x['fname']}</a>" : "";
+			$thread = $x['thread'] 	? "<a href='thread.php?id={$x['thread']}'>{$x['tname']}</a>" : "";
 			$txt .= "
 				<tr>
-					<td class='light c'>{$x['id']}</td>
+					<td class='light c'>$i</td>
 					<td class='light c'>$user</td>
 					<td class='dim fonts c'>".printdate($x['time'])."</td>
 					<td class='dim fonts c'>".htmlspecialchars($x['page'])."</td>
 					<td class='dim fonts c'>$forum</td>
+					<td class='dim fonts c'>$thread</td>
 					<td class='dim fonts c'>".htmlspecialchars($x['useragent'])."</td>
 					<td class='dim fonts c'>".htmlspecialchars($x['referer'])."</td>
-					<td class='light c'><nobr><a href='admin-ipsearch.php?ip={$x['ip']}'>{$x['ip']}</a>".banformat($x)."</nobr></td>
+					<td class='light c'><center>".ipformat($x)."</center></td>
 				</tr>
 				";
 		}
 		
 	}
-	else errorpage("Unknown error - Table $table");
 
 	
 	pageheader("Log viewer - $tablename");
 	
 	//$banner = $sysadmin ? "" : "<tr><td class='dark c' colspan='$colspan'><b>NOTICE: The logs are in read-only mode!</b></td></tr>";
 	
-	print adminlinkbar()."
+	print adminlinkbar().$message."
 	<table class='main w'>
 		<tr><td class='head c' colspan='2'>Options</td></tr>
 		
 		<tr>
 			<td class='light c'><b>Log</b></td>
-			<td class='dim'><a href='?mode=log'>Requests</a> - <a href='?mode=minilog'>Denied requests</a> - <a href='?mode=jstrap'>XSS Attempts</a> - <a href='?mode=hits'>Board logs</a></td>
+			<td class='dim'>".
+				(defined('FW_LOADED')
+					? "<a href='?mode=log'>Board logs</a> - <a href='?mode=minilog'>Denied requests</a> - "
+					: ""
+				)."
+				<a href='?mode=jstrap'>XSS Attempts</a> - <a href='?mode=hits'>Online users logs</a>
+			</td>
 		</tr>
 		
 		<tr>
@@ -396,9 +422,26 @@
 	
 	pagefooter();
 	
-	// Nested ? condition fun!
-	function banformat($data){
-		global $sysadmin;
-		return $data['ipbanned'] ? "<small><br>[IP BANNED]</small>" : ($sysadmin ? " - <a href='?ban=".md5($data['ip'])."&bi={$data['ip']}".($data['user'] ? "&bu={$data['user']}" : "")."&mode={$_GET['mode']}'>Ban</a>" : "");
+	function ipformat($data){
+		global $sysadmin, $token, $table, $ord, $page;
+		$iplink = "<a href='admin-ipsearch.php?ip={$data['ip']}'>{$data['ip']}</a>";
+		if ($data['ipbanned'])  return "$iplink<br>[<a href='admin-ipbans.php?ip={$data['ip']}'>IP BANNED</a>]";
+		else if (!$sysadmin)	return "$iplink";
+		else{
+			return "
+			<table cellspacing=0>
+				<tr>
+					<td>$iplink -&nbsp;</td>
+					<td>
+						<form method='POST' action='?mode=$table&ord=$ord&page=$page&bi={$data['ip']}".($data['user'] ? "&bu={$data['user']}" : "")."'>
+							<input type='hidden' name='auth' value='$token'>
+							<input type='submit' name='ipban' value='IP Ban'>
+						</form>
+					</td>
+				</tr>
+			</table>
+			";
+
+		}		
 	}
 ?>
