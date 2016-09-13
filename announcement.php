@@ -466,7 +466,7 @@
 			?>
 				<center>
 				<form method='POST' action='<?php echo "announcement.php?id=$id&del=$del" ?>'>
-				<input type='hidden' name='auth' value='$token'>
+				<input type='hidden' name='auth' value='<?php echo $token ?>'>
 				
 				<table class='main c'>
 				
