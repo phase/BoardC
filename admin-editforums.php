@@ -513,7 +513,7 @@
 
 			WHERE f.minpower <= $querypowl
 			GROUP BY f.id ASC
-			ORDER BY f.category, f.ord, f.id
+			ORDER BY c.ord, f.category, f.ord, f.id
 		");
 		
 		if (!$forums){
