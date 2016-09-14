@@ -616,11 +616,13 @@ $configfile = "<?php
 			"(1, 1, $ctime, 'The board\'s anniversary!', 0);"
 		);
 		
-		$c[] = $sql->query(
+		// A step in the upgrade capability thingy: attempt to check if this actually works
+		$c[] = $usrupd = $sql->query(
 			"INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES".
 			"(1, '".prepare_string($_POST['username'])."','".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."','{$_SERVER['REMOTE_ADDR']}', $ctime, 5),".
 			"(2, 'Deleted user', 'rip','{$_SERVER['REMOTE_ADDR']}', $ctime, '-2');"
 		);
+		
 		
 		
 		if ($sql->finish($c)){
@@ -635,6 +637,20 @@ $configfile = "<?php
 		
 		} else {
 			echo checkres(false);
+			
+			// Gracefully attempt to update user for a possible update option for the installer
+			// this should be worked on in the future as this actually requires to fail the previous queries
+			// (with the "database already exists")
+			if (!$usrupd){
+				$sql->query("
+					UPDATE users SET
+						name     = '".prepare_string($_POST['username'])."',
+						password = '".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."'
+					WHERE id = 1
+				");
+				echo "TEMP: Registration info updated.\n";
+			}				
+			
 			echo $sql->errors." queries have failed.\nBroken queries:\n\n";
 			echo implode("\n", $sql->q_errors);
 			echo "\nPlease fix the problems that have occured. This may require dropping the partially-created tables, and trying again.";
