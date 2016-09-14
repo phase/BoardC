@@ -3,7 +3,7 @@
 		An installer...
 		...with the layout based from the installer in AB 1.92.08
 		
-		this file trusts you to not be an idiot
+		this file trusts you to not be an idiot (ie: filling in invalid board options)
 	*/
 	
 	
@@ -251,11 +251,11 @@
 				<table class='sel'>
 					<tr>
 						<td><input type='radio' name='dropdb' value=0 <?php echo filter_string($dropdbsel[0]) ?>></td>
-						<td>Use the existing database</td>
+						<td>Use the existing database and update configuration</td>
 					</tr>
 					<tr>
 						<td><input type='radio' name='dropdb' value=1 <?php echo filter_string($dropdbsel[1]) ?>></td>
-						<td>Drop the database before continuing</td>
+						<td>Drop the database and reinstall</td>
 					</tr>
 				</table>
 				</center>
@@ -595,33 +595,46 @@ $configfile = "<?php
 			}
 		}
 		
+		
 		// Before attempting to do anything, actually select the database
 		$sql->selectdb($_POST['sqldb']);
 		
 		$sql->start();
 		$c = array(); // Define the array with the results
-		
-		echo "Importing SQL files...";
-		$sql->import("install.sql");
-		if (defined('INTERNAL_VER')){
-			//die("WELP");
-			$sql->import("fw.sql");
-		}
-		
-		
 		$ctime = ctime();
 		
-		$c[] = $sql->query(
-			"INSERT INTO `events` (`id`, `user`, `time`, `text`, `private`) VALUES".
-			"(1, 1, $ctime, 'The board\'s anniversary!', 0);"
-		);
-		
-		// A step in the upgrade capability thingy: attempt to check if this actually works
-		$c[] = $usrupd = $sql->query(
-			"INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES".
-			"(1, '".prepare_string($_POST['username'])."','".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."','{$_SERVER['REMOTE_ADDR']}', $ctime, 5),".
-			"(2, 'Deleted user', 'rip','{$_SERVER['REMOTE_ADDR']}', $ctime, '-2');"
-		);
+		// Only import if the database doesn't exist or we've dropped it
+		if (!$db || filter_bool($_POST['dropdb'])){
+			
+			echo "Importing SQL files...";
+			$sql->import("install.sql");
+			if (defined('INTERNAL_VER')){
+				//die("WELP");
+				$sql->import("fw.sql");
+			}
+			
+			$c[] = $sql->query(
+				"INSERT INTO `events` (`id`, `user`, `time`, `text`, `private`) VALUES".
+				"(1, 1, $ctime, 'The board\'s anniversary!', 0);"
+			);
+
+			$c[] = $sql->query(
+				"INSERT INTO `users` (`id`, `name`, `password`, `lastip`, `since`, `powerlevel`) VALUES".
+				"(1, '".prepare_string($_POST['username'])."','".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."','{$_SERVER['REMOTE_ADDR']}', $ctime, 5),".
+				"(2, 'Deleted user', 'rip','{$_SERVER['REMOTE_ADDR']}', $ctime, '-2');"
+			);	
+			
+		} else {
+			// Just update configuration: only replace userid value
+			echo "Updating registration information...";
+			$c[] = $sql->query("
+					UPDATE users SET
+						name     = '".prepare_string($_POST['username'])."',
+						password = '".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."'
+					WHERE id = 1
+				");
+		}
+
 		
 		
 		
@@ -637,20 +650,6 @@ $configfile = "<?php
 		
 		} else {
 			echo checkres(false);
-			
-			// Gracefully attempt to update user for a possible update option for the installer
-			// this should be worked on in the future as this actually requires to fail the previous queries
-			// (with the "database already exists")
-			if (!$usrupd){
-				$sql->query("
-					UPDATE users SET
-						name     = '".prepare_string($_POST['username'])."',
-						password = '".password_hash(prepare_string(prepare_string($_POST['pass1'])), PASSWORD_DEFAULT)."'
-					WHERE id = 1
-				");
-				echo "TEMP: Registration info updated.\n";
-			}				
-			
 			echo $sql->errors." queries have failed.\nBroken queries:\n\n";
 			echo implode("\n", $sql->q_errors);
 			echo "\nPlease fix the problems that have occured. This may require dropping the partially-created tables, and trying again.";
@@ -674,7 +673,7 @@ $configfile = "<?php
 			</tr>
 			<tr>
 				<td class='header'>
-					Acmlmboard Installer v1.2 (13-09-16)
+					Acmlmboard Installer v1.3 (15-09-16)
 				</td>
 			</tr>
 		</table>
