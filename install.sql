@@ -272,7 +272,8 @@ CREATE TABLE `themes` (
 INSERT INTO `themes` (`id`, `name`, `file`, `special`) VALUES
 (1, 'Night (Jul)', 'night', 0),
 (2, 'Hydra''s Blue Thing (Alternate)', 'hbluealt', 0),
-(3, 'The Zen', 'spec-zen', 1);
+(3, 'The Zen', 'spec-zen', 1),
+(4, 'Daily Cycle', 'dailycycle', 0);
 CREATE TABLE `threads` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
