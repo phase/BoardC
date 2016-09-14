@@ -82,6 +82,16 @@
 	$formcss = 1;
 	$inputborder = $tableheadbg;
 	
+	// These PHP files are only called by a function, so globalize the image array
+	global $IMG;
+	$IMG['statusfolder'] 	= 'images\status\classic';
+	$IMG['newpoll'] 		= 'New Poll';
+	$IMG['newthread'] 		= '<img src="images/text/classic/newthread.png">';
+	$IMG['newreply'] 		= '<img src="images/text/classic/newreply.png">';
+	$IMG['threadclosed'] 	= 'Thread closed';
+	
+	
+	
 	// This should probably be its own function
 	$css = file_get_contents('css/base.css');
 	
@@ -105,6 +115,5 @@
 		'[RADIOCOLOR]' 		=> '#FFF',
 		
 	]);
-	
 	
 ?>

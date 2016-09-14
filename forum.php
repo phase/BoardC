@@ -94,8 +94,8 @@
 			$newthread = "
 				<nobr>".
 					($ismod 	? "<a href='announcement.php?act=new&id=$id'>New announcement</a> - " : "").
-					($canpoll 	? "<a href='new.php?act=newthread&id=$id&ispoll'><img src='{$IMG['newpoll']}'></a> - ": "").
-					($canthread ? "<a href='new.php?act=newthread&id=$id'><img src='{$IMG['newthread']}'></a>" : "")."
+					($canpoll 	? "<a href='new.php?act=newthread&id=$id&ispoll'>{$IMG['newpoll']}</a> - ": "").
+					($canthread ? "<a href='new.php?act=newthread&id=$id'>{$IMG['newthread']}</a>" : "")."
 				</nobr>";
 		} else {
 			$newthread = "";

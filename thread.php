@@ -324,15 +324,15 @@
 	
 	// New XYZ links
 	if ($thread['closed']){
-		$newreply_txt = "<img src='{$IMG['threadclosed']}'>".($ismod ? " - " : "");
+		$newreply_txt = $IMG['threadclosed'].($ismod ? " - " : "");
 	} else {
 		$newreply_txt = "";
 	}
 	if ($ismod || !$thread['closed']){
 		$newreply_txt .= "".
-			($canpoll   ? "<a href='new.php?act=newthread&id={$forum['id']}&ispoll'><img src='{$IMG['newpoll']}'></a> - " : "").
-			($canthread ? "<a href='new.php?act=newthread&id={$forum['id']}'><img src='{$IMG['newthread']}'></a> - " : "").
-			($canreply  ? "<a href='new.php?act=newreply&id=$lookup'><img src='{$IMG['newreply']}'></a>" : "");
+			($canpoll   ? "<a href='new.php?act=newthread&id={$forum['id']}&ispoll'>{$IMG['newpoll']}</a> - " : "").
+			($canthread ? "<a href='new.php?act=newthread&id={$forum['id']}'>{$IMG['newthread']}</a> - " : "").
+			($canreply  ? "<a href='new.php?act=newreply&id=$lookup'>{$IMG['newreply']}</a>" : "");
 	}
 	
 	?>

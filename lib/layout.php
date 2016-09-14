@@ -2,7 +2,7 @@
 	
 	/*
 		Default images
-		These are used when no <themefile>.php is found.
+		These are used when other php theme files do not redefine them
 	*/
 	
 	$IMG = array(
@@ -10,10 +10,10 @@
 		'getnew'		=> 'images/status/default/getnew.png',
 		'statusfolder' 	=> 'images/status/default', // for thread status indicators (new, hot, ...)
 		'numgfxfolder' 	=> 'images/numgfx/default', // font used for some numbers
-		'newpoll'		=> 'images/text/default/newpoll.png',
-		'newthread'		=> 'images/text/default/newthread.png',
-		'newreply'		=> 'images/text/default/newreply.png',
-		'threadclosed'	=> 'images/text/default/threadclosed.png'
+		'newpoll'		=> '<img src="images/text/default/newpoll.png">',
+		'newthread'		=> '<img src="images/text/default/newthread.png">',
+		'newreply'		=> '<img src="images/text/default/newreply.png">',
+		'threadclosed'	=> '<img src="images/text/default/threadclosed.png">'
 		
 	);
 	
