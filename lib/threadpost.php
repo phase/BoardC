@@ -1,7 +1,7 @@
 <?php
 	
 	function threadpost($post, $mini = false, $merge = false, $nocontrols = false, $extra = "", $pmmode = false, $annmode = false){
-		global $sql, $loguser, $config, $hacks, $sep, $ranks, $layouts, $IMG, $token;
+		global $sql, $loguser, $config, $hacks, $sep, $ranks, $layouts, $IMG, $token, $bonusexp;
 		global $isbanned, $ismod, $isadmin, $sysadmin;
 		
 		// Reverse post color scheme
@@ -35,7 +35,7 @@
 			if ($post['nohtml'])	 $post['text'] = htmlspecialchars($post['text']);
 			if (!$post['nosmilies']) $post['text'] = dosmilies($post['text']);
 			
-			$post['text'] = output_filters($post['text']);
+			$post['text'] = output_filters($post['text'], false, $uid);
 			
 			if ($post['nolayout'] || !$loguser['showhead']) {
 				$post['head'] = $post['sign'] = "";
@@ -53,8 +53,8 @@
 				
 				// RPG Classes can give out an exp bonus
 				if (!isset($bonusexp)) {
-					$bonusexp 		= $sql->fetchq("SELECT id, bonus_exp FROM rpg_classes", true, PDO::FETCH_KEY_PAIR);
-					$bonusexp[0] 	= 0;
+					$bonusexp    = $sql->fetchq("SELECT id, bonus_exp FROM rpg_classes", true, PDO::FETCH_KEY_PAIR);
+					$bonusexp[0] = 0;
 				}
 				
 				$days 		= ((ctime() - $post['since']) / 86400);

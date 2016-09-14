@@ -55,27 +55,40 @@
 	}
 	
 	// Filters applied when viewing posts
-	function output_filters($source, $forcesm = false){
+	function output_filters($source, $forcesm = false, $id = 0){
 		global $post, $sql, $config;
 	
 		$string = $source;
 		
 		// A simple method to skip tag loading
-		if (strpos($string, "&") !== false){
-			$string = dotags($string, $string);
+		if ($id && strpos($string, "&") !== false){
+			$string = dotags($string, $id);
 		}
 		
 		if ($forcesm) $string = dosmilies($string); // threadpost handles smilies by itself, but not profile.php
 		if ($config['show-comments']) $string = preg_replace("'<!--(.*?)-->'si", "<span style='color: #0f0'>&lt;!--$1--&gt;</span>", $string);
 		
-		// Quoting
-		$string = preg_replace("'\[quote=(.*?)\]'si", "<blockquote><div class='fonts'><i>Originally posted by $1</i></div><hr/>$2", $string);
-		$string = str_ireplace("[quote]", "<blockquote><hr/>", $string);
-		$string = str_ireplace("[/quote]", "<hr/></blockquote>", $string);
-		
-		// This is the best tag
-		$string = preg_replace("'\[sp=(.*?)\](.*?)\[/sp\]'si", "<span style=\"border-bottom: 1px dotted #f00;font-style:italic\" title=\"did you mean: $1\">$2</span>", $string);
-		
+		// Another simple method to skip [tags]
+		if (strpos($string, "[") !== false){
+			
+			// Quoting
+			$string = preg_replace("'\[quote=(.*?)\]'si", "<blockquote><div class='fonts'><i>Originally posted by $1</i></div><hr/>$2", $string);
+			$string = str_ireplace("[quote]", "<blockquote><hr/>", $string);
+			$string = str_ireplace("[/quote]", "<hr/></blockquote>", $string);
+			
+			// Standard BBCode (who the fuck even uses it?!)
+			$string = preg_replace("'\[(b|i|s|u)\](.*)\[/(.*)\]'si", '<$1>$2</$1>', $string);
+			$string = preg_replace("'\[img\](.*)\[/img\]'si", "<img src='$1'>", $string);
+			$string = preg_replace("'\[url\](.*)\[/url\]'si", "<a href='$1'>$1</a>", $string);
+			$string = preg_replace("'\[url=(.*?)\](.*)\[/url\]'si", "<a href='$1'>$2</a>", $string);
+			
+			$string = preg_replace("'\[(red|green|blue|orange|yellow|pink|white|black)\]'si", "<span style='color: $1'>", $string);
+			$string = str_ireplace('[/color]', '</span>', $string); 
+			
+			// This is the best tag
+			$string = preg_replace("'\[sp=(.*?)\](.*?)\[/sp\]'si", "<span style=\"border-bottom: 1px dotted #f00;font-style:italic\" title=\"did you mean: $1\">$2</span>", $string);
+			
+		}
 		// This fucks up CSS not inline, I may move it eventually
 		$string = nl2br($string);
 
@@ -414,7 +427,7 @@
 		static $tags = array(
 			"&test&" 	=> [0, 'TEST TAG!'],
 			"&test2&"	=> [1, 'SELECT name FROM users WHERE id = ?'],
-			"&test3&"	=> [2, '3+$id-2;'],
+			"&test3&"	=> [2, '13+$id-2'],
 		);
 		
 		foreach($tags as $tag => $res){
@@ -433,7 +446,8 @@
 					}
 					case 2: {
 						// Type 2 - expression
-						$string = str_replace($tag, eval($res[1]), $string);
+						eval("\$repl = {$res[1]};");
+						$string = str_replace($tag, $repl, $string);
 						break;
 					}
 				}
@@ -561,10 +575,14 @@
 			WHERE u.id ".($single ? "= $id" : "IN (".implode(",", $select).")")
 		);
 		
-
+		/*
+			Intentional design choice:
+			the false flag prevents smilies from being applied 
+			to header and signature
+		*/
 		while($x = $sql->fetch($layQuery)){
-			$layouts[$x['id']]['head'] = output_filters($x['head']);
-			$layouts[$x['id']]['sign'] = output_filters($x['sign']);
+			$layouts[$x['id']]['head'] = output_filters($x['head'], false, $x['id']);
+			$layouts[$x['id']]['sign'] = output_filters($x['sign'], false, $x['id']);
 		}
 		
 		return $layouts;

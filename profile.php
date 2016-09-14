@@ -111,9 +111,9 @@
 
 	$fields["Personal information"] = array(
 		"Real name" 	=> $user['realname'],
-		"Location"	 	=> output_filters($user['location'], true),
+		"Location"	 	=> output_filters($user['location'], true, $id),
 		"Birthday"	 	=> isset($user['birthday']) ? date("l, F j Y", $user['birthday'])." (".getyeardiff($user['birthday'],ctime())." years old)" : "",
-		"Bio"		 	=> output_filters($user['bio'], true),
+		"Bio"		 	=> output_filters($user['bio'], true, $id),
 	);
 	
 	/*
@@ -208,8 +208,8 @@
 	
 	$ranks 		= doranks($id, true);
 	$layouts[$id] = array(
-		'head'	=> output_filters($user['head']),
-		'sign'	=> output_filters($user['sign'])
+		'head'	=> output_filters($user['head'], false, $id),
+		'sign'	=> output_filters($user['sign'], false, $id)
 	);
 
 	print "

@@ -4,7 +4,7 @@
 		Common board actions
 	*/
 	
-	define('BOARDC_VERSION', "(13/09/16) v0.30");
+	define('BOARDC_VERSION', "(13/09/16) v0.30a");
 	
 	error_reporting(0);	// Suppress everything, including fatal errors (the integrated error handler will be used instead)
 	ini_set("default_charset", "UTF-8");

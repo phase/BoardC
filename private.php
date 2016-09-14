@@ -248,8 +248,8 @@
 		
 		$ranks 		= doranks($post['user'], true);
 		$layouts[$post['user']] = array(
-			'head'	=> output_filters($post['head']),
-			'sign'	=> output_filters($post['sign'])
+			'head'	=> output_filters($post['head'], false, $post['user']),
+			'sign'	=> output_filters($post['sign'], false, $post['user'])
 		);
 		
 		pageheader("Private Messages: $pmname");
