@@ -64,15 +64,20 @@
 	if (filter_int($_GET['vote'])){
 
 		if ($thread['ispoll'] && $loguser['id']){
+			$polldata   = getpollinfo($lookup);
+			
+			if ($polldata['closed']) {
+				errorpage("The poll is closed. Your time to vote is up.");
+			}
 			
 			$vote = (int) $_GET['vote'];
 			
-			$done = $sql->resultq("SELECT id FROM poll_votes WHERE user = {$loguser['id']} AND thread = $lookup AND vote = $vote");
+			$voted = $sql->resultq("SELECT id FROM poll_votes WHERE user = {$loguser['id']} AND thread = $lookup AND vote = $vote");
 			
-			if ($done){ // delete your vote when clicking on something you already voted on
-				$sql->query("DELETE from poll_votes WHERE id = $done");
+			if ($voted){ // delete your vote when clicking on something you already voted on
+				$sql->query("DELETE from poll_votes WHERE id = $voted");
 				redirect("thread.php?id=$lookup");
-			} else if (!$thread['polldata'][2]) {// multiple votes flag
+			} else if (!$polldata['multivote']) {// multiple votes flag
 				$sql->query("DELETE from poll_votes WHERE user = {$loguser['id']} AND thread = $lookup");
 			}
 			
@@ -110,15 +115,17 @@
 			$total++;
 		}
 		
+		$choices = getpollchoices($lookup);
 		// Create rows with choices and votes
-		for($i=3,$n=1;isset($thread['polldata'][$i]);$i+=2,$n++)
+		foreach($choices as $id => $set){
 			$txt .= "
 				<tr>
-					<td class='light c'><b>{$thread['polldata'][$i]}</b></td>
-					<td class='dim c'>".filter_int($votedb[$n])."</td>
-					<td class='dim c'>".(isset($txtdb[$n]) ? implode(", ", $txtdb[$n]) : "None")."</td>
+					<td class='light c'><b>{$set['name']}</b></td>
+					<td class='dim c'>".filter_int($votedb[$id])."</td>
+					<td class='dim c'>".(isset($txtdb[$id]) ? implode(", ", $txtdb[$id]) : "None")."</td>
 				</tr>
 			";
+		}
 		
 		pageheader($thread['title']." - Poll votes");
 		
@@ -139,7 +146,7 @@
 			
 			<tr>
 				<td class='dark c'><i><b>Total votes<b></i></td>
-				<td class='dark c'>$total</td>
+				<td class='dark c'><?php echo $total ?></td>
 				<td class='dark c'>&nbsp;</td>
 			</tr>
 			
@@ -383,7 +390,7 @@
 					"<$w href='editthread.php?id=$lookup&tstick&auth=$token'>".($thread['sticky'] ? "Uns"  : "S")."tick</$w> | ".
 					"<$w href='editthread.php?id=$lookup&tclose&auth=$token'>".($thread['closed'] ? "Open" : "Close")."</$w> | ".
 					"<$w href='editthread.php?id=$lookup&tnoob&auth=$token'>". ($thread['noob']   ? "Un"   : "N")."00b</$w> | ".
-					($forum['id'] == $config['trash-id'] ? "" : "<$w href='editthread.php?id=$lookup&ttrash'>Trash</$w> | ").
+					($forum['id'] == $config['trash-id'] ? "" : "<$w href='editthread.php?id=$lookup&ttrash&auth=$token'>Trash</$w> | ").
 					"<a href='thread.php?id=$lookup&tmerge'>Merge</a>
 				</td>
 			</tr>
@@ -437,8 +444,10 @@
 
 		print $pagectrl;
 		 
-		if ($thread['ispoll']) print poll_print($thread['polldata']);
-		
+		if ($thread['ispoll']){
+			$polldata = getpollinfo($lookup);
+			print poll_print($polldata['question'], $polldata['briefing'], $polldata['multivote'], $polldata['closed']);
+		}
 		/*
 			Cycle though the posts in this page
 		*/

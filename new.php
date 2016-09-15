@@ -216,16 +216,18 @@
 		if (!isset($forum['id']))								errorpage("Invalid forum ID");
 		if ($loguser['powerlevel'] < $forum['minpowerthread'])	errorpage("You're not allowed to create threads in this restricted forum.");
 		if ($config['trash-id'] == $id)							errorpage("What are you doing? Stop that!");
-		if ($ispoll && $forum['pollstyle'] == 1)		errorpage("No polls are allowed in this forum. Thanks for still trying though.");
+		if ($ispoll && $forum['pollstyle'] == 1)				errorpage("No polls are allowed in this forum. Thanks for still trying though.");
 		
 		if (isset($forum['theme'])) $loguser['theme'] = (int) $forum['theme'];
 		
 		// _POST data or defaults	
-		$name 		= isset($_POST['name']) 	? $_POST['name'] 	: "";
-		$title 		= isset($_POST['title']) 	? $_POST['title'] 	: "";
-		$msg 		= isset($_POST['message']) 	? $_POST['message'] : "";
+		$name 		= filter_string($_POST['name']);
+		$title 		= filter_string($_POST['title']);
+		$msg 		= filter_string($_POST['message']);
+		
 		if ($ispoll) {
-			$briefing 	= isset($_POST['briefing']) 	? $_POST['briefing'] 		: "";
+			$question	= filter_string($_POST['question']);
+			$briefing 	= filter_string($_POST['briefing']);
 			$addopt 	= filter_int($_POST['addopt']) 	? ((int) $_POST['addopt']) 	: 1;
 			$vote_sel[filter_int($_POST['multivote'])] = "checked";
 		}
@@ -245,40 +247,33 @@
 			if (!$msg)	errorpage("You've left the message blank!");
 			
 			if ($ispoll) {
-				// $title is used for the poll question in a poll
-				if (!$title)					 errorpage("You have left the question empty!");
 				if (!is_array($_POST['chtext'])) errorpage("You haven't specified the options!");
-				
-				/*
-					Searialize briefing and poll choices to the question
-					(yes, I know this is bad)
-				*/
-				$title  = prepare_string($title);
-				$title .= "\0".prepare_string($briefing);
-				$title .= "\0".filter_int($_POST['multivote']);
-				
-				$choices = "";
-				foreach($_POST['chtext'] as $i => $chtext){
-					if (isset($_POST['remove'][$i]) || !$chtext) continue;
-					$choices .= "\0".prepare_string($chtext)."\0".prepare_string($_POST['chcolor'][$i]);
-				}
-				if (!$choices) {
-					errorpage("No choices selected");
-				} else {
-					$title .= $choices;
-				}
 			}
 			
 			/*
 				Add thread info to the database
 			*/
-			
 			$sql->start();
 			
 			$c[] = createthread($name, $title, $id, $icon, $ispoll);
 			$tid = $sql->resultq("SELECT LAST_INSERT_ID()");
 			$c[] = createpost($msg, $tid, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $_POST['avatar']);
 			$pid = $sql->resultq("SELECT LAST_INSERT_ID()");
+			$c[] = $sql->queryp("
+				INSERT INTO polls (thread, question, briefing, multivote)
+				VALUES ($tid, ?, ?, ".filter_int($_POST['multivote']).")
+			", [prepare_string($question), prepare_string($briefing)]);
+			// Add choices in a loop
+			$list = array_keys($_POST['chtext']);
+			foreach ($list as $i){
+				if (!filter_string($_POST['chtext'][$i]) || filter_int($_POST['remove'][$i])) continue;
+				
+				$c[] = $sql->queryp("
+					INSERT INTO poll_choices (thread, name, color)
+					VALUES ($tid,?,?)
+				",[prepare_string($_POST['chtext'][$i]), prepare_string($_POST['chcolor'][$i])]
+				);
+			}
 			$coins = update_postcount($id);
 			
 			
@@ -410,7 +405,7 @@
 				
 				<tr>
 					<td colspan='3' class='dark c'>
-						<b><?php echo $title ?></b>
+						<b><?php echo $question ?></b>
 					</td>
 				</tr>
 				
@@ -540,7 +535,7 @@
 			
 			<tr>
 				<td class='light c' style='width: 150px'>
-					<b><?php echo $title_txt ?></b>
+					<b>Title:</b>
 				</td>
 				<td class='dim'>
 					<input style='width: 400px;' type='text' name='title' value="<?php echo htmlspecialchars($title) ?>">
@@ -552,6 +547,14 @@
 			*/
 			if ($ispoll) {
 				?>
+				<tr>
+					<td class='light c' style='width: 150px'>
+						<b>Question:</b>
+					</td>
+					<td class='dim'>
+						<input style='width: 400px;' type='text' name='question' value="<?php echo htmlspecialchars($question) ?>">
+					</td>
+				</tr>
 				<tr>
 					<td class='light c' style='width: 150px'>
 						<b>Briefing:</b>

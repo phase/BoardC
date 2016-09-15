@@ -263,8 +263,6 @@
 						"class='danger' style='background: #fff'>Invalid forum ID #{$thread['forum']}").
 					"</a>";
 			} else {
-				if ($thread['ispoll']) $thread['title'] = split_null($thread['title'], true);
-				
 				$smalltext = htmlspecialchars($thread['title']);
 			}
 			

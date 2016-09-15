@@ -378,7 +378,7 @@
 				FROM posts p
 				
 				LEFT JOIN threads t	ON p.thread = t.id
-				LEFT JOIN forums f ON t.forum = f.id
+				LEFT JOIN forums  f ON t.forum  = f.id
 				
 				WHERE p.thread = $lookup
 				".($pid ? "OR p.id = $pid" : "")."
@@ -389,11 +389,11 @@
 
 			if (!$pid) $pid = filter_int($data['pid']);
 			
-			
-			if (filter_int($data['ispoll'])){
-				$poll = split_null($data['title']);
-				$data['title'] = $poll[0];
-			}
+			// Not needed anymore
+			//if (filter_int($data['ispoll'])){
+			//	$poll = split_null($data['title']);
+			//	$data['title'] = $poll[0];
+			//}
 			
 			
 			
@@ -426,7 +426,7 @@
 				'lastposttime'	=> filter_int($data['lastposttime']),
 				'noob'			=> filter_int($data['noob']),
 				'ispoll'		=> filter_bool($data['ispoll']),
-				'polldata' 		=> isset($poll) ? $poll : false
+				//'polldata' 		=> isset($poll) ? $poll : false
 			);
 
 			// Error Handling
@@ -507,14 +507,45 @@
 		return array($thread, $forum, (int) $pid);
 	
 	}
-	/*
-		print a poll from the polldata data
-	*/
-	function poll_print($p){
+
+	
+	function getpollinfo($thread){
+		global $sql;
+		
+		$polldata = $sql->fetchq("
+			SELECT question, briefing, multivote, closed
+			FROM polls
+			WHERE thread = $thread
+		");
+		
+		// Sanity check
+		if (!$polldata){
+			trigger_error("Attempted to fetch non-existing poll data for thread ID #$thread", E_USER_NOTICE);
+			return array();
+		} else {
+			return $polldata;
+		}
+		
+	}
+	
+	// L A Z Y
+	function getpollchoices($thread){
+		global $sql;
+		
+		// Takes care of errors with an empty array / false
+		return $sql->fetchq("
+			SELECT id, name, color
+			FROM poll_choices
+			WHERE thread = $thread
+		", true, PDO::FETCH_GROUP | PDO::FETCH_UNIQUE);
+	}
+	
+	
+	function poll_print($question, $briefing, $multivote, $closed){
 		
 		global $loguser, $sql, $lookup, $thread, $isadmin;
 		
-		// TODO: Replace this with one fetchall query using grouping?
+		
 		$votes = $sql->query("SELECT vote, user FROM poll_votes WHERE thread = $lookup");
 		
 		$total 	= 0;
@@ -533,23 +564,19 @@
 		else $mul = 0;
 
 
-		$title 		= $p[0];
-		$briefing 	= $p[1];
-		$multivote 	= $p[2];
-		
-		// The elements in $p follow this order
-		// $p[3] = <name of choice> $p[4] = <color> and then it loops
-		// This is why you increase $i by two
-		for($i=3, $n=1, $choice_out=""; isset($p[$i]); $i+=2, $n++){
+		// Simplicity!
+		$choices = getpollchoices($thread['id']);
+		$choice_out = "";
+		foreach ($choices as $id => $set){
 			
-			 // You can't vote if you're not logged in
-			if (!$loguser['id']) $name = $p[$i];
-			else $name = "<a href='thread.php?id={$thread['id']}&page=".filter_int($_GET['page'])."&vote=$n'>{$p[$i]}</a>";
+			 // You can't vote if you're not logged in or if the poll's closed
+			if (!$loguser['id'] || $closed) $name = $set['name'];
+			else $name = "<a href='thread.php?id={$thread['id']}&page=".filter_int($_GET['page'])."&vote=$id'>{$set['name']}</a>";
 			
 			// Have we voted on this option?
-			$marker = isset($voted[$n]) ? "*" : "&nbsp;";
+			$marker = isset($voted[$id]) ? "*" : "&nbsp;";
 			
-			$votes_num = filter_int($votedb[$n]);
+			$votes_num = filter_int($votedb[$id]);
 			// Division by 0
 			$width = $total ? sprintf("%.1f", $votes_num / $total * 100) : '0.0';
 			
@@ -559,7 +586,7 @@
 				<td class='light'>$marker</td>
 				<td class='light' width='20%'>$name</td>
 				<td class='dim' width='60%'>
-					<table bgcolor='{$p[$i+1]}' cellpadding='0' cellspacing='0' width='$width%'>
+					<table bgcolor='{$set['color']}' cellpadding='0' cellspacing='0' width='$width%'>
 						<tr><td>&nbsp;</td></tr>
 					</table>
 				</td>
@@ -575,7 +602,7 @@
 			
 				<tr>
 					<td colspan='4' class='dark c'>
-						<b>$title</b>
+						<b>$question</b>
 					</td>
 				</tr>
 				
@@ -589,7 +616,7 @@
 				
 				<tr>
 					<td class='dim fonts' colspan='4'>
-						Multi-voting is ".($multivote ? "enabled" : "disabled").
+						".($closed ? "The poll is closed" : "Multi-voting is ".($multivote ? "enabled" : "disabled")).
 						" - $total votes in total. ".
 						($isadmin ? "<a href='thread.php?id={$thread['id']}&page=".filter_int($_GET['page'])."&votes'>(View votes)</a>" : "")."
 					</td>
@@ -648,7 +675,7 @@
 		
 		return $sql->execute($newthread,[
 				prepare_string($name),
-				($ispoll ? $title : prepare_string($title)),
+				prepare_string($title),
 				prepare_string($icon)
 			]);
 	}

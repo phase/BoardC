@@ -143,11 +143,25 @@ CREATE TABLE `pms` (
   `avatar` int(32) NOT NULL DEFAULT '0',
   `new` tinyint(1) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE `poll_choices` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `thread` int(32) NOT NULL,
+  `name` text NOT NULL,
+  `color` varchar(30) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE `poll_votes` (
   `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `user` int(32) NOT NULL,
   `thread` int(32) NOT NULL,
   `vote` int(8) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE `polls` (
+  `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `thread` int(32) NOT NULL,
+  `question` text NOT NULL,
+  `briefing` text NOT NULL,
+  `multivote` tinyint(1) NOT NULL DEFAULT '0',
+  `closed` tinyint(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE `posts` (
   `id` int(32) NOT NULL PRIMARY KEY AUTO_INCREMENT,
@@ -362,5 +376,6 @@ CREATE TABLE `user_avatars` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ALTER TABLE `forummods` ADD UNIQUE KEY `unimod` (`fid`,`uid`);
 ALTER TABLE `hits` ADD UNIQUE KEY `ip` (`ip`);
+ALTER TABLE `polls` ADD UNIQUE KEY `thread` (`thread`);
 ALTER TABLE `rpg_classes` ADD UNIQUE KEY `uniname` (`name`);
 ALTER TABLE `users` ADD UNIQUE KEY `name` (`name`);

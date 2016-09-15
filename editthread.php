@@ -20,6 +20,7 @@
 	
 	$ismod = ismod($thread['forum']);
 	
+	if (isset($forum['theme'])) $loguser['theme'] = (int) $forum['theme'];
 	
 	
 	/*
@@ -262,11 +263,11 @@
 				posts = posts + ".($thread['replies']+1)."
 			WHERE id = {$config['trash-id']}
 		");
-		update_last_post($destforum, false, true);
+		update_last_post($config['trash-id'], false, true);
 				
 		if ($sql->finish($c)){
 			setmessage("Thread trashed successfully!");
-			redirect("thread.php?id=$id");
+			redirect("thread.php?id=$lookup");
 		} else {
 			errorpage("Couldn't trash the thread.");
 		}
@@ -326,6 +327,8 @@
 			
 			if ($thread['ispoll']){
 				$c[] = $sql->query("DELETE FROM poll_choices WHERE thread = $lookup");
+				$c[] = $sql->query("DELETE FROM poll_votes WHERE thread = $lookup");
+				$c[] = $sql->query("DELETE FROM polls WHERE thread = $lookup");
 			}
 			
 			if ($sql->finish($c)){
@@ -392,9 +395,14 @@
 	$destforum 	= isset($_POST['forumjump2']) ? $_POST['forumjump2'] : $thread['forum'];
 	
 	if ($thread['ispoll']) {	
+		$polldata   = getpollinfo($id);
+		
 		// The defaults for poll-specific options
-		$briefing 	= isset($_POST['briefing']) 	? $_POST['briefing'] 		: $thread['polldata'][1];
-		$multivote 	= isset($_POST['multivote']) 	? $_POST['multivote'] 		: $thread['polldata'][2];
+		$question 	= isset($_POST['question'])   ? $_POST['question'] 	 : $polldata['question'];
+		$briefing 	= isset($_POST['briefing'])   ? $_POST['briefing'] 	 : $polldata['briefing'];
+		$multivote 	= isset($_POST['multivote'])  ? $_POST['multivote']  : $polldata['multivote'];
+		$pollclosed	= isset($_POST['pollclosed']) ? $_POST['pollclosed'] : $polldata['closed'];
+		
 		$addopt 	= filter_int($_POST['addopt']) 	? intval($_POST['addopt']) 	: 1;
 		
 		// Count votes for poll preview
@@ -414,18 +422,23 @@
 				This specific check is to skip over the last entry, but only if it is blank and the form has been previewed / posted.
 				In this case, it always belongs to the extra option, which is then shown as a blank one with the "removed" attribute.
 			*/
-			$choices = count($chtext);
-			if (!$chtext[$choices-1]){
-				$choices--;
+			
+			$maxval  = max(array_keys($chtext)); // The extra option has the highest chtext ID
+			if (!$chtext[$maxval]){
+				unset($chtext[$maxval]);
 			}
 		} else {
-			// Get the existing choices
-			for ($i = 3; isset($thread['polldata'][$i]); $i += 2){
-				$chtext[] 	= $thread['polldata'][$i];
-				$chcolor[] 	= $thread['polldata'][$i+1];
+			// Get the existing choices and group them
+			$choicelist = getpollchoices($id);
+			foreach($choicelist as $i => $x){
+				$chtext[$i] 	= $x['name'];
+				$chcolor[$i] 	= $x['color'];
 			}
-			$choices = count($chtext);
+			
+			unset($choicelist);
 		}
+		
+		$chlist  = array_keys($chtext);
 	}
 	
 	
@@ -451,46 +464,51 @@
 			Considering we have to handle multiple powerlevels,
 			the query is built progressively
 		*/
+		
 		// We start from the fields everybody can change
-		$query = "UPDATE threads SET name = ?, icon = ?";
+		$query = "UPDATE threads SET name = ?, title = ?, icon = ?";
 		$q_values = [
 			input_filters($name),
+			prepare_string($title),
 			prepare_string($icon)
 		];
-		
 		// Only a mod can edit polls to prevent "funny" changes to the poll question
 		if ($ismod && $thread['ispoll']) {
+			/*
+				Poll specific query
+			*/
 			
-			if (!filter_string($title, true))	errorpage("You have left the question empty!");
 			if (!isset($_POST['chtext']))		errorpage("You haven't specified the options!");
 			
-			/*
-				Serialize poll data to title (sigh)
-			*/
-			$title  = input_filters($title);
-			$title .= "\0".input_filters($briefing);
-			$title .= "\0".filter_int($multivote);
-			
-			for ($i = 0; $i < $choices; $i++){
+			foreach ($chlist as $i){
 				if (isset($_POST['remove'][$i]) || !$chtext[$i]){
-					// Remove all the votes associated with this, then shift the rest
-					$k = $i + 1;
-					$c[] = $sql->query("DELETE FROM poll_votes WHERE thread = $id AND vote = $k");
-					$c[] = $sql->query("UPDATE poll_votes SET vote = vote - 1 WHERE thread = $id AND vote > $k");
-					continue;
+					// Remove all the votes associated with this, then the actual choice
+					$c[] = $sql->query("DELETE FROM poll_votes WHERE thread = $id AND vote = $i");
+					$c[] = $sql->query("DELETE FROM poll_choices WHERE id = $i");
+				} else {
+					// Update and insert in a single query
+					$c[] = $sql->queryp("
+						INSERT INTO poll_choices (id, thread, name, color) VALUES ($i,$id,?,?)
+						ON DUPLICATE KEY UPDATE name = ?, color = ?",
+						[prepare_string($chtext[$i]), prepare_string($chcolor[$i]), prepare_string($chtext[$i]), prepare_string($chcolor[$i])]
+					);
 				}
-				$title .= "\0".input_filters($chtext[$i])."\0".input_filters($chcolor[$i]);
 			}
-			$query 		.= ",title = ?";
-			$q_values[]  = $title;
 			
-		} else if (!$thread['ispoll']) {
-			// If this isn't a poll, we have to prepare the string here,
-			// as doing it on the queryp array will break stuff
-			$query 		.= ",title = ?";
-			$q_values[]  = prepare_string($title);
+			$c[] = $sql->queryp("
+				UPDATE polls SET
+					question  = ?,
+					briefing  = ?,
+					multivote = ".intval($multivote).",
+					closed    = ".intval($pollclosed)."
+				WHERE thread = $id
+			", [prepare_string($question), prepare_string($briefing)]
+			);
+			
+		} else if ($thread['ispoll']) {
+			// I guess normal users should be allowed to do this
+			$c[] = $sql->query("UPDATE polls SET closed = ".intval($pollclosed)." WHERE thread = $id");
 		}
-		
 		
 		if ($ismod){
 			
@@ -556,7 +574,8 @@
 		$choice_txt = "";
 		$choice_out = ""; // this is actually for the preview page, but might as well build this here
 
-		for ($i = 1, $n = 0; $n < $choices; $i++, $n++){
+		$i = 1;
+		foreach($chlist as $n){
 			
 			/*
 				Here we can't delete entries marked as deleted
@@ -569,14 +588,14 @@
 			}
 			
 			$choice_txt .= "
-			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext[$n])."\" type='text'> &nbsp;
+			Choice $i: <input name='chtext[$n]' size='30' maxlength='255' value=\"".htmlspecialchars($chtext[$n])."\" type='text'> &nbsp;
 			Color: <input name='chcolor[$n]' size='7' maxlength='25' value=\"".htmlspecialchars($chcolor[$n])."\" type='text'> &nbsp;
 			<input name='remove[$n]' value=1 type='checkbox' ".($deleted ? "checked" : "")."><label for='remove[$n]'>Remove</label><br>
 			";
 			
 			// Preview
 			if (!$deleted) {
-				$votes = filter_int($votedb[$i]);
+				$votes = filter_int($votedb[$n]);
 				$width = $total ? sprintf("%.1f", $votes / $total * 100) : '0.0';
 				$choice_out .= "
 				<tr>
@@ -594,21 +613,28 @@
 				</tr>
 				";
 			}
+			
+			$i++;
 
 		}
 		
+		//$n++;
+		// dwoiwfjeatjsekjgkjrd,hd
+		$n = $sql->resultq("SELECT MAX(id) FROM poll_choices") + 1;
+		
 		if (isset($_POST['changeopt'])){
 			// add set option number
-			for ($n;$n<$addopt;$n++) {
+			for (;$i < $addopt; $i++, $n++) {
 				$choice_txt .= "
-					Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+					Choice $i: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
 					Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
 					<input name='remove[$n]' value=1 type='checkbox'><label for='remove[$n]'>Remove</label><br>
 				";
 			}
 		}
+		
 		$choice_txt .= "
-			Choice $n: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
+			Choice $i: <input name='chtext[$n]' size='30' maxlength='255' value='' type='text'> &nbsp;
 			Color: <input name='chcolor[$n]' size='7' maxlength='25' value='' type='text'> &nbsp;
 			<input name='remove[$n]' value=1 type='checkbox'><label for='remove[$n]'>Remove</label><br>
 		";
@@ -629,7 +655,7 @@
 				
 				<tr>
 					<td colspan='3' class='dark c'>
-						<b><?php echo $title ?></b>
+						<b><?php echo $question ?></b>
 					</td>
 				</tr>
 				
@@ -680,7 +706,8 @@
 	// Selected thread options
 	$closed_sel[$closed] = "checked";
 	$sticky_sel[$sticky] = "checked";
-	$del_sel = filter_bool($_POST['deletethread']) ? "checked" : "";
+	$del_sel 		= filter_bool($_POST['deletethread']) ? "checked" : "";
+	$closepoll_sel 	= filter_bool($_POST['pollclosed'])   ? "checked" : "";
 	
 	// Create icon list
 	$icons 				= getthreadicons();
@@ -737,19 +764,12 @@
 					<input style='width: 400px;' type='text' name='name' value="<?php echo htmlspecialchars($name) ?>">
 				</td>
 			</tr>
-			<?php
-		if (!$thread['ispoll']){
-			?>
 			<tr>
 				<td class='light c'><b>Thread title:</b></td>
 				<td class='dim'>
 					<input style='width: 400px;' type='text' name='title' value="<?php echo htmlspecialchars($title) ?>">
 				</td>
-			</tr>
-			<?php
-		}
-				?>	
-				
+			</tr>				
 			<tr>
 				<td class='light c'><b>Thread icon:</b></td>
 				<td class='dim'>
@@ -802,7 +822,7 @@
 			<tr>
 				<td class='light c'><b>Question:</b></td>
 				<td class='dim'>
-					<input style='width: 600px;' type='text' name='title' value="<?php echo htmlspecialchars($title) ?>">
+					<input style='width: 600px;' type='text' name='question' value="<?php echo htmlspecialchars($question) ?>">
 				</td>
 			</tr>
 			
@@ -834,6 +854,12 @@
 		<?php
 		}
 			?>
+			<tr>
+				<td class='light c'><b>Close poll:</b></td>
+				<td class='dim'>
+					<input type='checkbox' name='pollclosed' value=1 <?php echo $closepoll_sel ?>><label for='pollclosed'>Close Poll</label>
+				</td>
+			</tr>
 			<tr>
 				<td colspan=2 class='dark'>
 					<input type='submit' value='Edit thread' name='submit'>&nbsp;

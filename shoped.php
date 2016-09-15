@@ -14,7 +14,7 @@
 		
 		// If the operator isn't allowed, the value is blank or attempts to divide by 0, return +0
 		static $oper 	= array('+','-','x','/');
-		if (!in_array($x[0], $oper) || $x == '/0') return "+0";
+		if (!in_array($x[0], $oper) || (strpos($x, '/0') !== false) return "+0";
 		
 		
 		$val = substr($x, 1);
