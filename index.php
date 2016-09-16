@@ -75,9 +75,9 @@
 	<br>
 	<table class='main w fonts'>
 		<tr>
-			<td class='light' style='text-align: left; border-right: none;'>
+			<td class='light' style='text-align: left; border-right: none; padding: 4px'>
 				You are ".($loguser['id'] ? "logged in as ".makeuserlink($loguser['id']) : "not logged in").".</td>
-			<td class='light' style='text-align: right'>
+			<td class='light' style='text-align: right; padding: 4px'>
 				{$newuser['count']} registered users<br>
 				Latest registered user: ".makeuserlink($newuser['maxid'])."
 			</td>

@@ -460,15 +460,21 @@
 		}
 		
 		
-		$endtime = microtime(true) - $GLOBALS['startingtime'];		
+		$endtime = microtime(true) - $GLOBALS['startingtime'];
+		//Queries: ".$sql->queries." - PQueries: ".$sql->pqueries." | Total: ".($sql->queries+$sql->pqueries)."<br>		
 		
 		die("
 				<br>".$fw->generatelinkset()."
 				<center>
 					$errorprint
 					<br>
-					<small>
-						<div class='fonts' style='padding: 8px'><a href='{$config['footer-url']}'>{$config['footer-title']}</a></div>
+
+					<div class='fonts'>
+						<br>
+						<br>
+						<a href='{$config['footer-url']}'>{$config['footer-title']}</a>
+						<br>
+						<br>
 						<table>
 							<tr>
 								<td>
@@ -480,11 +486,23 @@
 								</td>
 							</tr>
 						</table>
-						Queries: ".$sql->queries." - PQueries: ".$sql->pqueries." | Total: ".($sql->queries+$sql->pqueries)."<br>
-						Query Execution Time: ".(number_format($sql->querytime, 6))." seconds<br>
-						Script Execution Time: ".(number_format($endtime - $sql->querytime, 6))." seconds<br>
-						Total Execution Time: ".(number_format($endtime, 6))." seconds
-					</small>
+						<br>
+						".($sql->queries+$sql->pqueries)." database queries.<br>
+						<table class='fonts r' style='border-spacing: 0; padding: 0'>
+							<tr>
+								<td>Query execution time:&nbsp;</td>
+								<td>".number_format($sql->querytime, 6)." seconds</td>
+							</tr>
+							<tr>
+								<td>Script execution time:&nbsp;</td>
+								<td>".number_format($endtime - $sql->querytime, 6)." seconds</td>
+							</tr>
+							<tr>
+								<td>Total render time:&nbsp;</td>
+								<td>".number_format($endtime, 6)." seconds</td>
+							</tr>
+						</table>
+					</div>
 					$querylist
 				</center>
 			</body>
