@@ -171,7 +171,7 @@
 			$link = "
 				$new
 				<a ".($post['tid'] && $post['fid'] ? "" : "class='danger' style='background: #fff'")." href='thread.php?pid={$post['id']}#{$post['id']}'>
-					{$post['name']}
+					".htmlspecialchars($post['name'])."
 				</a>";
 		}
 

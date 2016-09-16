@@ -95,7 +95,7 @@
 			
 			$post['postcur'] = $c;
 			
-			print threadpost(array_merge($post, $user), false, false, false, ", in <a href='thread.php?pid={$post['id']}'>{$post['tname']}</a> ");
+			print threadpost(array_merge($post, $user), false, false, false, ", in <a href='thread.php?pid={$post['id']}'>".htmlspecialchars($post['tname'])."</a> ");
 		
 		}
 		

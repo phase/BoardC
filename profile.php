@@ -88,7 +88,7 @@
 		"User rating"	=> $user['rating'] ? sprintf("%.02f",$user['rating'])." (".$ratings." vote".($ratings==1 ? "" : "s").")".($isadmin ? " <a href='rateuser.php?id=".$user['id']."&view'>View ratings</a>" : "") : "None",
 		"EXP"			=> $exp_txt,
 		"Registered on" => printdate($user['since'])." (".choosetime(ctime()-$user['since'])." ago)",
-		"Last post"		=> ($user['posts'] ? printdate($user['lastpost']).", in ".(canviewforum($user['tforum']) ? "<a href='thread.php?id=".$user['tid']."'>".$user['tname']."</a> (<a href='forum.php?id=".$user['tforum']."'>".$user['fname']."</a>)" : "<i>(Restricted forum)</i>") : "None"),
+		"Last post"		=> ($user['posts'] ? printdate($user['lastpost']).", in ".(canviewforum($user['tforum']) ? "<a href='thread.php?id=".$user['tid']."'>".htmlspecialchars($user['tname'])."</a> (<a href='forum.php?id=".$user['tforum']."'>".$user['fname']."</a>)" : "<i>(Restricted forum)</i>") : "None"),
 		"Last activity"	=> printdate($user['lastview']),
 		"Last IP"		=> ($isadmin ? $user['lastip'] : ""),
 		"Unban date"	=> ($user['powerlevel']<0 ? ($user['ban_expire'] ? printdate($user['ban_expire'])." (".sprintf("%d",($user['ban_expire']-ctime())/86400)." days remaining)" : "Never") : ""),

@@ -53,7 +53,13 @@
 						)."
 					</a>
 				</td>
-				<td class='light'>$new<a href='thread.php?pid={$post['pid']}#{$post['pid']}'>".($post['tinvchk'] ? $post['tname'] : "<div class='danger' style='background: #fff'>Invalid thread ID #{$post['tid']}</div>")."</a></td>
+				<td class='light'>$new<a href='thread.php?pid={$post['pid']}#{$post['pid']}'>
+					".(
+						$post['tinvchk'] ?
+						htmlspecialchars($post['tname']) :
+						"<div class='danger' style='background: #fff'>Invalid thread ID #{$post['tid']}</div>"
+					)."
+				</a></td>
 				<td class='light c'>".makeuserlink(false, $post)."</td>
 				<td class='dim c'>".choosetime(ctime()-$post['time'])."</td>
 			</tr>";

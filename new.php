@@ -259,20 +259,22 @@
 			$tid = $sql->resultq("SELECT LAST_INSERT_ID()");
 			$c[] = createpost($msg, $tid, $_POST['nohtml'], $_POST['nosmilies'], $_POST['nolayout'], $_POST['avatar']);
 			$pid = $sql->resultq("SELECT LAST_INSERT_ID()");
-			$c[] = $sql->queryp("
-				INSERT INTO polls (thread, question, briefing, multivote)
-				VALUES ($tid, ?, ?, ".filter_int($_POST['multivote']).")
-			", [prepare_string($question), prepare_string($briefing)]);
-			// Add choices in a loop
-			$list = array_keys($_POST['chtext']);
-			foreach ($list as $i){
-				if (!filter_string($_POST['chtext'][$i]) || filter_int($_POST['remove'][$i])) continue;
-				
+			if ($ispoll){
 				$c[] = $sql->queryp("
-					INSERT INTO poll_choices (thread, name, color)
-					VALUES ($tid,?,?)
-				",[prepare_string($_POST['chtext'][$i]), prepare_string($_POST['chcolor'][$i])]
-				);
+					INSERT INTO polls (thread, question, briefing, multivote)
+					VALUES ($tid, ?, ?, ".filter_int($_POST['multivote']).")
+				", [prepare_string($question), prepare_string($briefing)]);
+				// Add choices in a loop
+				$list = array_keys($_POST['chtext']);
+				foreach ($list as $i){
+					if (!filter_string($_POST['chtext'][$i]) || filter_int($_POST['remove'][$i])) continue;
+					
+					$c[] = $sql->queryp("
+						INSERT INTO poll_choices (thread, name, color)
+						VALUES ($tid,?,?)
+					",[prepare_string($_POST['chtext'][$i]), prepare_string($_POST['chcolor'][$i])]
+					);
+				}
 			}
 			$coins = update_postcount($id);
 			

@@ -361,8 +361,8 @@
 		
 		for($i = 1; $x = $sql->fetch($list); $i++){
 			$user 	= $x['uid'] 	? makeuserlink($x['uid'], $x) : "Guest";
-			$forum 	= $x['forum'] 	? "<a href='forum.php?id={$x['forum']}'>{$x['fname']}</a>" : "";
-			$thread = $x['thread'] 	? "<a href='thread.php?id={$x['thread']}'>{$x['tname']}</a>" : "";
+			$forum 	= $x['forum'] 	? "<a href='forum.php?id={$x['forum']}'>".htmlspecialchars($x['fname'])."</a>" : "";
+			$thread = $x['thread'] 	? "<a href='thread.php?id={$x['thread']}'>".htmlspecialchars($x['tname'])."</a>" : "";
 			$txt .= "
 				<tr>
 					<td class='light c'>$i</td>
