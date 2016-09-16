@@ -113,6 +113,8 @@
 	
 	pageheader("Memberlist");
 	
+	$count--;
+	
 	print "
 	<br>
 	<table class='main w c'>
