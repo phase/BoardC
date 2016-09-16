@@ -722,8 +722,8 @@
 	function d($x){print "<title>VDS - BoardC</title><body style='background: #000; color: #fff'><pre>";var_dump($x); x_die();}
 	function prepare_string(&$x){return input_filters(filter_string($x, true));}
 	function pick_any($a){return $a[mt_rand(0, count($a)-1)];}
-	function redirect($x){pageheader("Redirect Error Handler");print "Click <a href='$x'>here</a> to continue.";pagefooter();}
-	//function redirect($url){header("Location: $url");x_die();}
+	//function redirect($x){pageheader("Redirect Error Handler");print "Click <a href='$x'>here</a> to continue.";pagefooter();}
+	function redirect($url){header("Location: $url");x_die();}
 	function choosetime($t){
 		if 		($t<60) 	return "$t second".($t==1 ? "" : "s");
 		else if ($t<3600)	return floor($t/60)." minute".(floor($t/60)==1 ? "" : "s");
