@@ -298,7 +298,7 @@
 		$tablename = "XSS Attempts";
 		
 		$list = $sql->query("
-			SELECT j.id, j.user, j.ip, j.filtered, $userfields uid, i.ip ipbanned
+			SELECT j.id, j.user, j.ip, j.source, $userfields uid, i.ip ipbanned
 			FROM jstrap j
 			LEFT JOIN users  u ON j.user = u.id
 			LEFT JOIN ipbans i ON j.ip   = i.ip
@@ -320,7 +320,7 @@
 				<tr>
 					<td class='light c'>{$x['id']}</td>
 					<td class='dim c'>".makeuserlink($x['uid'], $x)."</td>
-					<td class='dim fonts c'>{$x['filtered']}</td>
+					<td class='dim fonts c'>".htmlspecialchars($x['source'])."</td>
 					<td class='light c'><center>".ipformat($x)."</center></td>
 				</tr>
 				";
