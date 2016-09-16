@@ -739,10 +739,10 @@
 		$txt = array();
 		
 		if ($thread){
-			$fname		= $GLOBALS['thread']['name'];
+			$fname		= htmlspecialchars($GLOBALS['thread']['name']);
 			$forumcheck = "AND h.thread = $thread";
 		} else if ($forum){
-			$fname 		= $GLOBALS['forum']['name']; // It's assumed that if you call onlineusers, the $forum array is correct.
+			$fname 		= htmlspecialchars($GLOBALS['forum']['name']); // It's assumed that if you call onlineusers, the $forum array is correct.
 			$forumcheck = "AND h.forum = $forum";
 		} else{
 			$fname = $forumcheck = "";
