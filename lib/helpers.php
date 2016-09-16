@@ -142,7 +142,7 @@
 		$res = $sql->query("
 			INSERT INTO `ipbans`
 			(`ip`, `time`, `ban_expire`, `reason`, `userfrom`) VALUES
-			('$ip', '".ctime()."', $expire, '$reason', '".($manual ? $loguser['id'] : 0)."')
+			('$ip', '".ctime()."', $expire, '".addslashes($reason)."', '".($manual ? $loguser['id'] : 0)."')
 		");
 		
 		if (!$res)
