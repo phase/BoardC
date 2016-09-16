@@ -399,7 +399,7 @@
 	
 	function doforumperm($forum) {
 		global $loguser, $isadmin, $miscdata;
-		$noposts	= (!$isadmin && $miscdata['noposts']);
+		$noposts	= ((!$isadmin && $miscdata['noposts']) || !$loguser['id']);
 		$nopolls	= (!$isadmin && $forum['pollstyle']);
 		$GLOBALS['canreply'] 	= !$noposts && $loguser['powerlevel'] >= $forum['minpowerreply'];
 		$GLOBALS['canthread']	= !$noposts && $loguser['powerlevel'] >= $forum['minpowerthread'];
