@@ -29,14 +29,14 @@
 	if (!isset($_GET['sex'])) {
 		$sexdo = "";
 	} else {
-		if (!in_array($_GET['sex'], $sexl)) errorpage("Invalid selection.");
+		if (!in_array($_GET['sex'], array_keys($sexl))) errorpage("Invalid selection.");
 		$sexdo = $sexl[$_GET['sex']];
 	}
 	
 	if (!isset($_GET['sort'])) {
 		$sortdo = $sortl['posts'];
 	} else {
-		if (!in_array($_GET['sort'], $sortl)) errorpage("Invalid selection.");
+		if (!in_array($_GET['sort'], array_keys($sortl))) errorpage("Invalid selection.");
 		$sortdo = $sortl[$_GET['sort']];
 	}						
 	
