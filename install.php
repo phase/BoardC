@@ -208,7 +208,7 @@
 				<table>
 					<tr><td class='sect'>SQL Host:</td><td class='sect'><input type='text' name='sqlhost' value='<?php echo $_POST['sqlhost'] ?>'></td></tr>
 					<tr><td class='sect'>SQL User:</td><td class='sect'><input type='text' name='sqluser' value='<?php echo $_POST['sqluser'] ?>'></td></tr>
-					<tr><td class='sect'>SQL Password:</td><td class='sect'><input type='text' name='sqlpass' value='<?php echo $_POST['sqlpass'] ?>'></td></tr>
+					<tr><td class='sect'>SQL Password:</td><td class='sect'><input type='password' name='sqlpass' value='<?php echo $_POST['sqlpass'] ?>'></td></tr>
 				</table>
 				</center>
 			<?php
